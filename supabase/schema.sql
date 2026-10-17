@@ -13,8 +13,13 @@ create table if not exists public.products (
   name text not null,
   sku text,
   unit text not null default 'pcs',
+  purchase_price numeric(16, 2) not null default 0,
+  selling_price numeric(16, 2) not null default 0,
   created_at timestamptz not null default now()
 );
+
+alter table public.products add column if not exists purchase_price numeric(16, 2) not null default 0;
+alter table public.products add column if not exists selling_price numeric(16, 2) not null default 0;
 
 create unique index if not exists products_name_unique
   on public.products (lower(name));

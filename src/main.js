@@ -41,10 +41,10 @@ function getInitialDemoData() {
   const e1 = 'e-01', e2 = 'e-02', e3 = 'e-03';
   return {
     products: [
-      { id: p1, name: 'Karton Box Ukuran M (Double Wall)', sku: 'KB-001', unit: 'pcs' },
-      { id: p2, name: 'Lakban Coklat 48mm x 100m', sku: 'LK-002', unit: 'roll' },
-      { id: p3, name: 'Bubble Wrap Tebal 50m', sku: 'BW-003', unit: 'roll' },
-      { id: p4, name: 'Plastik Stretch Film 500m', sku: 'SF-004', unit: 'roll' },
+      { id: p1, name: 'Karton Box Ukuran M (Double Wall)', sku: 'KB-001', unit: 'pcs', purchase_price: 4500, selling_price: 7500 },
+      { id: p2, name: 'Lakban Coklat 48mm x 100m', sku: 'LK-002', unit: 'roll', purchase_price: 14000, selling_price: 22000 },
+      { id: p3, name: 'Bubble Wrap Tebal 50m', sku: 'BW-003', unit: 'roll', purchase_price: 110000, selling_price: 165000 },
+      { id: p4, name: 'Plastik Stretch Film 500m', sku: 'SF-004', unit: 'roll', purchase_price: 65000, selling_price: 95000 },
     ],
     inventory: [
       { id: 'inv-1', product_id: p1, direction: 'in', quantity: 1500, occurred_on: `${currentMonth}-02`, notes: 'Stok awal produksi batch #101' },
@@ -404,8 +404,9 @@ function renderProducts() {
   return `${heading('KATALOG', 'Daftar produk', 'Atur nama produk dan pantau ketersediaan barang.', action)}
     <section class="content-card">
       <div class="card-heading"><div><h2>Semua produk <span class="count-badge">${rows.length}</span></h2><p>Produk yang terdaftar di ruang kerja</p></div></div>
-      ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>NAMA PRODUK</th><th>SKU</th><th>STOK TERSEDIA</th><th>UNIT</th><th></th></tr></thead><tbody>
+      ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>NAMA PRODUK</th><th>SKU</th><th>HARGA BELI</th><th>HARGA JUAL</th><th>STOK TERSEDIA</th><th>UNIT</th><th></th></tr></thead><tbody>
         ${rows.map((product) => `<tr><td class="detail-cell">${escapeHtml(product.name)}</td><td>${escapeHtml(product.sku || '—')}</td>
+          <td>${formatMoney(product.purchase_price || 0)}</td><td>${formatMoney(product.selling_price || 0)}</td>
           <td class="${stockFor(product.id) < 0 ? 'negative-stock' : ''}">${formatQuantity(stockFor(product.id))}</td><td>${escapeHtml(product.unit)}</td>
           <td class="align-right action-cell"><button class="icon-button" data-action="edit-product" data-id="${escapeHtml(product.id)}" aria-label="Ubah ${escapeHtml(product.name)}">✎</button><button class="icon-button danger-icon" data-action="delete-product" data-id="${escapeHtml(product.id)}" aria-label="Hapus ${escapeHtml(product.name)}">×</button></td></tr>`).join('')}
       </tbody></table></div>` : emptyState('Mulai dari produk pertama', 'Tambahkan nama produk untuk mulai mencatat stok.')}</section>`;
@@ -541,12 +542,26 @@ function productForm(product = null) {
       <label>Nama produk<input name="name" maxlength="120" value="${escapeHtml(product?.name || '')}" placeholder="Contoh: Kemasan ukuran sedang" required /></label>
       <div class="form-row"><label>SKU <span class="optional">(opsional)</span><input name="sku" maxlength="60" value="${escapeHtml(product?.sku || '')}" placeholder="Contoh: KMS-001" /></label>
       <label>Satuan<input name="unit" maxlength="24" value="${escapeHtml(product?.unit || 'pcs')}" placeholder="pcs, kg, box" required /></label></div>
+      <div class="form-row">
+        <label>Harga beli per unit (Rp) <span class="optional">(saat belanja)</span>
+          <input name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
+        </label>
+        <label>Harga jual per unit (Rp) <span class="optional">(saat keluar)</span>
+          <input name="selling_price" type="number" min="0" step="1" value="${escapeHtml(product?.selling_price ?? '')}" placeholder="0" />
+        </label>
+      </div>
       <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">${product ? 'Simpan perubahan' : 'Simpan produk'}</button></div>
     </form>`);
   document.querySelector('#product-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const payload = { name: form.get('name').trim(), sku: form.get('sku').trim() || null, unit: form.get('unit').trim() };
+    const payload = {
+      name: form.get('name').trim(),
+      sku: form.get('sku').trim() || null,
+      unit: form.get('unit').trim(),
+      purchase_price: Number(form.get('purchase_price')) || 0,
+      selling_price: Number(form.get('selling_price')) || 0,
+    };
     await runMutation(async () => {
       if (state.isDemo) {
         if (product) {
@@ -571,24 +586,127 @@ function inventoryForm() {
     renderShell();
     return;
   }
-  const options = state.products.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)} · stok ${formatQuantity(stockFor(product.id))} ${escapeHtml(product.unit)}</option>`).join('');
-  openDialog('Catat pergerakan barang', `<form id="inventory-form" class="form-stack">
-    <label>Produk<select name="product_id" required>${options}</select></label>
-    <div class="form-row"><label>Jenis pergerakan<select name="direction"><option value="in">Barang masuk</option><option value="out">Barang keluar</option></select></label><label>Jumlah<input name="quantity" type="number" min="0.01" step="0.01" placeholder="0" required /></label></div>
-    <label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label>
-    <label>Catatan <span class="optional">(opsional)</span><input name="notes" maxlength="240" placeholder="Keterangan pergerakan barang" /></label>
-    <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">Simpan catatan</button></div>
-  </form>`);
-  document.querySelector('#inventory-form').addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    await runMutation(async () => {
-      const pId = form.get('product_id');
-      const dir = form.get('direction');
-      const qty = Number(form.get('quantity'));
-      const occ = form.get('occurred_on');
-      const notes = form.get('notes').trim();
+  const options = state.products.map((product) => `
+    <option value="${escapeHtml(product.id)}" data-purchase="${product.purchase_price || 0}" data-selling="${product.selling_price || 0}" data-unit="${escapeHtml(product.unit)}">
+      ${escapeHtml(product.name)} · stok ${formatQuantity(stockFor(product.id))} ${escapeHtml(product.unit)}
+    </option>`).join('');
 
+  openDialog('Catat pergerakan barang', `
+    <form id="inventory-form" class="form-stack">
+      <label>Produk<select name="product_id" id="inv-product" required>${options}</select></label>
+      <div class="form-row">
+        <label>Jenis pergerakan
+          <select name="direction" id="inv-direction" required>
+            <option value="in">Barang Masuk (Belanja / Beli)</option>
+            <option value="out">Barang Keluar (Penjualan)</option>
+          </select>
+        </label>
+        <label>Jumlah<input name="quantity" id="inv-qty" type="number" min="0.01" step="0.01" placeholder="0" required /></label>
+      </div>
+
+      <div class="formula-note" id="inv-cash-box" style="margin: 3px 0 4px; padding: 12px 14px; border-radius: 8px;">
+        <label class="checkbox-label" style="font-weight: 700; color: #187554; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+          <input type="checkbox" name="sync_cash" id="inv-sync-cash" checked />
+          <span>Sinkronkan ke Keuangan Otomatis</span>
+        </label>
+        <div id="inv-cash-fields">
+          <div class="form-row">
+            <label id="inv-unit-price-label">Harga Beli Satuan (Rp)
+              <input name="unit_price" id="inv-unit-price" type="number" min="0" step="1" placeholder="0" />
+            </label>
+            <label>Total Nominal Kas (Rp)
+              <input name="total_amount" id="inv-total-amount" type="number" min="0" step="1" placeholder="0" />
+            </label>
+          </div>
+          <div id="inv-cash-desc" style="font-size: 10px; color: #3a6850; margin-top: 6px; line-height: 1.5;">
+            💡 Dicatat sebagai <strong>Kas Keluar (Belanja Barang)</strong>.
+          </div>
+        </div>
+      </div>
+
+      <label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label>
+      <label>Catatan / Keterangan <span class="optional">(opsional)</span><input name="notes" maxlength="240" placeholder="Keterangan transaksi atau nama supplier/pembeli" /></label>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
+        <button class="button button-primary" type="submit">Simpan catatan</button>
+      </div>
+    </form>`);
+
+  const form = document.querySelector('#inventory-form');
+  const productSelect = form.querySelector('#inv-product');
+  const dirSelect = form.querySelector('#inv-direction');
+  const qtyInput = form.querySelector('#inv-qty');
+  const syncCash = form.querySelector('#inv-sync-cash');
+  const cashFields = form.querySelector('#inv-cash-fields');
+  const priceLabel = form.querySelector('#inv-unit-price-label');
+  const unitPriceInput = form.querySelector('#inv-unit-price');
+  const totalAmountInput = form.querySelector('#inv-total-amount');
+  const cashDesc = form.querySelector('#inv-cash-desc');
+
+  function updatePricing(autoFill = true) {
+    const selectedOption = productSelect.selectedOptions[0];
+    const isIncoming = dirSelect.value === 'in';
+    const defaultPrice = Number(isIncoming ? selectedOption?.dataset.purchase : selectedOption?.dataset.selling) || 0;
+
+    if (autoFill) {
+      unitPriceInput.value = defaultPrice || '';
+    }
+
+    priceLabel.childNodes[0].nodeValue = isIncoming ? 'Harga Beli Satuan (Rp) ' : 'Harga Jual Satuan (Rp) ';
+
+    const qty = Number(qtyInput.value) || 0;
+    const unitPrice = Number(unitPriceInput.value) || 0;
+    const calcTotal = Math.round(qty * unitPrice);
+
+    if (autoFill || !totalAmountInput.value) {
+      totalAmountInput.value = calcTotal || '';
+    }
+
+    const currentTotal = Number(totalAmountInput.value) || calcTotal;
+    if (isIncoming) {
+      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Keluar (Belanja Barang)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+    } else {
+      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Masuk (Penjualan Produk)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+    }
+  }
+
+  productSelect.addEventListener('change', () => updatePricing(true));
+  dirSelect.addEventListener('change', () => updatePricing(true));
+  qtyInput.addEventListener('input', () => {
+    const qty = Number(qtyInput.value) || 0;
+    const unitPrice = Number(unitPriceInput.value) || 0;
+    totalAmountInput.value = Math.round(qty * unitPrice) || '';
+    updatePricing(false);
+  });
+  unitPriceInput.addEventListener('input', () => {
+    const qty = Number(qtyInput.value) || 0;
+    const unitPrice = Number(unitPriceInput.value) || 0;
+    totalAmountInput.value = Math.round(qty * unitPrice) || '';
+    updatePricing(false);
+  });
+  totalAmountInput.addEventListener('input', () => updatePricing(false));
+  syncCash.addEventListener('change', () => {
+    cashFields.style.display = syncCash.checked ? 'block' : 'none';
+  });
+
+  updatePricing(true);
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const pId = formData.get('product_id');
+    const dir = formData.get('direction');
+    const qty = Number(formData.get('quantity'));
+    const occ = formData.get('occurred_on');
+    const notes = formData.get('notes').trim();
+    const shouldSyncCash = formData.has('sync_cash');
+    const totalAmount = Number(formData.get('total_amount')) || 0;
+
+    const product = state.products.find((item) => item.id === pId);
+    const prodName = product?.name || 'Produk';
+    const prodUnit = product?.unit || 'unit';
+
+    await runMutation(async () => {
       if (state.isDemo) {
         if (dir === 'out' && qty > stockFor(pId)) {
           return { message: `Stok tidak mencukupi. Stok tersedia: ${formatQuantity(stockFor(pId))}` };
@@ -600,28 +718,99 @@ function inventoryForm() {
           occurred_on: occ,
           notes,
         });
+
+        if (shouldSyncCash && totalAmount > 0) {
+          demoStore.insert('cash', {
+            direction: dir === 'in' ? 'out' : 'in',
+            amount: totalAmount,
+            category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
+            description: dir === 'in'
+              ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`
+              : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`,
+            occurred_on: occ,
+          });
+        }
         return null;
       }
-      const { error } = await supabase.from('inventory_movements').insert({
+
+      const { error: invError } = await supabase.from('inventory_movements').insert({
         product_id: pId,
         direction: dir,
         quantity: qty,
         occurred_on: occ,
         notes,
       });
-      return error;
-    }, 'Pergerakan barang berhasil dicatat.');
+      if (invError) return invError;
+
+      if (shouldSyncCash && totalAmount > 0) {
+        const { error: cashError } = await supabase.from('cash_transactions').insert({
+          direction: dir === 'in' ? 'out' : 'in',
+          amount: totalAmount,
+          category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
+          description: dir === 'in'
+            ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`
+            : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`,
+          occurred_on: occ,
+        });
+        if (cashError) return cashError;
+      }
+      return null;
+    }, shouldSyncCash && totalAmount > 0
+      ? 'Pergerakan barang dan transaksi kas berhasil dicatat.'
+      : 'Pergerakan barang berhasil dicatat.');
   });
 }
 
 function cashForm() {
-  openDialog('Catat transaksi kas', `<form id="cash-form" class="form-stack">
-    <label>Jenis transaksi<select name="direction"><option value="in">Uang masuk</option><option value="out">Uang keluar</option></select></label>
-    <label>Jumlah (Rp)<input name="amount" type="number" min="1" step="1" placeholder="0" required /></label>
-    <div class="form-row"><label>Kategori<input name="category" maxlength="80" placeholder="Penjualan, bahan baku, dll." required /></label><label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label></div>
-    <label>Keterangan <span class="optional">(opsional)</span><input name="description" maxlength="240" placeholder="Catatan transaksi" /></label>
-    <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">Simpan transaksi</button></div>
-  </form>`);
+  openDialog('Catat transaksi kas', `
+    <form id="cash-form" class="form-stack">
+      <label>Jenis transaksi
+        <select name="direction" id="cash-direction" required>
+          <option value="out">Uang keluar (Pengeluaran)</option>
+          <option value="in">Uang masuk (Pemasukan)</option>
+        </select>
+      </label>
+      <label>Jumlah (Rp)<input name="amount" type="number" min="1" step="1" placeholder="0" required /></label>
+      <div class="form-row">
+        <label>Kategori
+          <input name="category" list="cash-categories" maxlength="80" placeholder="Pilih atau ketik kategori" required />
+          <datalist id="cash-categories">
+            <option value="Operasional Alat & Mesin" />
+            <option value="Perawatan & Perbaikan" />
+            <option value="Bahan Baku & Material" />
+            <option value="Listrik, Air & Utilitas Pabrik" />
+            <option value="Gaji & Upah Karyawan" />
+            <option value="Transportasi & Logistik" />
+            <option value="Konsumsi & Keperluan Kantor" />
+            <option value="Penjualan Produk" />
+            <option value="Lain-lain" />
+          </datalist>
+        </label>
+        <label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label>
+      </div>
+      <label id="cash-desc-label">Catatan / Untuk Apa Uang Tersebut <span style="color: #c93b2b;">*</span>
+        <input name="description" id="cash-desc-input" maxlength="240" placeholder="Wajib diisi: contoh biaya oli mesin & ganti pisau potong" required />
+      </label>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
+        <button class="button button-primary" type="submit">Simpan transaksi</button>
+      </div>
+    </form>`);
+
+  const dirSelect = document.querySelector('#cash-direction');
+  const descLabel = document.querySelector('#cash-desc-label');
+  const descInput = document.querySelector('#cash-desc-input');
+
+  dirSelect.addEventListener('change', () => {
+    if (dirSelect.value === 'out') {
+      descLabel.childNodes[0].nodeValue = 'Catatan / Untuk Apa Uang Tersebut ';
+      descInput.placeholder = 'Wajib diisi: contoh operasional alat, listrik pabrik, dll.';
+    } else {
+      descLabel.childNodes[0].nodeValue = 'Catatan Sumber Uang Masuk ';
+      descInput.placeholder = 'Wajib diisi: contoh penjualan barang, pelunasan nota, dll.';
+    }
+  });
+
   document.querySelector('#cash-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
