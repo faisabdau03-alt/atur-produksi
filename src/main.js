@@ -979,7 +979,6 @@ function renderPayroll() {
 
   return `${heading('MANAJEMEN KARYAWAN', 'Absensi & gaji karyawan', 'Absensi dicatat harian secara realtime, total gaji dihitung di akhir bulan berdasarkan akumulasi kehadiran.', `
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <button class="button button-outline" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}" style="display:inline-flex;align-items:center;gap:6px;"><span>📥</span> Unduh rekap gaji & absensi</button>
       <button class="button button-outline" data-action="add-employee">＋ Karyawan baru</button>
       <button class="button button-primary" data-action="open-attendance-modal"><span>＋</span> Catat absensi harian</button>
     </div>`)}
