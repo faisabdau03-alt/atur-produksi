@@ -469,7 +469,10 @@ function calculateMonthlySalary(employee, month) {
     if (r.overtime_pay !== undefined && r.overtime_pay !== null && r.overtime_pay !== '') {
       return sum + (Number(r.overtime_pay) || 0);
     }
-    return sum + Math.round((Number(r.overtime_hours) || 0) * overtimeRate);
+    const recordRate = (r.overtime_rate !== undefined && r.overtime_rate !== null && r.overtime_rate !== '')
+      ? Number(r.overtime_rate)
+      : overtimeRate;
+    return sum + Math.round((Number(r.overtime_hours) || 0) * recordRate);
   }, 0);
 
   const totalProduction = records.reduce((sum, r) => sum + (Number(r.production_quantity) || 0), 0);
@@ -592,10 +595,11 @@ function viewEmployeeAttendanceModal(employeeId, month) {
         ${rows.map((r) => {
           const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status, class: 'status-present' };
           const otHours = Number(r.overtime_hours) || 0;
+          const recOtRate = (r.overtime_rate !== undefined && r.overtime_rate !== null && r.overtime_rate !== '') ? Number(r.overtime_rate) : (employee.overtime_rate || 0);
           return `<tr>
             <td class="date-cell">${formatDate(r.work_date || r.period)}</td>
             <td><span class="status-pill ${att.class}">${att.label}</span></td>
-            <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span>` : '<span class="sub-meta">—</span>'}</td>
+            <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span> <span class="sub-meta">@ ${formatMoney(recOtRate)}</span>` : '<span class="sub-meta">—</span>'}</td>
             <td>${formatQuantity(r.production_quantity)} unit</td>
             <td>${formatMoney(r.total_amount)}</td>
             <td class="detail-cell" style="font-weight: normal; font-size: 9px; color: #88938d;">${escapeHtml(r.notes || '—')}</td>
@@ -856,14 +860,15 @@ function renderPayroll() {
       if (rec) {
         const attInfo = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status, class: 'status-present' };
         const otHours = Number(rec.overtime_hours) || 0;
-        const otPay = Number(rec.overtime_pay) || Math.round(otHours * (emp.overtime_rate || 0));
+        const effectiveRate = (rec.overtime_rate !== undefined && rec.overtime_rate !== null && rec.overtime_rate !== '') ? Number(rec.overtime_rate) : (emp.overtime_rate || 0);
+        const otPay = (rec.overtime_pay !== undefined && rec.overtime_pay !== null && rec.overtime_pay !== '') ? Number(rec.overtime_pay) : Math.round(otHours * effectiveRate);
         return `<tr>
           <td class="detail-cell">
             ${escapeHtml(emp.full_name)}
             <span class="sub-meta">${escapeHtml(emp.position)}</span>
           </td>
           <td><span class="status-pill ${attInfo.class}">${attInfo.label}</span></td>
-          <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span>` : '<span class="sub-meta">—</span>'}</td>
+          <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span> <span class="sub-meta">@ ${formatMoney(effectiveRate)}</span>` : '<span class="sub-meta">—</span>'}</td>
           <td style="color: #b86e1e; font-weight: 500;">${otPay > 0 ? formatMoney(otPay) : '<span class="sub-meta">—</span>'}</td>
           <td>${formatQuantity(rec.production_quantity)} unit</td>
           <td><strong>${formatMoney(rec.total_amount)}</strong></td>
@@ -2119,10 +2124,14 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     return;
   }
   const selectedEmpId = record?.employee_id || defaultEmpId || activeEmployees[0].id;
+  const selectedEmp = activeEmployees.find((e) => e.id === selectedEmpId) || activeEmployees[0];
   const targetDate = record?.work_date || record?.period || defaultDate || state.selectedPayrollDate || localDate;
   const initialStatus = record?.attendance_status || 'present';
   const initialQty = record?.production_quantity ?? 0;
   const initialOtHours = record?.overtime_hours ?? 0;
+  const initialOtRate = (record?.overtime_rate !== undefined && record?.overtime_rate !== null)
+    ? Number(record.overtime_rate)
+    : (Number(selectedEmp?.overtime_rate) || 0);
   const initialNotes = record?.notes || '';
 
   const employeeOptions = activeEmployees.map((emp) => `
@@ -2163,8 +2172,8 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
         <label>Jam lembur hari ini (jam)
           <input name="overtime_hours" id="att-ot-hours" type="number" min="0" max="24" step="0.5" value="${escapeHtml(initialOtHours)}" placeholder="0" />
         </label>
-        <label>Tarif lembur pekerja (Rp/jam)
-          <input id="att-ot-rate" type="text" readonly style="background:#f9fbf9; color:#526b5c;" />
+        <label>Tarif lembur per jam (Rp) — <span style="font-weight: normal; color: #176d51;">Dapat diubah admin</span>
+          <input name="overtime_rate" id="att-ot-rate" type="number" min="0" step="500" value="${escapeHtml(initialOtRate)}" placeholder="Contoh: 20000" required />
         </label>
       </div>
 
@@ -2191,25 +2200,26 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
   const otRateInput = form.querySelector('#att-ot-rate');
   const summaryBox = form.querySelector('#att-calc-summary');
 
-  function calculateWage(autoFillWage = true) {
+  function calculateWage(autoFillDefaults = true) {
     const selectedOption = empSelect.selectedOptions[0];
     const dailySalary = Number(selectedOption?.dataset?.daily) || 0;
-    const overtimeRate = Number(selectedOption?.dataset?.overtime) || 0;
+    const defaultOvertimeRate = Number(selectedOption?.dataset?.overtime) || 0;
     const incentiveRate = Number(selectedOption?.dataset?.incentive) || 0;
     const status = statusSelect.value;
     const rateMultiplier = ATTENDANCE_LABELS[status]?.rate ?? 0;
     const standardDailyWage = Math.round(dailySalary * rateMultiplier);
 
-    if (autoFillWage || wageInput.value === '') {
+    if (autoFillDefaults || wageInput.value === '') {
       wageInput.value = standardDailyWage;
     }
-    if (otRateInput) {
-      otRateInput.value = `${formatMoney(overtimeRate)} / jam`;
+    if (autoFillDefaults || otRateInput.value === '') {
+      otRateInput.value = defaultOvertimeRate;
     }
 
     const currentWage = Number(wageInput.value) || 0;
     const otHours = Number(otHoursInput.value) || 0;
-    const otPay = Math.round(otHours * overtimeRate);
+    const currentOtRate = Number(otRateInput.value) || 0;
+    const otPay = Math.round(otHours * currentOtRate);
     const qty = Number(qtyInput.value) || 0;
     const incentiveAmount = Math.round(qty * incentiveRate);
     const totalWage = currentWage + otPay + incentiveAmount;
@@ -2217,20 +2227,24 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     summaryBox.innerHTML = `
       <strong>Estimasi Nilai Kerja Hari Ini:</strong><br />
       • Upah pokok: <strong>${formatMoney(currentWage)}</strong> (${ATTENDANCE_LABELS[status]?.label || status})<br />
-      • Upah lembur: ${formatQuantity(otHours)} jam × ${formatMoney(overtimeRate)} = <strong style="color: #b86e1e;">${formatMoney(otPay)}</strong><br />
+      • Upah lembur: ${formatQuantity(otHours)} jam × ${formatMoney(currentOtRate)}/jam = <strong style="color: #b86e1e;">${formatMoney(otPay)}</strong><br />
       • Insentif produksi: ${formatQuantity(qty)} unit × ${formatMoney(incentiveRate)} = <strong>${formatMoney(incentiveAmount)}</strong><br />
       • <strong>Total estimasi hari ini: ${formatMoney(totalWage)}</strong> (diakumulasi untuk gaji akhir bulan)
     `;
   }
 
   empSelect.addEventListener('change', () => calculateWage(true));
-  statusSelect.addEventListener('change', () => calculateWage(true));
+  statusSelect.addEventListener('change', () => calculateWage(false));
   wageInput.addEventListener('input', () => calculateWage(false));
   qtyInput.addEventListener('input', () => calculateWage(false));
   otHoursInput.addEventListener('input', () => calculateWage(false));
+  otRateInput.addEventListener('input', () => calculateWage(false));
 
   if (record) {
-    wageInput.value = record.daily_wage || record.base_salary;
+    wageInput.value = record.daily_wage ?? record.base_salary ?? '';
+    otRateInput.value = (record.overtime_rate !== undefined && record.overtime_rate !== null)
+      ? record.overtime_rate
+      : (selectedEmp?.overtime_rate ?? 0);
     calculateWage(false);
   } else {
     calculateWage(true);
@@ -2245,6 +2259,7 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     const dailyWage = Number(formData.get('daily_wage')) || 0;
     const prodQty = Number(formData.get('production_quantity')) || 0;
     const otHours = Number(formData.get('overtime_hours')) || 0;
+    const otRate = Number(formData.get('overtime_rate')) || 0;
     const notes = (formData.get('notes') || '').trim();
 
     const emp = activeEmployees.find((e) => e.id === empId);
@@ -2253,7 +2268,6 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
       return;
     }
 
-    const otRate = Number(emp.overtime_rate) || 0;
     const otPay = Math.round(otHours * otRate);
     const incentiveRate = emp.incentive_per_unit || 0;
     const incentiveAmount = Math.round(prodQty * incentiveRate);
