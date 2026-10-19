@@ -653,12 +653,15 @@ function viewEmployeeAttendanceModal(employeeId, month) {
     </div>
     <div class="dialog-actions">
       <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+      <button type="button" class="button button-outline" data-action="download-single-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}" style="margin-right: auto; display: inline-flex; align-items: center; gap: 6px;">
+        <span>📥</span> Unduh Absensi Pekerja Ini
+      </button>
       ${!calc.isPaid ? `
         <button type="button" class="button button-primary" data-action="pay-monthly-salary" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
           Bayar Gaji Akhir Bulan
         </button>
       ` : `
-        <span class="status-pill status-paid" style="margin-left: auto;">Sudah Dibayar ✓</span>
+        <span class="status-pill status-paid">Sudah Dibayar ✓</span>
       `}
     </div>
   `);
@@ -975,7 +978,8 @@ function renderPayroll() {
   </tbody></table></div>` : emptyState('Belum ada karyawan', 'Tambahkan karyawan untuk mulai mengatur upah dan insentif.');
 
   return `${heading('MANAJEMEN KARYAWAN', 'Absensi & gaji karyawan', 'Absensi dicatat harian secara realtime, total gaji dihitung di akhir bulan berdasarkan akumulasi kehadiran.', `
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <button class="button button-outline" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}" style="display:inline-flex;align-items:center;gap:6px;"><span>📥</span> Unduh rekap gaji & absensi</button>
       <button class="button button-outline" data-action="add-employee">＋ Karyawan baru</button>
       <button class="button button-primary" data-action="open-attendance-modal"><span>＋</span> Catat absensi harian</button>
     </div>`)}
@@ -993,9 +997,14 @@ function renderPayroll() {
           <h2>Perhitungan gaji akhir bulan <span class="count-badge">${paidCount}/${activeEmployees.length} lunas</span></h2>
           <p>Dihitung dari: <strong>(Hari kerja × Upah pokok/hari) + (Jam lembur × Tarif lembur/jam) + (Hasil produksi × Insentif/unit)</strong></p>
         </div>
-        <div class="payroll-controls">
-          <label class="month-label" for="payroll-month-picker">PERIODE BULAN</label>
-          <input class="month-input" id="payroll-month-picker" type="month" value="${escapeHtml(selectedMonth)}" />
+        <div class="payroll-controls" style="display:flex;align-items:center;gap:8px;">
+          <button class="button button-small button-outline" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}" style="display:inline-flex;align-items:center;gap:4px;" title="Unduh rekapitulasi gaji dan absensi bulan ini ke format CSV/Excel">
+            <span>📥</span> Unduh CSV
+          </button>
+          <div>
+            <label class="month-label" for="payroll-month-picker">PERIODE BULAN</label>
+            <input class="month-input" id="payroll-month-picker" type="month" value="${escapeHtml(selectedMonth)}" />
+          </div>
         </div>
       </div>
       ${monthlySalaryRows}
@@ -1721,10 +1730,13 @@ function renderReports(month = currentMonth) {
         <h2>Pilih periode laporan</h2>
         <p>Kelompokkan analisis performa berdasarkan laba bersih, laba kotor, rincian pengeluaran kas, omzet, dan persediaan.</p>
       </div>
-      <div class="report-controls">
-        <label class="month-label" for="report-month">BULAN</label>
-        <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
-        <button class="button button-primary" data-action="download-report">↓ Unduh CSV</button>
+      <div class="report-controls" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <div>
+          <label class="month-label" for="report-month">BULAN</label>
+          <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
+        </div>
+        <button class="button button-primary" data-action="download-report">↓ Unduh Laporan Bulanan</button>
+        ${state.isAdmin ? `<button class="button button-outline" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}" title="Unduh khusus rekapitulasi gaji dan absensi pekerja bulan ini">📥 Unduh Gaji & Absensi</button>` : ''}
       </div>
     </section>
 
@@ -2579,6 +2591,218 @@ function csvCell(value) {
   return `"${cell.replace(/"/g, '""')}"`;
 }
 
+function downloadPayrollReport(month) {
+  const selectedMonth = (typeof month === 'string' && month) ? month : (state.selectedPayrollMonth || currentMonth);
+  const activeEmployees = state.employees.filter((emp) => emp.is_active);
+  const monthlyCalcs = activeEmployees.map((emp) => ({
+    employee: emp,
+    calc: calculateMonthlySalary(emp, selectedMonth),
+  }));
+
+  const totalMonthSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
+  const totalBaseSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.baseSalary, 0);
+  const totalOvertimeHours = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalOvertimeHours, 0);
+  const totalOvertimePay = monthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
+  const totalProduction = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalProduction, 0);
+  const totalIncentive = monthlyCalcs.reduce((sum, item) => sum + item.calc.incentiveAmount, 0);
+  const paidCount = monthlyCalcs.filter((item) => item.calc.isPaid).length;
+  const pendingCount = monthlyCalcs.filter((item) => !item.calc.isPaid).length;
+
+  const attendanceRecords = monthRecords(state.payroll, selectedMonth, 'work_date')
+    .sort((a, b) => (a.work_date || a.period).localeCompare(b.work_date || b.period));
+
+  const rows = [
+    ['REKAPITULASI GAJI & ABSENSI KARYAWAN BULANAN'],
+    ['Nama Perusahaan', 'Jaya Wijaya'],
+    ['Periode Bulan', selectedMonth],
+    ['Tanggal Cetak / Unduh', formatDate(localDate)],
+    ['Total Karyawan Aktif', `${activeEmployees.length} orang`],
+    ['Total Pengeluaran Gaji Bulan Ini', totalMonthSalary],
+    ['Status Pembayaran Gaji', `${paidCount} Lunas, ${pendingCount} Belum dibayar`],
+    [],
+    ['=== BAGIAN 1: REKAPITULASI PENDAPATAN GAJI KARYAWAN (AKHIR BULAN) ==='],
+    [
+      'No',
+      'Nama Pekerja',
+      'Jabatan',
+      'Hadir Penuh (Hari)',
+      'Setengah Hari',
+      'Izin',
+      'Sakit',
+      'Alpa',
+      'Total Hari Kerja Efektif',
+      'Upah Pokok / Hari (IDR)',
+      'Total Upah Pokok (IDR)',
+      'Total Jam Lembur',
+      'Total Upah Lembur (IDR)',
+      'Total Hasil Produksi (Unit)',
+      'Total Insentif Produksi (IDR)',
+      'TOTAL PENDAPATAN GAJI (IDR)',
+      'Status Pembayaran',
+      'Tanggal Pembayaran'
+    ],
+    ...monthlyCalcs.map(({ employee: emp, calc }, idx) => [
+      idx + 1,
+      emp.full_name,
+      emp.position || 'Pekerja Produksi',
+      calc.present,
+      calc.halfDay,
+      calc.permit,
+      calc.sick,
+      calc.absent,
+      calc.effectiveDays,
+      calc.dailySalary,
+      calc.baseSalary,
+      calc.totalOvertimeHours,
+      calc.overtimeAmount,
+      calc.totalProduction,
+      calc.incentiveAmount,
+      calc.totalSalary,
+      calc.isPaid ? 'Lunas (Dibayar)' : 'Belum Dibayar',
+      calc.payout?.paid_at ? formatDate(calc.payout.paid_at) : '—'
+    ]),
+    [
+      'TOTAL',
+      'KESELURUHAN',
+      '',
+      monthlyCalcs.reduce((s, i) => s + i.calc.present, 0),
+      monthlyCalcs.reduce((s, i) => s + i.calc.halfDay, 0),
+      monthlyCalcs.reduce((s, i) => s + i.calc.permit, 0),
+      monthlyCalcs.reduce((s, i) => s + i.calc.sick, 0),
+      monthlyCalcs.reduce((s, i) => s + i.calc.absent, 0),
+      monthlyCalcs.reduce((s, i) => s + i.calc.effectiveDays, 0),
+      '',
+      totalBaseSalary,
+      totalOvertimeHours,
+      totalOvertimePay,
+      totalProduction,
+      totalIncentive,
+      totalMonthSalary,
+      `${paidCount} Lunas`,
+      ''
+    ],
+    [],
+    ['=== BAGIAN 2: LOG RINCIAN ABSENSI HARIAN REALTIME (SEMUA KARYAWAN) ==='],
+    [
+      'No',
+      'Tanggal Kerja',
+      'Nama Pekerja',
+      'Jabatan',
+      'Status Kehadiran',
+      'Upah Harian Hari Ini (IDR)',
+      'Jam Lembur',
+      'Tarif Lembur / Jam (IDR)',
+      'Upah Lembur Hari Ini (IDR)',
+      'Hasil Produksi (Unit)',
+      'Insentif Produksi (IDR)',
+      'Total Estimasi Hari Ini (IDR)',
+      'Catatan / Hasil Kerja'
+    ],
+    ...attendanceRecords.map((r, idx) => {
+      const emp = state.employees.find((e) => e.id === r.employee_id) || r.employees;
+      const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status || 'Hadir' };
+      const otHours = Number(r.overtime_hours) || 0;
+      const recOtRate = (r.overtime_rate !== undefined && r.overtime_rate !== null && r.overtime_rate !== '') ? Number(r.overtime_rate) : (emp?.overtime_rate || 0);
+      const otPay = (r.overtime_pay !== undefined && r.overtime_pay !== null && r.overtime_pay !== '') ? Number(r.overtime_pay) : Math.round(otHours * recOtRate);
+      const prodQty = Number(r.production_quantity) || 0;
+      const incRate = Number(emp?.incentive_per_unit) || 0;
+      const incAmount = Math.round(prodQty * incRate);
+      const dailyWage = Number(r.daily_wage || r.base_salary) || 0;
+      const totalDay = dailyWage + otPay + incAmount;
+
+      return [
+        idx + 1,
+        r.work_date || r.period,
+        emp?.full_name || 'Karyawan',
+        emp?.position || 'Produksi',
+        att.label,
+        dailyWage,
+        otHours,
+        recOtRate,
+        otPay,
+        prodQty,
+        incAmount,
+        totalDay,
+        r.notes || '—'
+      ];
+    })
+  ];
+
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `rekap-gaji-dan-absensi-${selectedMonth}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  notify(`Rekap gaji & absensi periode ${selectedMonth} berhasil diunduh.`);
+}
+
+function downloadSingleEmployeeAttendance(employeeId, month) {
+  const employee = state.employees.find((e) => e.id === employeeId);
+  if (!employee) return;
+  const calc = calculateMonthlySalary(employee, month);
+  const records = [...calc.records].sort((a, b) => (a.work_date || a.period).localeCompare(b.work_date || b.period));
+
+  const rows = [
+    ['RINCIAN ABSENSI & ESTIMASI UPAH KARYAWAN'],
+    ['Nama Pekerja', employee.full_name],
+    ['Jabatan', employee.position || 'Produksi'],
+    ['Periode Bulan', month],
+    ['Upah Pokok Per Hari', employee.daily_salary || 0],
+    ['Tarif Lembur Standar', `${employee.overtime_rate || 0} / jam`],
+    ['Insentif Standar', `${employee.incentive_per_unit || 0} / unit`],
+    ['Hari Kerja Efektif', `${calc.effectiveDays} hari (${calc.present} Hadir, ${calc.halfDay} ½ Hari, ${calc.permit} Izin, ${calc.sick} Sakit, ${calc.absent} Alpa)`],
+    ['Akumulasi Jam Lembur', `${calc.totalOvertimeHours} jam`],
+    ['Total Upah Pokok', calc.baseSalary],
+    ['Total Upah Lembur', calc.overtimeAmount],
+    ['Total Insentif Produksi', calc.incentiveAmount],
+    ['TOTAL GAJI BULAN INI', calc.totalSalary],
+    ['Status Pembayaran', calc.isPaid ? `Lunas (${formatDate(calc.payout?.paid_at)})` : 'Belum Dibayar'],
+    [],
+    ['No', 'Tanggal Kerja', 'Status Kehadiran', 'Upah Pokok Hari Ini (IDR)', 'Jam Lembur', 'Tarif Lembur (IDR)', 'Upah Lembur (IDR)', 'Produksi (Unit)', 'Insentif (IDR)', 'Estimasi Hari Ini (IDR)', 'Catatan'],
+    ...records.map((r, idx) => {
+      const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status };
+      const otHours = Number(r.overtime_hours) || 0;
+      const recOtRate = (r.overtime_rate !== undefined && r.overtime_rate !== null && r.overtime_rate !== '') ? Number(r.overtime_rate) : (employee.overtime_rate || 0);
+      const otPay = (r.overtime_pay !== undefined && r.overtime_pay !== null && r.overtime_pay !== '') ? Number(r.overtime_pay) : Math.round(otHours * recOtRate);
+      const prodQty = Number(r.production_quantity) || 0;
+      const incRate = Number(employee.incentive_per_unit) || 0;
+      const incAmount = Math.round(prodQty * incRate);
+      const dailyWage = Number(r.daily_wage || r.base_salary) || 0;
+      const totalDay = dailyWage + otPay + incAmount;
+
+      return [
+        idx + 1,
+        r.work_date || r.period,
+        att.label,
+        dailyWage,
+        otHours,
+        recOtRate,
+        otPay,
+        prodQty,
+        incAmount,
+        totalDay,
+        r.notes || '—'
+      ];
+    })
+  ];
+
+  const safeName = employee.full_name.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `absensi-${safeName}-${month}.csv`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  notify(`Rincian absensi ${employee.full_name} berhasil diunduh.`);
+}
+
 function downloadReport(month) {
   const inventory = monthRecords(state.inventory, month);
   const cash = monthRecords(state.cash, month);
@@ -2953,6 +3177,12 @@ async function handlePageAction(event) {
       return;
     }
     downloadReport(month);
+  } else if (action === 'download-payroll-report') {
+    const month = button.dataset.month || document.querySelector('#payroll-month-picker')?.value || document.querySelector('#report-month')?.value || state.selectedPayrollMonth || currentMonth;
+    downloadPayrollReport(month);
+  } else if (action === 'download-single-employee-attendance') {
+    const month = button.dataset.month || state.selectedPayrollMonth || currentMonth;
+    downloadSingleEmployeeAttendance(id, month);
   } else if (action === 'filter-report') {
     state.selectedReportFilter = button.dataset.filter || 'all';
     renderPage();
