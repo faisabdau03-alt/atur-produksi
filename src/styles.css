@@ -244,3 +244,35 @@ td:first-child, th:first-child { padding-left: 4px; }
   .quick-action-card { min-height: 110px; }
   .app-dialog { padding: 20px 17px; }
 }
+
+/* Styling Laba Rugi, Lembur & Pratinjau Interaktif Laporan */
+.status-ot { background: #fdf3e7; color: #b86e1e; font-weight: 600; padding: 2px 6px; border-radius: 4px; font-size: 9px; display: inline-flex; align-items: center; gap: 3px; }
+.stat-card-clickable { cursor: pointer; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; position: relative; }
+.stat-card-clickable:hover { transform: translateY(-2px); border-color: #8cc2a4; box-shadow: 0 8px 20px rgba(23, 109, 81, .1); }
+.stat-card-clickable.is-active { border-color: #176d51; background: #f8fbf9; box-shadow: 0 0 0 2px rgba(23, 109, 81, .18); }
+.stat-card-clickable .click-hint { font-size: 8px; color: #176d51; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+
+.report-tab-bar { display: flex; align-items: center; gap: 7px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
+.report-tab-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600; background: #f2f5f3; color: #53645b; border: 1px solid transparent; cursor: pointer; white-space: nowrap; transition: all .15s ease; }
+.report-tab-pill:hover { background: #e6eee9; color: #176d51; }
+.report-tab-pill.is-active { background: #176d51; color: #fff; border-color: #176d51; }
+.report-tab-badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 9px; background: rgba(0, 0, 0, .08); }
+.report-tab-pill.is-active .report-tab-badge { background: rgba(255, 255, 255, .25); color: #fff; }
+
+.clickable-row { cursor: pointer; transition: background .12s ease; }
+.clickable-row:hover { background: #f2f8f4 !important; }
+.preview-icon-hint { color: #8fa197; font-size: 10px; margin-left: 6px; opacity: 0; transition: opacity .15s ease; }
+.clickable-row:hover .preview-icon-hint { opacity: 1; color: #176d51; }
+
+.is-table-card { padding: 18px 20px 14px; }
+.income-statement-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+.statement-box { border: 1px solid #e5ebe7; border-radius: 9px; padding: 16px; background: #fcfdfc; }
+.statement-heading { font-size: 12px; font-weight: 700; color: #25332d; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+.statement-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; padding: 6px 0; color: #4e5e55; border-bottom: 1px dashed #e9efe9; }
+.statement-item:last-child { border-bottom: 0; }
+.statement-item.subtotal { font-weight: 700; color: #1e352a; padding-top: 8px; border-top: 1px solid #d5dfd8; margin-top: 4px; }
+.statement-item.profit-highlight { background: #eef8f2; margin: 8px -8px 0; padding: 10px 10px; border-radius: 7px; border: 1px solid #c7e8d5; font-size: 12px; font-weight: 700; color: #146349; }
+.margin-badge { display: inline-block; padding: 2px 7px; border-radius: 12px; font-size: 9px; font-weight: 700; background: #d7ede1; color: #16694b; }
+@media (max-width: 820px) {
+  .income-statement-grid { grid-template-columns: 1fr; }
+}

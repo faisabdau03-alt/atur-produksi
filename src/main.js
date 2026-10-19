@@ -27,6 +27,8 @@ const state = {
   page: 'dashboard',
   selectedPayrollDate: localDate,
   selectedPayrollMonth: currentMonth,
+  selectedReportMonth: currentMonth,
+  selectedReportFilter: 'all',
   products: [],
   inventory: [],
   cash: [],
@@ -37,7 +39,7 @@ const state = {
 let workspaceChannel = null;
 let refreshTimer = null;
 const AUTH_DOMAIN = '@perusahaan.id';
-const DEMO_STORAGE_KEY = 'atur_produksi_demo_v3';
+const DEMO_STORAGE_KEY = 'atur_produksi_demo_v4';
 
 const ATTENDANCE_LABELS = {
   present: { label: 'Hadir', class: 'status-present', rate: 1 },
@@ -76,28 +78,28 @@ function getInitialDemoData() {
       { id: 'c-5', direction: 'out', amount: 450000, category: 'Perawatan', description: 'Maintenance mesin perekat dan pisau potong', occurred_on: `${currentMonth}-14` },
     ],
     employees: [
-      { id: e1, full_name: 'Budi Santoso', position: 'Operator Mesin Cetak & Potong', daily_salary: 130000, monthly_salary: 3250000, incentive_per_unit: 150, is_active: true },
-      { id: e2, full_name: 'Siti Aminah', position: 'Finishing & Quality Control', daily_salary: 115000, monthly_salary: 2875000, incentive_per_unit: 120, is_active: true },
-      { id: e3, full_name: 'Ahmad Fauzi', position: 'Logistik & Penataan Gudang', daily_salary: 105000, monthly_salary: 2625000, incentive_per_unit: 100, is_active: true },
+      { id: e1, full_name: 'Budi Santoso', position: 'Operator Mesin Cetak & Potong', daily_salary: 130000, monthly_salary: 3250000, overtime_rate: 20000, incentive_per_unit: 150, is_active: true },
+      { id: e2, full_name: 'Siti Aminah', position: 'Finishing & Quality Control', daily_salary: 115000, monthly_salary: 2875000, overtime_rate: 18000, incentive_per_unit: 120, is_active: true },
+      { id: e3, full_name: 'Ahmad Fauzi', position: 'Logistik & Penataan Gudang', daily_salary: 105000, monthly_salary: 2625000, overtime_rate: 16000, incentive_per_unit: 100, is_active: true },
     ],
     payroll: [
-      // Riwayat beberapa hari kerja di bulan berjalan
-      { id: 'att-101', employee_id: e1, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 130000, production_quantity: 180, incentive_rate: 150, incentive_amount: 27000, total_amount: 157000, notes: 'Cetak batch awal' },
-      { id: 'att-102', employee_id: e2, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 115000, production_quantity: 160, incentive_rate: 120, incentive_amount: 19200, total_amount: 134200, notes: 'Finishing box M' },
-      { id: 'att-103', employee_id: e3, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 105000, production_quantity: 90, incentive_rate: 100, incentive_amount: 9000, total_amount: 114000, notes: 'Bongkar muat bahan' },
+      // Riwayat beberapa hari kerja di bulan berjalan dengan jam lembur
+      { id: 'att-101', employee_id: e1, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 0, overtime_rate: 20000, overtime_pay: 0, production_quantity: 180, incentive_rate: 150, incentive_amount: 27000, total_amount: 157000, notes: 'Cetak batch awal' },
+      { id: 'att-102', employee_id: e2, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 115000, overtime_hours: 1.5, overtime_rate: 18000, overtime_pay: 27000, production_quantity: 160, incentive_rate: 120, incentive_amount: 19200, total_amount: 161200, notes: 'Finishing box M + lembur 1.5 jam' },
+      { id: 'att-103', employee_id: e3, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 105000, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 90, incentive_rate: 100, incentive_amount: 9000, total_amount: 114000, notes: 'Bongkar muat bahan' },
 
-      { id: 'att-104', employee_id: e1, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 130000, production_quantity: 210, incentive_rate: 150, incentive_amount: 31500, total_amount: 161500, notes: 'Target lembur cetak' },
-      { id: 'att-105', employee_id: e2, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 115000, production_quantity: 190, incentive_rate: 120, incentive_amount: 22800, total_amount: 137800, notes: 'QC box batch 2' },
-      { id: 'att-106', employee_id: e3, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'permit', daily_wage: 0, production_quantity: 0, incentive_rate: 100, incentive_amount: 0, total_amount: 0, notes: 'Izin urusan dinas' },
+      { id: 'att-104', employee_id: e1, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 2, overtime_rate: 20000, overtime_pay: 40000, production_quantity: 210, incentive_rate: 150, incentive_amount: 31500, total_amount: 201500, notes: 'Target lembur cetak 2 jam' },
+      { id: 'att-105', employee_id: e2, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 115000, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 190, incentive_rate: 120, incentive_amount: 22800, total_amount: 137800, notes: 'QC box batch 2' },
+      { id: 'att-106', employee_id: e3, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'permit', daily_wage: 0, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 0, incentive_rate: 100, incentive_amount: 0, total_amount: 0, notes: 'Izin urusan dinas' },
 
-      { id: 'att-107', employee_id: e1, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 130000, production_quantity: 175, incentive_rate: 150, incentive_amount: 26250, total_amount: 156250, notes: 'Pemotongan corrugated' },
-      { id: 'att-108', employee_id: e2, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'half_day', daily_wage: 57500, production_quantity: 80, incentive_rate: 120, incentive_amount: 9600, total_amount: 67100, notes: 'Setengah hari izin keperluan keluarga' },
-      { id: 'att-109', employee_id: e3, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 105000, production_quantity: 110, incentive_rate: 100, incentive_amount: 11000, total_amount: 116000, notes: 'Penataan rak gudang B' },
+      { id: 'att-107', employee_id: e1, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 1, overtime_rate: 20000, overtime_pay: 20000, production_quantity: 175, incentive_rate: 150, incentive_amount: 26250, total_amount: 176250, notes: 'Pemotongan corrugated + lembur 1 jam' },
+      { id: 'att-108', employee_id: e2, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'half_day', daily_wage: 57500, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 80, incentive_rate: 120, incentive_amount: 9600, total_amount: 67100, notes: 'Setengah hari izin keperluan keluarga' },
+      { id: 'att-109', employee_id: e3, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 105000, overtime_hours: 1, overtime_rate: 16000, overtime_pay: 16000, production_quantity: 110, incentive_rate: 100, incentive_amount: 11000, total_amount: 132000, notes: 'Penataan rak gudang B + lembur 1 jam' },
 
       // Catatan hari ini
-      { id: 'att-110', employee_id: e1, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 130000, production_quantity: 160, incentive_rate: 150, incentive_amount: 24000, total_amount: 154000, notes: 'Hadir shift penuh' },
-      { id: 'att-111', employee_id: e2, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 115000, production_quantity: 210, incentive_rate: 120, incentive_amount: 25200, total_amount: 140200, notes: 'Finishing kemasan box' },
-      { id: 'att-112', employee_id: e3, work_date: localDate, period: localDate, attendance_status: 'half_day', daily_wage: 52500, production_quantity: 80, incentive_rate: 100, incentive_amount: 8000, total_amount: 60500, notes: 'Setengah hari shift pagi' },
+      { id: 'att-110', employee_id: e1, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 130000, overtime_hours: 2, overtime_rate: 20000, overtime_pay: 40000, production_quantity: 160, incentive_rate: 150, incentive_amount: 24000, total_amount: 194000, notes: 'Hadir shift penuh + lembur 2 jam' },
+      { id: 'att-111', employee_id: e2, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 115000, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 210, incentive_rate: 120, incentive_amount: 25200, total_amount: 140200, notes: 'Finishing kemasan box' },
+      { id: 'att-112', employee_id: e3, work_date: localDate, period: localDate, attendance_status: 'half_day', daily_wage: 52500, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 80, incentive_rate: 100, incentive_amount: 8000, total_amount: 60500, notes: 'Setengah hari shift pagi' },
     ],
     payouts: [],
   };
@@ -345,8 +347,17 @@ function heading(eyebrow, title, description, action = '') {
   return `<div class="page-heading"><div><p class="eyebrow">${eyebrow}</p><h1>${title}</h1><p class="muted">${description}</p></div>${action}</div>`;
 }
 
-function statCard(label, value, note, icon, tone = '') {
-  return `<article class="stat-card"><div class="stat-top"><span>${label}</span><span class="stat-icon ${tone}">${icon}</span></div><div class="stat-value">${value}</div><div class="stat-note">${note}</div></article>`;
+function statCard(label, value, note, icon, tone = '', options = {}) {
+  const { clickable = false, filter = '', isActive = false, hint = '' } = options;
+  const activeClass = isActive ? ' is-active' : '';
+  const clickClass = clickable ? ' stat-card-clickable' : '';
+  const clickAttrs = clickable ? ` data-action="filter-report" data-filter="${escapeHtml(filter)}" title="Klik untuk pratinjau kategori ini"` : '';
+  return `<article class="stat-card${clickClass}${activeClass}"${clickAttrs}>
+    <div class="stat-top"><span>${label}</span><span class="stat-icon ${tone}">${icon}</span></div>
+    <div class="stat-value">${value}</div>
+    <div class="stat-note">${note}</div>
+    ${clickable ? `<div class="click-hint"><span>${hint || 'Klik untuk pratinjau'}</span> <span aria-hidden="true">→</span></div>` : ''}
+  </article>`;
 }
 
 function emptyState(title, detail) {
@@ -434,10 +445,19 @@ function calculateMonthlySalary(employee, month) {
   const dailySalary = Number(employee.daily_salary) || 0;
   const baseSalary = Math.round(effectiveDays * dailySalary);
 
+  const totalOvertimeHours = records.reduce((sum, r) => sum + (Number(r.overtime_hours) || 0), 0);
+  const overtimeRate = Number(employee.overtime_rate) || 0;
+  const overtimeAmount = records.reduce((sum, r) => {
+    if (r.overtime_pay !== undefined && r.overtime_pay !== null && r.overtime_pay !== '') {
+      return sum + (Number(r.overtime_pay) || 0);
+    }
+    return sum + Math.round((Number(r.overtime_hours) || 0) * overtimeRate);
+  }, 0);
+
   const totalProduction = records.reduce((sum, r) => sum + (Number(r.production_quantity) || 0), 0);
   const incentiveRate = Number(employee.incentive_per_unit) || 0;
   const incentiveAmount = Math.round(totalProduction * incentiveRate);
-  const totalSalary = baseSalary + incentiveAmount;
+  const totalSalary = baseSalary + overtimeAmount + incentiveAmount;
 
   const payout = (state.payouts || []).find((p) => p.employee_id === employee.id && p.period === month);
 
@@ -452,6 +472,9 @@ function calculateMonthlySalary(employee, month) {
     effectiveDays,
     dailySalary,
     baseSalary,
+    totalOvertimeHours,
+    overtimeRate,
+    overtimeAmount,
     totalProduction,
     incentiveRate,
     incentiveAmount,
@@ -478,6 +501,10 @@ function payMonthlySalaryModal(employeeId, month) {
       <div class="slip-row">
         <span>Upah Pokok (${calc.effectiveDays} hari × ${formatMoney(calc.dailySalary)}):</span>
         <strong>${formatMoney(calc.baseSalary)}</strong>
+      </div>
+      <div class="slip-row">
+        <span>Upah Lembur (${formatQuantity(calc.totalOvertimeHours)} jam × ${formatMoney(calc.overtimeRate)}/jam):</span>
+        <strong style="color: #b86e1e;">${formatMoney(calc.overtimeAmount)}</strong>
       </div>
       <div class="slip-row">
         <span>Insentif Produksi (${formatQuantity(calc.totalProduction)} unit × ${formatMoney(calc.incentiveRate)}):</span>
@@ -511,15 +538,18 @@ function viewEmployeeAttendanceModal(employeeId, month) {
       <table><thead><tr>
         <th>TANGGAL</th>
         <th>KEHADIRAN</th>
+        <th>JAM LEMBUR</th>
         <th>PRODUKSI</th>
         <th>ESTIMASI UPAH</th>
         <th>CATATAN</th>
       </tr></thead><tbody>
         ${rows.map((r) => {
           const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status, class: 'status-present' };
+          const otHours = Number(r.overtime_hours) || 0;
           return `<tr>
             <td class="date-cell">${formatDate(r.work_date || r.period)}</td>
             <td><span class="status-pill ${att.class}">${att.label}</span></td>
+            <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span>` : '<span class="sub-meta">—</span>'}</td>
             <td>${formatQuantity(r.production_quantity)} unit</td>
             <td>${formatMoney(r.total_amount)}</td>
             <td class="detail-cell" style="font-weight: normal; font-size: 9px; color: #88938d;">${escapeHtml(r.notes || '—')}</td>
@@ -537,12 +567,14 @@ function viewEmployeeAttendanceModal(employeeId, month) {
         <span class="att-pill-mini status-permit">${calc.permit}x Izin</span>
         <span class="att-pill-mini status-sick">${calc.sick}x Sakit</span>
         <span class="att-pill-mini status-absent">${calc.absent}x Alpa</span>
+        ${calc.totalOvertimeHours > 0 ? `<span class="att-pill-mini status-ot" style="background:#fdf3e7; color:#b86e1e;">⚡ ${formatQuantity(calc.totalOvertimeHours)} Jam Lembur</span>` : ''}
         <span style="font-size: 11px; margin-left: 6px; color: #37473f; font-weight: 600;">Total: ${calc.effectiveDays} hari kerja efektif</span>
       </div>
     </div>
     ${tableHtml}
     <div class="slip-box" style="margin-top: 14px;">
       <div class="slip-row"><span>Akumulasi Upah Pokok:</span><strong>${formatMoney(calc.baseSalary)}</strong></div>
+      <div class="slip-row"><span>Akumulasi Upah Lembur (${formatQuantity(calc.totalOvertimeHours)} jam):</span><strong style="color: #b86e1e;">${formatMoney(calc.overtimeAmount)}</strong></div>
       <div class="slip-row"><span>Akumulasi Insentif (${formatQuantity(calc.totalProduction)} unit):</span><strong>${formatMoney(calc.incentiveAmount)}</strong></div>
       <div class="slip-row"><span>Total Gaji Periode Ini:</span><strong>${formatMoney(calc.totalSalary)}</strong></div>
     </div>
@@ -559,6 +591,129 @@ function viewEmployeeAttendanceModal(employeeId, month) {
   `);
 }
 
+function openReportDetailModal(type, id, month = currentMonth) {
+  if (type === 'cash') {
+    const rec = state.cash.find((c) => c.id === id);
+    if (!rec) return;
+    const isIncome = rec.direction === 'in';
+    const catLower = (rec.category || '').toLowerCase();
+    let financialRole = 'Beban Operasional Usaha';
+    let impactText = 'Mengurangi kas dan mengurangi laba bersih operasional.';
+    if (isIncome) {
+      financialRole = 'Pendapatan Usaha (Omzet Penjualan)';
+      impactText = 'Menambah kas masuk, meningkatkan laba kotor, dan laba bersih.';
+    } else if (catLower.includes('bahan') || catLower.includes('material') || catLower.includes('belanja')) {
+      financialRole = 'Harga Pokok Penjualan (HPP) / Belanja Bahan Baku';
+      impactText = 'Beban pokok pengadaan material/produk. Mengurangi laba kotor & laba bersih.';
+    } else if (catLower.includes('gaji') || catLower.includes('upah')) {
+      financialRole = 'Beban Gaji & Upah Karyawan (Operasional)';
+      impactText = 'Beban upah tenaga kerja produksi. Mengurangi laba bersih.';
+    } else if (catLower.includes('listrik') || catLower.includes('utilitas')) {
+      financialRole = 'Beban Utilitas & Listrik Pabrik (Operasional)';
+      impactText = 'Biaya operasional fasilitas produksi. Mengurangi laba bersih.';
+    } else if (catLower.includes('rawat') || catLower.includes('perbaikan') || catLower.includes('mesin') || catLower.includes('alat')) {
+      financialRole = 'Beban Pemeliharaan Mesin & Alat (Operasional)';
+      impactText = 'Biaya perawatan mesin cetak & potong. Mengurangi laba bersih.';
+    }
+
+    openDialog(`Pratinjau Transaksi Kas — ${isIncome ? 'Pemasukan' : 'Pengeluaran'}`, `
+      <div class="slip-box">
+        <div class="slip-row">
+          <span>Tipe Transaksi:</span>
+          <strong><span class="direction-pill ${isIncome ? 'pill-in' : 'pill-out'}"><span></span>${isIncome ? 'Uang Masuk (Pemasukan)' : 'Uang Keluar (Pengeluaran)'}</span></strong>
+        </div>
+        <div class="slip-row">
+          <span>Tanggal Transaksi:</span>
+          <strong>${formatDate(rec.occurred_on)}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Pos / Kategori:</span>
+          <strong>${escapeHtml(rec.category)}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Nominal Transaksi:</span>
+          <strong style="font-size: 15px; color: ${isIncome ? '#29865c' : '#c93b2b'};">${isIncome ? '+' : '−'}${formatMoney(rec.amount)}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Untuk Apa Uang Tersebut:</span>
+          <strong style="color: #37453e;">${escapeHtml(rec.description || '—')}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Klasifikasi Keuangan:</span>
+          <strong style="color: #176d51; font-size: 11px;">${financialRole}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Dampak Laba Rugi:</span>
+          <span style="font-size: 10px; color: #5a6e63;">${impactText}</span>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        <button type="button" class="button button-primary" data-page="cash" data-action="close-dialog">Buka Menu Keuangan →</button>
+      </div>
+    `);
+  } else if (type === 'inventory') {
+    const rec = state.inventory.find((i) => i.id === id);
+    if (!rec) return;
+    const prod = state.products.find((p) => p.id === rec.product_id) || rec.products;
+    const isIn = rec.direction === 'in';
+    const purchasePrice = Number(prod?.purchase_price) || 0;
+    const sellingPrice = Number(prod?.selling_price) || 0;
+    const qty = Number(rec.quantity) || 0;
+    const totalCost = Math.round(qty * purchasePrice);
+    const totalSale = Math.round(qty * sellingPrice);
+
+    openDialog(`Pratinjau Pergerakan Barang — ${isIn ? 'Barang Masuk' : 'Barang Keluar'}`, `
+      <div class="slip-box">
+        <div class="slip-row">
+          <span>Arah Pergerakan:</span>
+          <strong><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}"><span></span>${isIn ? 'Barang Masuk (Penerimaan Stok)' : 'Barang Keluar (Pengiriman / Pemakaian)'}</span></strong>
+        </div>
+        <div class="slip-row">
+          <span>Tanggal:</span>
+          <strong>${formatDate(rec.occurred_on)}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Nama Produk:</span>
+          <strong>${escapeHtml(prod?.name || 'Produk')}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Kode SKU / Satuan:</span>
+          <strong>${escapeHtml(prod?.sku || '—')} · ${escapeHtml(prod?.unit || 'unit')}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Jumlah Kuantitas:</span>
+          <strong style="font-size: 14px;">${formatQuantity(qty)} ${escapeHtml(prod?.unit || '')}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Harga Beli Modal (HPP):</span>
+          <span>${formatMoney(purchasePrice)} / ${escapeHtml(prod?.unit || 'unit')} (Total: ${formatMoney(totalCost)})</span>
+        </div>
+        <div class="slip-row">
+          <span>Harga Jual Produk:</span>
+          <span>${formatMoney(sellingPrice)} / ${escapeHtml(prod?.unit || 'unit')} (Total: ${formatMoney(totalSale)})</span>
+        </div>
+        <div class="slip-row">
+          <span>Catatan Kerja / Muatan:</span>
+          <strong style="color: #37453e;">${escapeHtml(rec.notes || '—')}</strong>
+        </div>
+        <div class="slip-row">
+          <span>Klasifikasi Operasional:</span>
+          <strong style="color: #176d51; font-size: 11px;">${isIn ? 'Penerimaan Stok Gudang (Menambah Persediaan)' : 'Barang Keluar Gudang (Pengiriman Pesanan / Terjual)'}</strong>
+        </div>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        <button type="button" class="button button-primary" data-page="inventory" data-action="close-dialog">Buka Menu Persediaan →</button>
+      </div>
+    `);
+  } else if (type === 'payroll' || type === 'employee') {
+    const emp = state.employees.find((e) => e.id === id);
+    if (!emp) return;
+    payMonthlySalaryModal(emp.id, month);
+  }
+}
+
 function renderPayroll() {
   const selectedMonth = state.selectedPayrollMonth || currentMonth;
   const selectedDate = state.selectedPayrollDate || localDate;
@@ -572,6 +727,8 @@ function renderPayroll() {
   }));
 
   const totalMonthSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
+  const totalMonthOvertimeHours = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalOvertimeHours, 0);
+  const totalMonthOvertimePay = monthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
   const totalPendingSalary = monthlyCalcs.reduce((sum, item) => sum + (!item.calc.isPaid ? item.calc.totalSalary : 0), 0);
   const pendingCount = monthlyCalcs.filter((item) => !item.calc.isPaid).length;
   const paidCount = monthlyCalcs.filter((item) => item.calc.isPaid).length;
@@ -586,6 +743,8 @@ function renderPayroll() {
     <th>KEHADIRAN BULAN INI</th>
     <th>UPAH POKOK / HARI</th>
     <th>TOTAL UPAH POKOK</th>
+    <th>JAM LEMBUR</th>
+    <th>TOTAL LEMBUR</th>
     <th>PRODUKSI (UNIT)</th>
     <th>TOTAL INSENTIF</th>
     <th>TOTAL GAJI BULANAN</th>
@@ -605,6 +764,11 @@ function renderPayroll() {
         </td>
         <td>${formatMoney(calc.dailySalary)} / hari</td>
         <td>${formatMoney(calc.baseSalary)}</td>
+        <td>
+          <strong>${formatQuantity(calc.totalOvertimeHours)} jam</strong>
+          <span class="sub-meta">${calc.overtimeRate ? `Tarif ${formatMoney(calc.overtimeRate)}/jam` : 'Belum diatur'}</span>
+        </td>
+        <td style="color: #b86e1e; font-weight: 600;">${formatMoney(calc.overtimeAmount)}</td>
         <td>${formatQuantity(calc.totalProduction)} unit</td>
         <td>${formatMoney(calc.incentiveAmount)}</td>
         <td class="amount-cell" style="font-size: 12px; font-weight: 700;">${formatMoney(calc.totalSalary)}</td>
@@ -634,8 +798,10 @@ function renderPayroll() {
   const attendanceRows = activeEmployees.length ? `<div class="table-wrap"><table><thead><tr>
     <th>NAMA PEKERJA</th>
     <th>STATUS KEHADIRAN HARI INI</th>
+    <th>LEMBUR (JAM)</th>
+    <th>UPAH LEMBUR</th>
     <th>HASIL PRODUKSI</th>
-    <th>ESTIMASI UPAH HARI INI</th>
+    <th>ESTIMASI NILAI HARI INI</th>
     <th>CATATAN KERJA</th>
     <th class="align-right">AKSI CEPAT / UBAH</th>
   </tr></thead><tbody>
@@ -643,14 +809,18 @@ function renderPayroll() {
       const rec = dateRecords.find((r) => r.employee_id === emp.id);
       if (rec) {
         const attInfo = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status, class: 'status-present' };
+        const otHours = Number(rec.overtime_hours) || 0;
+        const otPay = Number(rec.overtime_pay) || Math.round(otHours * (emp.overtime_rate || 0));
         return `<tr>
           <td class="detail-cell">
             ${escapeHtml(emp.full_name)}
             <span class="sub-meta">${escapeHtml(emp.position)}</span>
           </td>
           <td><span class="status-pill ${attInfo.class}">${attInfo.label}</span></td>
+          <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span>` : '<span class="sub-meta">—</span>'}</td>
+          <td style="color: #b86e1e; font-weight: 500;">${otPay > 0 ? formatMoney(otPay) : '<span class="sub-meta">—</span>'}</td>
           <td>${formatQuantity(rec.production_quantity)} unit</td>
-          <td>${formatMoney(rec.total_amount)}</td>
+          <td><strong>${formatMoney(rec.total_amount)}</strong></td>
           <td class="detail-cell" style="font-weight: normal; font-size: 9px; color: #88938d;">${escapeHtml(rec.notes || '—')}</td>
           <td class="align-right">
             <button class="icon-button" data-action="edit-attendance" data-id="${escapeHtml(rec.id)}" aria-label="Ubah absensi">✎</button>
@@ -665,6 +835,8 @@ function renderPayroll() {
         </td>
         <td><span class="status-pill status-unmarked">Belum absen</span></td>
         <td><span class="sub-meta">—</span></td>
+        <td><span class="sub-meta">Tarif ${formatMoney(emp.overtime_rate || 0)}/jam</span></td>
+        <td><span class="sub-meta">—</span></td>
         <td><span class="sub-meta">Tarif ${formatMoney(emp.daily_salary || 0)}/hari</span></td>
         <td><span class="sub-meta">—</span></td>
         <td class="align-right">
@@ -674,7 +846,7 @@ function renderPayroll() {
             <button type="button" class="att-btn att-btn-permit" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="permit" title="Absen Izin">Izin</button>
             <button type="button" class="att-btn att-btn-sick" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="sick" title="Absen Sakit">Sakit</button>
             <button type="button" class="att-btn att-btn-absent" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="absent" title="Absen Alpa">Alpa</button>
-            <button type="button" class="icon-button" data-action="open-attendance-modal" data-id="${escapeHtml(emp.id)}" title="Input detail & kuantitas produksi">✎</button>
+            <button type="button" class="icon-button" data-action="open-attendance-modal" data-id="${escapeHtml(emp.id)}" title="Input lembur, produksi & detail">✎</button>
           </div>
         </td>
       </tr>`;
@@ -686,6 +858,7 @@ function renderPayroll() {
     <th>NAMA KARYAWAN</th>
     <th>JABATAN</th>
     <th>UPAH POKOK / HARI</th>
+    <th>TARIF LEMBUR / JAM</th>
     <th>INSENTIF / UNIT</th>
     <th>STATUS</th>
     <th class="align-right">AKSI</th>
@@ -694,6 +867,7 @@ function renderPayroll() {
       <td class="detail-cell">${escapeHtml(employee.full_name)}</td>
       <td>${escapeHtml(employee.position)}</td>
       <td>${formatMoney(employee.daily_salary || 0)} / hari</td>
+      <td><strong>${formatMoney(employee.overtime_rate || 0)}</strong> / jam</td>
       <td>${formatMoney(employee.incentive_per_unit || 0)} / unit</td>
       <td><span class="status-pill ${employee.is_active ? 'status-active' : 'status-inactive'}">${employee.is_active ? 'Aktif' : 'Tidak aktif'}</span></td>
       <td class="align-right"><button class="icon-button" data-action="edit-employee" data-id="${escapeHtml(employee.id)}" aria-label="Ubah ${escapeHtml(employee.full_name)}">✎</button></td>
@@ -707,8 +881,8 @@ function renderPayroll() {
     </div>`)}
     <section class="stats-grid compact-stats">
       ${statCard('Karyawan aktif', `${activeEmployees.length} orang`, `${employees.length} pekerja terdaftar`, '◎', 'icon-blue')}
-      ${statCard(`Total gaji (${selectedMonth})`, formatMoney(totalMonthSalary), `akumulasi kehadiran & produksi`, '↗', 'icon-green')}
-      ${statCard('Gaji belum dibayar', formatMoney(totalPendingSalary), `${pendingCount} dari ${activeEmployees.length} pekerja belum dibayar`, '◷', 'icon-orange')}
+      ${statCard(`Total gaji (${selectedMonth})`, formatMoney(totalMonthSalary), `pokok, lembur & insentif`, '↗', 'icon-green')}
+      ${statCard('Akumulasi lembur', `${formatQuantity(totalMonthOvertimeHours)} jam`, `Total lembur ${formatMoney(totalMonthOvertimePay)}`, '⚡', 'icon-orange')}
       ${statCard(`Kehadiran (${formatDate(selectedDate)})`, `${presentTodayCount} / ${activeEmployees.length} hadir`, `${dateRecords.length} pekerja telah diabsen`, '▦', 'icon-purple')}
     </section>
 
@@ -717,7 +891,7 @@ function renderPayroll() {
       <div class="card-heading">
         <div>
           <h2>Perhitungan gaji akhir bulan <span class="count-badge">${paidCount}/${activeEmployees.length} lunas</span></h2>
-          <p>Dihitung dari: <strong>(Total hari kehadiran × Upah pokok/hari) + (Total hasil produksi × Insentif/unit)</strong></p>
+          <p>Dihitung dari: <strong>(Hari kerja × Upah pokok/hari) + (Jam lembur × Tarif lembur/jam) + (Hasil produksi × Insentif/unit)</strong></p>
         </div>
         <div class="payroll-controls">
           <label class="month-label" for="payroll-month-picker">PERIODE BULAN</label>
@@ -732,7 +906,7 @@ function renderPayroll() {
       <div class="card-heading">
         <div>
           <h2>Absensi harian realtime <span class="count-badge">${dateRecords.length}/${activeEmployees.length}</span></h2>
-          <p>Tanggal kerja: <strong>${formatDate(selectedDate)}</strong> · Kehadiran otomatis mengakumulasi perhitungan gaji akhir bulan</p>
+          <p>Tanggal kerja: <strong>${formatDate(selectedDate)}</strong> · Kehadiran & jam lembur otomatis mengakumulasi perhitungan gaji akhir bulan</p>
         </div>
         <div class="payroll-controls">
           <label class="month-label" for="attendance-date-picker">TANGGAL KERJA</label>
@@ -748,7 +922,7 @@ function renderPayroll() {
       <div class="card-heading">
         <div>
           <h2>Master tarif upah karyawan <span class="count-badge">${employees.length}</span></h2>
-          <p>Tarif upah pokok per hari kerja dan insentif per unit produksi</p>
+          <p>Tarif upah pokok per hari kerja, tarif lembur per jam, dan insentif per unit produksi</p>
         </div>
       </div>
       ${employeeRows}
@@ -756,24 +930,313 @@ function renderPayroll() {
 }
 
 function renderReports(month = currentMonth) {
-  const inventory = monthRecords(state.inventory, month);
-  const cash = monthRecords(state.cash, month);
-  const totalIn = cash.filter((row) => row.direction === 'in').reduce((sum, row) => sum + Number(row.amount), 0);
-  const totalOut = cash.filter((row) => row.direction === 'out').reduce((sum, row) => sum + Number(row.amount), 0);
-  
-  // Total gaji bulanan berdasarkan akumulasi kehadiran
-  const activeEmployees = state.employees.filter((emp) => emp.is_active);
-  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, month));
-  const totalPayroll = monthlyCalcs.reduce((sum, calc) => sum + calc.totalSalary, 0);
+  const selectedMonth = month || state.selectedReportMonth || currentMonth;
+  const currentFilter = state.selectedReportFilter || 'all';
 
-  const headingHtml = heading('ANALISIS', 'Laporan bulanan', 'Pilih periode untuk meninjau dan mengunduh catatan operasional.', '');
-  return `${headingHtml}<section class="content-card report-filter-card"><div><h2>Pilih periode laporan</h2><p>Data persediaan dan kas, serta absensi & penggajian akhir bulan.</p></div>
-      <div class="report-controls"><label class="month-label" for="report-month">BULAN</label><input class="month-input" id="report-month" type="month" value="${escapeHtml(month)}" /><button class="button button-primary" data-action="download-report">↓ Unduh CSV</button></div>
+  const inventory = monthRecords(state.inventory, selectedMonth);
+  const cash = monthRecords(state.cash, selectedMonth);
+
+  const activeEmployees = state.employees.filter((emp) => emp.is_active);
+  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, selectedMonth));
+  
+  const totalPayroll = monthlyCalcs.reduce((sum, calc) => sum + calc.totalSalary, 0);
+  const totalPayrollBase = monthlyCalcs.reduce((sum, calc) => sum + calc.baseSalary, 0);
+  const totalPayrollOvertime = monthlyCalcs.reduce((sum, calc) => sum + calc.overtimeAmount, 0);
+  const totalPayrollIncentive = monthlyCalcs.reduce((sum, calc) => sum + calc.incentiveAmount, 0);
+  const totalOvertimeHours = monthlyCalcs.reduce((sum, calc) => sum + calc.totalOvertimeHours, 0);
+
+  const incomeRecords = cash.filter((row) => row.direction === 'in');
+  const totalIn = incomeRecords.reduce((sum, row) => sum + Number(row.amount), 0);
+
+  const expenseRecords = cash.filter((row) => row.direction === 'out');
+  const totalOut = expenseRecords.reduce((sum, row) => sum + Number(row.amount), 0);
+
+  // HPP / Beban Pokok Bahan Baku & Material
+  const cogsRecords = expenseRecords.filter((row) => {
+    const cat = (row.category || '').toLowerCase();
+    return cat.includes('bahan') || cat.includes('material') || cat.includes('belanja');
+  });
+  const cogsCash = cogsRecords.reduce((sum, row) => sum + Number(row.amount), 0);
+  const inventoryHpp = inventory.filter((inv) => inv.direction === 'out').reduce((sum, inv) => {
+    const prod = state.products.find((p) => p.id === inv.product_id);
+    return sum + (Number(inv.quantity) * (Number(prod?.purchase_price) || 0));
+  }, 0);
+  const totalCogs = cogsCash > 0 ? cogsCash : inventoryHpp;
+
+  // Laba Kotor (Gross Profit)
+  const grossProfit = totalIn - totalCogs;
+  const grossMargin = totalIn > 0 ? ((grossProfit / totalIn) * 100).toFixed(1) : '0';
+
+  // Beban Operasional Lain (Non-Bahan Baku & Non-Gaji)
+  const operationalCashRecords = expenseRecords.filter((row) => {
+    const cat = (row.category || '').toLowerCase();
+    return !cat.includes('bahan') && !cat.includes('material') && !cat.includes('belanja') && !cat.includes('gaji') && !cat.includes('upah');
+  });
+  const operationalCash = operationalCashRecords.reduce((sum, row) => sum + Number(row.amount), 0);
+  const totalOperatingExpense = operationalCash + totalPayroll;
+
+  // Laba Bersih (Net Profit)
+  const netProfit = grossProfit - totalOperatingExpense;
+  const netMargin = totalIn > 0 ? ((netProfit / totalIn) * 100).toFixed(1) : '0';
+
+  // Item untuk Pratinjau berdasarkan Filter Aktif
+  let filteredItems = [];
+  if (currentFilter === 'income') {
+    filteredItems = incomeRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'Pendapatan (Omzet)' }));
+  } else if (currentFilter === 'expense') {
+    filteredItems = expenseRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'Pengeluaran Kas' }));
+  } else if (currentFilter === 'cogs') {
+    filteredItems = cogsRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'HPP / Bahan Baku' }));
+  } else if (currentFilter === 'gross_profit') {
+    filteredItems = [
+      ...incomeRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'Pendapatan (Omzet)' })),
+      ...cogsRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'HPP / Bahan Baku' })),
+    ];
+  } else if (currentFilter === 'operational') {
+    filteredItems = operationalCashRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'Beban Operasional Usaha' }));
+  } else if (currentFilter === 'net_profit') {
+    filteredItems = [
+      ...incomeRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: 'Pendapatan (Omzet)' })),
+      ...expenseRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: (r.category || '').toLowerCase().includes('bahan') ? 'HPP / Bahan Baku' : 'Beban Operasional' })),
+      ...monthlyCalcs.map(({ employee: emp, calc }) => ({
+        id: emp.id,
+        occurred_on: `${selectedMonth}-akhir`,
+        itemType: 'payroll',
+        financialCategory: 'Beban Gaji & Upah',
+        title: `${emp.full_name} (${emp.position})`,
+        direction: 'out',
+        amount: calc.totalSalary,
+        detail: `${calc.effectiveDays} hr kerja, ${formatQuantity(calc.totalOvertimeHours)} jam lembur, ${formatQuantity(calc.totalProduction)} unit`,
+        notes: `Pokok: ${formatMoney(calc.baseSalary)} · Lembur: ${formatMoney(calc.overtimeAmount)} · Insentif: ${formatMoney(calc.incentiveAmount)}`,
+        isPaid: calc.isPaid,
+      })),
+    ];
+  } else if (currentFilter === 'payroll') {
+    filteredItems = monthlyCalcs.map(({ employee: emp, calc }) => ({
+      id: emp.id,
+      occurred_on: `${selectedMonth}-akhir`,
+      itemType: 'payroll',
+      financialCategory: 'Beban Gaji & Upah',
+      title: `${emp.full_name} (${emp.position})`,
+      direction: 'out',
+      amount: calc.totalSalary,
+      detail: `${calc.effectiveDays} hr kerja, ${formatQuantity(calc.totalOvertimeHours)} jam lembur, ${formatQuantity(calc.totalProduction)} unit produksi`,
+      notes: `Pokok: ${formatMoney(calc.baseSalary)} · Lembur: ${formatMoney(calc.overtimeAmount)} · Insentif: ${formatMoney(calc.incentiveAmount)}`,
+      isPaid: calc.isPaid,
+    }));
+  } else if (currentFilter === 'inventory') {
+    filteredItems = inventory.map((r) => ({ ...r, itemType: 'inventory', financialCategory: 'Persediaan Barang' }));
+  } else {
+    // 'all'
+    filteredItems = [
+      ...cash.map((r) => ({ ...r, itemType: 'cash', financialCategory: r.direction === 'in' ? 'Pendapatan' : ((r.category || '').toLowerCase().includes('bahan') ? 'HPP / Bahan Baku' : 'Beban Operasional') })),
+      ...inventory.map((r) => ({ ...r, itemType: 'inventory', financialCategory: 'Persediaan Barang' })),
+      ...monthlyCalcs.map(({ employee: emp, calc }) => ({
+        id: emp.id,
+        occurred_on: `${selectedMonth}-akhir`,
+        itemType: 'payroll',
+        financialCategory: 'Beban Gaji & Upah',
+        title: `${emp.full_name} (${emp.position})`,
+        direction: 'out',
+        amount: calc.totalSalary,
+        detail: `${calc.effectiveDays} hr kerja, ${formatQuantity(calc.totalOvertimeHours)} jam lembur, ${formatQuantity(calc.totalProduction)} unit`,
+        notes: `Pokok: ${formatMoney(calc.baseSalary)} · Lembur: ${formatMoney(calc.overtimeAmount)} · Insentif: ${formatMoney(calc.incentiveAmount)}`,
+        isPaid: calc.isPaid,
+      })),
+    ];
+  }
+
+  filteredItems.sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
+
+  const filterTabs = [
+    { key: 'all', label: 'Semua Catatan', count: inventory.length + cash.length + monthlyCalcs.length },
+    { key: 'gross_profit', label: 'Laba Kotor', count: incomeRecords.length + cogsRecords.length },
+    { key: 'net_profit', label: 'Laba Bersih', count: cash.length + monthlyCalcs.length },
+    { key: 'income', label: 'Pemasukan (Omzet)', count: incomeRecords.length },
+    { key: 'expense', label: 'Pengeluaran Kas', count: expenseRecords.length },
+    { key: 'cogs', label: 'HPP / Bahan Baku', count: cogsRecords.length },
+    { key: 'operational', label: 'Beban Operasional', count: operationalCashRecords.length },
+    { key: 'payroll', label: 'Gaji & Lembur', count: monthlyCalcs.length },
+    { key: 'inventory', label: 'Persediaan Barang', count: inventory.length },
+  ];
+
+  const headingHtml = heading('ANALISIS', 'Laporan bulanan', 'Pilih periode untuk meninjau laba kotor, laba bersih, beban operasional, dan pratinjau catatan.', '');
+
+  const tableRows = filteredItems.length ? `
+    <div class="table-wrap"><table><thead><tr>
+      <th>TANGGAL</th>
+      <th>POS / KATEGORI</th>
+      <th>RINCIAN TRANSAKSI</th>
+      <th>KLASIFIKASI KEUANGAN</th>
+      <th>ARAH</th>
+      <th class="align-right">NOMINAL / UNIT</th>
+      <th class="align-right">PRATINJAU</th>
+    </tr></thead><tbody>
+      ${filteredItems.map((item) => {
+        if (item.itemType === 'payroll') {
+          return `<tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Klik untuk melihat slip gaji pekerja">
+            <td class="date-cell">${formatDate(item.occurred_on)}</td>
+            <td><strong>Gaji & Lembur</strong></td>
+            <td class="detail-cell">${escapeHtml(item.title)}<span class="sub-meta">${escapeHtml(item.detail)}</span></td>
+            <td><span class="status-pill status-permit" style="font-size: 8px;">Gaji & Upah</span></td>
+            <td><span class="direction-pill pill-out"><span></span>Keluar</span></td>
+            <td class="align-right amount-cell" style="font-weight: 700; color: #a94438;">−${formatMoney(item.amount)}</td>
+            <td class="align-right">
+              <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Pratinjau slip gaji">🔍</button>
+            </td>
+          </tr>`;
+        }
+        if (item.itemType === 'inventory') {
+          const prod = item.products || state.products.find((p) => p.id === item.product_id);
+          const isIn = item.direction === 'in';
+          return `<tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Klik untuk melihat detail pergerakan barang">
+            <td class="date-cell">${formatDate(item.occurred_on)}</td>
+            <td><strong>Persediaan</strong></td>
+            <td class="detail-cell">${escapeHtml(prod?.name || 'Produk')}${item.notes ? `<span class="sub-meta">${escapeHtml(item.notes)}</span>` : ''}</td>
+            <td><span class="status-pill status-present" style="font-size: 8px;">Stok ${isIn ? 'Masuk' : 'Keluar'}</span></td>
+            <td><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}"><span></span>${isIn ? 'Masuk' : 'Keluar'}</span></td>
+            <td class="align-right amount-cell">${isIn ? '+' : '−'}${formatQuantity(item.quantity)} ${escapeHtml(prod?.unit || 'unit')}</td>
+            <td class="align-right">
+              <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Pratinjau pergerakan barang">🔍</button>
+            </td>
+          </tr>`;
+        }
+        // Cash item
+        const isIncome = item.direction === 'in';
+        return `<tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="cash" title="Klik untuk melihat detail transaksi kas">
+          <td class="date-cell">${formatDate(item.occurred_on)}</td>
+          <td><strong>${escapeHtml(item.category)}</strong></td>
+          <td class="detail-cell">${escapeHtml(item.description || item.category)}</td>
+          <td><span class="status-pill ${isIncome ? 'status-paid' : 'status-pending'}" style="font-size: 8px;">${escapeHtml(item.financialCategory || 'Kas')}</span></td>
+          <td><span class="direction-pill ${isIncome ? 'pill-in' : 'pill-out'}"><span></span>${isIncome ? 'Masuk' : 'Keluar'}</span></td>
+          <td class="align-right amount-cell" style="font-weight: 700; color: ${isIncome ? '#29865c' : '#a94438'};">${isIncome ? '+' : '−'}${formatMoney(item.amount)}</td>
+          <td class="align-right">
+            <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="cash" title="Pratinjau transaksi kas">🔍</button>
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody></table></div>
+  ` : emptyState('Tidak ada catatan untuk kategori ini', 'Pilih tab filter lain untuk melihat catatan operasional periode ini.');
+
+  return `${headingHtml}
+    <section class="content-card report-filter-card">
+      <div>
+        <h2>Pilih periode laporan</h2>
+        <p>Analisis laba kotor, laba bersih, persediaan, kas, serta absensi & penggajian akhir bulan.</p>
+      </div>
+      <div class="report-controls">
+        <label class="month-label" for="report-month">BULAN</label>
+        <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
+        <button class="button button-primary" data-action="download-report">↓ Unduh CSV</button>
+      </div>
     </section>
-    <section class="stats-grid compact-stats">${statCard('Barang masuk/keluar', quantityFormat.format(inventory.length), 'pergerakan barang periode ini', '▦', 'icon-blue')}${statCard('Pemasukan kas', formatMoney(totalIn), `${cash.filter((row) => row.direction === 'in').length} transaksi`, '↗', 'icon-green')}${statCard('Pengeluaran kas', formatMoney(totalOut), `${cash.filter((row) => row.direction === 'out').length} transaksi`, '↘', 'icon-orange')}${state.isAdmin ? statCard('Total penggajian bulan ini', formatMoney(totalPayroll), `${activeEmployees.length} karyawan aktif`, '◎', 'icon-purple') : ''}</section>
-    <section class="content-card"><div class="card-heading"><div><h2>Pratinjau laporan</h2><p>Transaksi kas dan persediaan pada ${escapeHtml(month)}</p></div><span class="count-badge">${inventory.length + cash.length} catatan</span></div>
-      ${movementTable([...inventory.map((row) => ({ ...row, type: 'inventory' })), ...cash].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)), 10)}
-      ${totalPayroll > 0 ? `<div class="report-payroll-preview"><strong>Rekapitulasi Gaji Karyawan (${month})</strong><span>${activeEmployees.length} karyawan · ${formatMoney(totalPayroll)}</span></div>` : ''}</section>`;
+
+    <!-- KARTU INDIKATOR KEUANGAN UTAMA (INTERAKTIF & DAPAT DIKLIK) -->
+    <section class="stats-grid compact-stats">
+      ${statCard('Laba Bersih (Net Profit)', formatMoney(netProfit), `Net Margin: ${netMargin}% (Setelah beban & gaji)`, netProfit >= 0 ? '↗' : '↘', netProfit >= 0 ? 'icon-green' : 'icon-orange', { clickable: true, filter: 'net_profit', isActive: currentFilter === 'net_profit' })}
+      ${statCard('Laba Kotor (Gross Profit)', formatMoney(grossProfit), `Gross Margin: ${grossMargin}% (Omzet − HPP)`, '◎', 'icon-blue', { clickable: true, filter: 'gross_profit', isActive: currentFilter === 'gross_profit' })}
+      ${statCard('Pemasukan (Omzet)', formatMoney(totalIn), `${incomeRecords.length} transaksi penjualan`, '↗', 'icon-green', { clickable: true, filter: 'income', isActive: currentFilter === 'income' })}
+      ${statCard('HPP / Belanja Bahan', formatMoney(totalCogs), `${cogsRecords.length} transaksi belanja modal`, '↘', 'icon-orange', { clickable: true, filter: 'cogs', isActive: currentFilter === 'cogs' })}
+      ${statCard('Total Pengeluaran Kas', formatMoney(totalOut), `${expenseRecords.length} transaksi kas keluar`, '↘', 'icon-orange', { clickable: true, filter: 'expense', isActive: currentFilter === 'expense' })}
+      ${state.isAdmin ? statCard('Beban Gaji & Lembur', formatMoney(totalPayroll), `${activeEmployees.length} pekerja (${formatQuantity(totalOvertimeHours)} jam lembur)`, '◎', 'icon-purple', { clickable: true, filter: 'payroll', isActive: currentFilter === 'payroll' }) : ''}
+      ${statCard('Beban Operasional Lain', formatMoney(operationalCash), 'Listrik, mesin, pemeliharaan', '◷', 'icon-orange', { clickable: true, filter: 'operational', isActive: currentFilter === 'operational' })}
+      ${statCard('Barang Masuk/Keluar', quantityFormat.format(inventory.length), 'catatan pergerakan stok gudang', '▦', 'icon-blue', { clickable: true, filter: 'inventory', isActive: currentFilter === 'inventory' })}
+    </section>
+
+    <!-- LAPORAN LABA RUGI KOMPREHENSIF (INCOME STATEMENT) -->
+    <section class="content-card is-table-card">
+      <div class="card-heading">
+        <div>
+          <h2>Laporan Laba Rugi (Income Statement) <span class="margin-badge">Laba Bersih ${netMargin}%</span></h2>
+          <p>Rincian pendapatan omzet, beban pokok penjualan (HPP), beban operasional pabrik, upah karyawan, dan laba bersih</p>
+        </div>
+        <span class="count-badge" style="background:${netProfit >= 0 ? '#eef8f2' : '#fcf1ed'}; color:${netProfit >= 0 ? '#176d51' : '#c93b2b'}; font-weight:700;">
+          ${netProfit >= 0 ? 'Surplus (Profit)' : 'Defisit (Rugi)'}
+        </span>
+      </div>
+
+      <div class="income-statement-grid">
+        <!-- BOX 1: LABA KOTOR (GROSS PROFIT) -->
+        <div class="statement-box">
+          <div class="statement-heading">
+            <span>A. PERHITUNGAN LABA KOTOR (GROSS PROFIT)</span>
+            <span class="margin-badge">Gross Margin ${grossMargin}%</span>
+          </div>
+          <div class="statement-item">
+            <span>(+) Pendapatan Penjualan Produk (Omzet)</span>
+            <strong style="color: #29865c;">+${formatMoney(totalIn)}</strong>
+          </div>
+          <div class="statement-item">
+            <span>(−) Beban Pokok Penjualan (HPP / Belanja Bahan Baku)</span>
+            <strong style="color: #c93b2b;">−${formatMoney(totalCogs)}</strong>
+          </div>
+          <div class="statement-item subtotal">
+            <span>Subtotal Laba Kotor (Gross Profit)</span>
+            <strong style="color: #176d51; font-size: 13px;">${formatMoney(grossProfit)}</strong>
+          </div>
+          <div style="font-size: 9px; color: #819187; margin-top: 7px; line-height: 1.4;">
+            *Dihitung dari seluruh penjualan dikurangi pengadaan bahan baku, lembaran karton corrugated, dan material produk.
+          </div>
+        </div>
+
+        <!-- BOX 2: LABA BERSIH (NET PROFIT) -->
+        <div class="statement-box">
+          <div class="statement-heading">
+            <span>B. BEBAN OPERASIONAL & LABA BERSIH (NET PROFIT)</span>
+            <span class="margin-badge">Net Margin ${netMargin}%</span>
+          </div>
+          <div class="statement-item">
+            <span>Laba Kotor (dari bagian A)</span>
+            <strong>${formatMoney(grossProfit)}</strong>
+          </div>
+          <div class="statement-item">
+            <span>(−) Beban Upah Pokok Karyawan (${activeEmployees.length} orang)</span>
+            <span style="color: #55675d;">−${formatMoney(totalPayrollBase)}</span>
+          </div>
+          <div class="statement-item">
+            <span>(−) Beban Upah Lembur Karyawan (${formatQuantity(totalOvertimeHours)} jam lembur)</span>
+            <span style="color: #b86e1e; font-weight:600;">−${formatMoney(totalPayrollOvertime)}</span>
+          </div>
+          <div class="statement-item">
+            <span>(−) Beban Insentif Hasil Produksi Karyawan</span>
+            <span style="color: #55675d;">−${formatMoney(totalPayrollIncentive)}</span>
+          </div>
+          <div class="statement-item">
+            <span>(−) Beban Operasional Lain (Listrik, Pemeliharaan Mesin, dll.)</span>
+            <span style="color: #55675d;">−${formatMoney(operationalCash)}</span>
+          </div>
+          <div class="statement-item subtotal">
+            <span>Total Beban Operasional & Penggajian</span>
+            <strong style="color: #c93b2b;">−${formatMoney(totalOperatingExpense)}</strong>
+          </div>
+          <div class="statement-item profit-highlight">
+            <span>LABA BERSIH OPERASIONAL (NET PROFIT):</span>
+            <strong style="font-size: 14px;">${formatMoney(netProfit)}</strong>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PRATINJAU INTERAKTIF CATATAN LAPORAN -->
+    <section class="content-card">
+      <div class="card-heading">
+        <div>
+          <h2>Pratinjau rincian catatan <span class="count-badge">${filteredItems.length} ditampilkan</span></h2>
+          <p>Klik kolom atau baris pada tabel untuk membuka pratinjau detail transaksi secara lengkap</p>
+        </div>
+      </div>
+
+      <!-- TAB FILTER CEPAT -->
+      <div class="report-tab-bar">
+        ${filterTabs.map((tab) => `
+          <button type="button" class="report-tab-pill ${currentFilter === tab.key ? 'is-active' : ''}" data-action="filter-report" data-filter="${escapeHtml(tab.key)}">
+            ${escapeHtml(tab.label)} <span class="report-tab-badge">${tab.count}</span>
+          </button>
+        `).join('')}
+      </div>
+
+      ${tableRows}
+    </section>`;
 }
 
 function renderPage() {
@@ -783,7 +1246,7 @@ function renderPage() {
     cash: ['Keuangan', renderCash],
     products: ['Produk', renderProducts],
     payroll: ['Absensi & gaji', renderPayroll],
-    reports: ['Laporan', renderReports],
+    reports: ['Laporan', () => renderReports(state.selectedReportMonth || currentMonth)],
   };
   if (!pages[state.page] || (state.page === 'payroll' && !state.isAdmin)) state.page = 'dashboard';
   const [label, render] = pages[state.page];
@@ -793,7 +1256,8 @@ function renderPage() {
   content.onclick = handlePageAction;
   content.onchange = (event) => {
     if (event.target.id === 'report-month') {
-      content.innerHTML = renderReports(event.target.value || currentMonth);
+      state.selectedReportMonth = event.target.value || currentMonth;
+      renderPage();
     } else if (event.target.id === 'attendance-date-picker') {
       state.selectedPayrollDate = event.target.value || localDate;
       renderPage();
@@ -1165,8 +1629,9 @@ function employeeForm(employee = null) {
     <label>Jabatan<input name="position" maxlength="80" value="${escapeHtml(employee?.position || 'Produksi')}" placeholder="Contoh: Operator Mesin Cetak, Finishing, QC" required /></label>
     <div class="form-row">
       <label>Upah pokok per hari (Rp)<input name="daily_salary" type="number" min="0" step="1" value="${escapeHtml(employee?.daily_salary ?? '')}" placeholder="Contoh: 120000" required /></label>
-      <label>Insentif per unit produksi (Rp)<input name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="Contoh: 150" required /></label>
+      <label>Tarif lembur per jam (Rp)<input name="overtime_rate" type="number" min="0" step="1" value="${escapeHtml(employee?.overtime_rate ?? '0')}" placeholder="Contoh: 20000" required /></label>
     </div>
+    <label>Insentif per unit produksi (Rp)<input name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="Contoh: 150" required /></label>
     ${employee ? `<label class="checkbox-label"><input name="is_active" type="checkbox" ${employee.is_active ? 'checked' : ''} /> Karyawan aktif</label>` : ''}
     <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">${employee ? 'Simpan perubahan' : 'Simpan karyawan'}</button></div>
   </form>`);
@@ -1179,6 +1644,7 @@ function employeeForm(employee = null) {
       position: form.get('position').trim(),
       daily_salary: dailySalary,
       monthly_salary: dailySalary * 25,
+      overtime_rate: Number(form.get('overtime_rate')) || 0,
       incentive_per_unit: Number(form.get('incentive_per_unit')) || 0,
     };
     if (employee) payload.is_active = form.has('is_active');
@@ -1209,11 +1675,12 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
   const targetDate = record?.work_date || record?.period || defaultDate || state.selectedPayrollDate || localDate;
   const initialStatus = record?.attendance_status || 'present';
   const initialQty = record?.production_quantity ?? 0;
+  const initialOtHours = record?.overtime_hours ?? 0;
   const initialNotes = record?.notes || '';
 
   const employeeOptions = activeEmployees.map((emp) => `
-    <option value="${escapeHtml(emp.id)}" data-daily="${emp.daily_salary || 0}" data-incentive="${emp.incentive_per_unit || 0}" ${emp.id === selectedEmpId ? 'selected' : ''}>
-      ${escapeHtml(emp.full_name)} · Upah ${formatMoney(emp.daily_salary || 0)}/hari · Insentif ${formatMoney(emp.incentive_per_unit || 0)}/unit
+    <option value="${escapeHtml(emp.id)}" data-daily="${emp.daily_salary || 0}" data-overtime="${emp.overtime_rate || 0}" data-incentive="${emp.incentive_per_unit || 0}" ${emp.id === selectedEmpId ? 'selected' : ''}>
+      ${escapeHtml(emp.full_name)} · Pokok ${formatMoney(emp.daily_salary || 0)}/hr · Lembur ${formatMoney(emp.overtime_rate || 0)}/jam
     </option>`).join('');
 
   openDialog(record ? 'Ubah absensi harian' : 'Catat absensi harian', `
@@ -1245,12 +1712,21 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
         </label>
       </div>
 
+      <div class="form-row">
+        <label>Jam lembur hari ini (jam)
+          <input name="overtime_hours" id="att-ot-hours" type="number" min="0" max="24" step="0.5" value="${escapeHtml(initialOtHours)}" placeholder="0" />
+        </label>
+        <label>Tarif lembur pekerja (Rp/jam)
+          <input id="att-ot-rate" type="text" readonly style="background:#f9fbf9; color:#526b5c;" />
+        </label>
+      </div>
+
       <div class="formula-note" id="att-calc-summary">
         Menghitung estimasi upah...
       </div>
 
       <label>Catatan kehadiran / hasil kerja <span class="optional">(opsional)</span>
-        <input name="notes" id="att-notes" maxlength="200" value="${escapeHtml(initialNotes)}" placeholder="Contoh: Lembur 1 jam, potong bahan 200 lembar" />
+        <input name="notes" id="att-notes" maxlength="200" value="${escapeHtml(initialNotes)}" placeholder="Contoh: Lembur 1.5 jam, potong bahan 200 lembar" />
       </label>
 
       <div class="dialog-actions">
@@ -1264,11 +1740,14 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
   const statusSelect = form.querySelector('#att-status');
   const wageInput = form.querySelector('#att-daily-wage');
   const qtyInput = form.querySelector('#att-prod-qty');
+  const otHoursInput = form.querySelector('#att-ot-hours');
+  const otRateInput = form.querySelector('#att-ot-rate');
   const summaryBox = form.querySelector('#att-calc-summary');
 
   function calculateWage(autoFillWage = true) {
     const selectedOption = empSelect.selectedOptions[0];
     const dailySalary = Number(selectedOption?.dataset?.daily) || 0;
+    const overtimeRate = Number(selectedOption?.dataset?.overtime) || 0;
     const incentiveRate = Number(selectedOption?.dataset?.incentive) || 0;
     const status = statusSelect.value;
     const rateMultiplier = ATTENDANCE_LABELS[status]?.rate ?? 0;
@@ -1277,17 +1756,23 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     if (autoFillWage || wageInput.value === '') {
       wageInput.value = standardDailyWage;
     }
+    if (otRateInput) {
+      otRateInput.value = `${formatMoney(overtimeRate)} / jam`;
+    }
 
     const currentWage = Number(wageInput.value) || 0;
+    const otHours = Number(otHoursInput.value) || 0;
+    const otPay = Math.round(otHours * overtimeRate);
     const qty = Number(qtyInput.value) || 0;
     const incentiveAmount = Math.round(qty * incentiveRate);
-    const totalWage = currentWage + incentiveAmount;
+    const totalWage = currentWage + otPay + incentiveAmount;
 
     summaryBox.innerHTML = `
       <strong>Estimasi Nilai Kerja Hari Ini:</strong><br />
       • Upah pokok: <strong>${formatMoney(currentWage)}</strong> (${ATTENDANCE_LABELS[status]?.label || status})<br />
+      • Upah lembur: ${formatQuantity(otHours)} jam × ${formatMoney(overtimeRate)} = <strong style="color: #b86e1e;">${formatMoney(otPay)}</strong><br />
       • Insentif produksi: ${formatQuantity(qty)} unit × ${formatMoney(incentiveRate)} = <strong>${formatMoney(incentiveAmount)}</strong><br />
-      • <strong>Estimasi hari ini: ${formatMoney(totalWage)}</strong> (diakumulasi untuk gaji akhir bulan)
+      • <strong>Total estimasi hari ini: ${formatMoney(totalWage)}</strong> (diakumulasi untuk gaji akhir bulan)
     `;
   }
 
@@ -1295,6 +1780,7 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
   statusSelect.addEventListener('change', () => calculateWage(true));
   wageInput.addEventListener('input', () => calculateWage(false));
   qtyInput.addEventListener('input', () => calculateWage(false));
+  otHoursInput.addEventListener('input', () => calculateWage(false));
 
   if (record) {
     wageInput.value = record.daily_wage || record.base_salary;
@@ -1311,6 +1797,7 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     const status = formData.get('attendance_status');
     const dailyWage = Number(formData.get('daily_wage')) || 0;
     const prodQty = Number(formData.get('production_quantity')) || 0;
+    const otHours = Number(formData.get('overtime_hours')) || 0;
     const notes = (formData.get('notes') || '').trim();
 
     const emp = activeEmployees.find((e) => e.id === empId);
@@ -1319,9 +1806,11 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
       return;
     }
 
+    const otRate = Number(emp.overtime_rate) || 0;
+    const otPay = Math.round(otHours * otRate);
     const incentiveRate = emp.incentive_per_unit || 0;
     const incentiveAmount = Math.round(prodQty * incentiveRate);
-    const totalAmount = dailyWage + incentiveAmount;
+    const totalAmount = dailyWage + otPay + incentiveAmount;
 
     const payload = {
       employee_id: empId,
@@ -1330,6 +1819,9 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
       attendance_status: status,
       daily_wage: dailyWage,
       base_salary: dailyWage,
+      overtime_hours: otHours,
+      overtime_rate: otRate,
+      overtime_pay: otPay,
       production_quantity: prodQty,
       incentive_rate: incentiveRate,
       incentive_amount: incentiveAmount,
@@ -1421,8 +1913,44 @@ function csvCell(value) {
 }
 
 function downloadReport(month) {
-  const rows = [['Tanggal', 'Jenis catatan', 'Nama/rincian', 'Arah', 'Jumlah/unit', 'Nilai (IDR)', 'Status', 'Catatan']];
-  for (const item of monthRecords(state.inventory, month)) {
+  const inventory = monthRecords(state.inventory, month);
+  const cash = monthRecords(state.cash, month);
+  const activeEmployees = state.employees.filter((emp) => emp.is_active);
+  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, month));
+
+  const totalIn = cash.filter((r) => r.direction === 'in').reduce((sum, r) => sum + Number(r.amount), 0);
+  const cogsCash = cash.filter((r) => r.direction === 'out' && ((r.category || '').toLowerCase().includes('bahan') || (r.category || '').toLowerCase().includes('material') || (r.category || '').toLowerCase().includes('belanja'))).reduce((sum, r) => sum + Number(r.amount), 0);
+  const inventoryHpp = inventory.filter((inv) => inv.direction === 'out').reduce((sum, inv) => {
+    const prod = state.products.find((p) => p.id === inv.product_id);
+    return sum + (Number(inv.quantity) * (Number(prod?.purchase_price) || 0));
+  }, 0);
+  const totalCogs = cogsCash > 0 ? cogsCash : inventoryHpp;
+  const grossProfit = totalIn - totalCogs;
+  const grossMargin = totalIn > 0 ? ((grossProfit / totalIn) * 100).toFixed(1) : '0';
+
+  const totalPayroll = monthlyCalcs.reduce((sum, c) => sum + c.totalSalary, 0);
+  const operationalCash = cash.filter((r) => r.direction === 'out' && !(r.category || '').toLowerCase().includes('bahan') && !(r.category || '').toLowerCase().includes('material') && !(r.category || '').toLowerCase().includes('belanja')).reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalOperatingExpense = operationalCash + totalPayroll;
+  const netProfit = grossProfit - totalOperatingExpense;
+  const netMargin = totalIn > 0 ? ((netProfit / totalIn) * 100).toFixed(1) : '0';
+
+  const rows = [
+    ['RINGKASAN LAPORAN KEUANGAN & OPERASIONAL BULANAN'],
+    ['Periode Bulan', month],
+    ['Total Pendapatan Penjualan (Omzet)', totalIn],
+    ['Beban Pokok Penjualan (HPP / Bahan Baku)', totalCogs],
+    ['Laba Kotor (Gross Profit)', grossProfit],
+    ['Margin Laba Kotor', `${grossMargin}%`],
+    ['Total Beban Gaji & Upah Karyawan', totalPayroll],
+    ['Beban Operasional Lainnya', operationalCash],
+    ['Total Beban Operasional', totalOperatingExpense],
+    ['Laba Bersih Operasional (Net Profit)', netProfit],
+    ['Margin Laba Bersih', `${netMargin}%`],
+    [],
+    ['Tanggal', 'Jenis catatan', 'Nama/rincian', 'Arah', 'Jumlah/unit', 'Nilai (IDR)', 'Status', 'Catatan']
+  ];
+
+  for (const item of inventory) {
     rows.push([
       item.occurred_on,
       'Persediaan',
@@ -1434,35 +1962,36 @@ function downloadReport(month) {
       item.notes,
     ]);
   }
-  for (const item of monthRecords(state.cash, month)) {
+  for (const item of cash) {
+    const isIncome = item.direction === 'in';
+    const catLower = (item.category || '').toLowerCase();
+    const role = isIncome ? 'Pendapatan (Omzet)' : (catLower.includes('bahan') ? 'HPP / Bahan Baku' : 'Beban Operasional');
     rows.push([
       item.occurred_on,
       'Keuangan',
       item.category,
-      item.direction === 'in' ? 'Masuk' : 'Keluar',
+      isIncome ? 'Masuk' : 'Keluar',
       '',
       item.amount,
-      '',
+      role,
       item.description,
     ]);
   }
   if (state.isAdmin) {
-    const activeEmployees = state.employees.filter((emp) => emp.is_active);
     for (const emp of activeEmployees) {
       const calc = calculateMonthlySalary(emp, month);
       rows.push([
         `${month}-akhir`,
         'Gaji Bulanan',
-        `${emp.full_name} (${calc.effectiveDays} hari kerja efektif)`,
-        '',
+        `${emp.full_name} (${calc.effectiveDays} hari kerja, ${calc.totalOvertimeHours} jam lembur)`,
+        'Keluar',
         `${formatQuantity(calc.totalProduction)} unit`,
         calc.totalSalary,
         calc.isPaid ? 'Lunas' : 'Belum dibayar',
-        `Pokok: ${formatMoney(calc.baseSalary)} (${calc.present} Hadir, ${calc.halfDay} ½ Hari); Insentif: ${formatMoney(calc.incentiveAmount)}`.trim(),
+        `Pokok: ${formatMoney(calc.baseSalary)}; Lembur: ${formatMoney(calc.overtimeAmount)}; Insentif: ${formatMoney(calc.incentiveAmount)}`.trim(),
       ]);
     }
 
-    // Rincian absensi harian
     for (const item of monthRecords(state.payroll, month, 'work_date')) {
       const attLabel = ATTENDANCE_LABELS[item.attendance_status]?.label || item.attendance_status || 'Hadir';
       rows.push([
@@ -1472,8 +2001,8 @@ function downloadReport(month) {
         '',
         `${item.production_quantity || 0} unit`,
         item.total_amount,
-        '',
-        `Upah harian: ${formatMoney(item.daily_wage || item.base_salary)}; Insentif: ${formatMoney(item.incentive_amount)}; ${item.notes || ''}`.trim(),
+        item.overtime_hours > 0 ? `Lembur ${item.overtime_hours} jam` : '',
+        `Upah: ${formatMoney(item.daily_wage || item.base_salary)}; Lembur: ${formatMoney(item.overtime_pay || 0)}; Insentif: ${formatMoney(item.incentive_amount || 0)}; ${item.notes || ''}`.trim(),
       ]);
     }
   }
@@ -1571,6 +2100,9 @@ async function handlePageAction(event) {
       attendance_status: status,
       daily_wage: dailyWage,
       base_salary: dailyWage,
+      overtime_hours: 0,
+      overtime_rate: employee.overtime_rate || 0,
+      overtime_pay: 0,
       production_quantity: 0,
       incentive_rate: employee.incentive_per_unit || 0,
       incentive_amount: 0,
@@ -1653,6 +2185,8 @@ async function handlePageAction(event) {
       present_days: calc.present,
       half_days: calc.halfDay,
       base_amount: calc.baseSalary,
+      overtime_hours: calc.totalOvertimeHours,
+      overtime_amount: calc.overtimeAmount,
       production_quantity: calc.totalProduction,
       incentive_amount: calc.incentiveAmount,
       total_amount: calc.totalSalary,
@@ -1665,7 +2199,7 @@ async function handlePageAction(event) {
       direction: 'out',
       amount: calc.totalSalary,
       category: 'Gaji & Upah Karyawan',
-      description: `Gaji bulan ${month}: ${employee.full_name} (${calc.effectiveDays} hari kerja, ${formatQuantity(calc.totalProduction)} unit produksi)`,
+      description: `Gaji bulan ${month}: ${employee.full_name} (${calc.effectiveDays} hari kerja, ${formatQuantity(calc.totalOvertimeHours)} jam lembur, ${formatQuantity(calc.totalProduction)} unit produksi)`,
       occurred_on: localDate,
     };
 
@@ -1731,10 +2265,13 @@ async function handlePageAction(event) {
       return;
     }
     downloadReport(month);
+  } else if (action === 'filter-report') {
+    state.selectedReportFilter = button.dataset.filter || 'all';
+    renderPage();
+  } else if (action === 'view-report-detail') {
+    openReportDetailModal(button.dataset.type, button.dataset.id, state.selectedReportMonth || currentMonth);
   }
 }
-
-
 
 async function enterDemoWorkspace(role = 'admin') {
   state.isDemo = true;

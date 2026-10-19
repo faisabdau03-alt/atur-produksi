@@ -58,12 +58,14 @@ create table if not exists public.employees (
   position text not null default 'Produksi',
   daily_salary numeric(16, 2) not null default 0 check (daily_salary >= 0),
   monthly_salary numeric(16, 2) not null default 0 check (monthly_salary >= 0),
+  overtime_rate numeric(16, 2) not null default 0 check (overtime_rate >= 0),
   incentive_per_unit numeric(16, 2) not null default 0 check (incentive_per_unit >= 0),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
 alter table public.employees add column if not exists daily_salary numeric(16, 2) not null default 0 check (daily_salary >= 0);
+alter table public.employees add column if not exists overtime_rate numeric(16, 2) not null default 0 check (overtime_rate >= 0);
 
 create table if not exists public.payroll_records (
   id uuid primary key default gen_random_uuid(),
@@ -72,6 +74,8 @@ create table if not exists public.payroll_records (
   period date not null default current_date,
   attendance_status text not null default 'present' check (attendance_status in ('present', 'half_day', 'permit', 'sick', 'absent')),
   daily_wage numeric(16, 2) not null default 0 check (daily_wage >= 0),
+  overtime_hours numeric(6, 2) not null default 0 check (overtime_hours >= 0),
+  overtime_pay numeric(16, 2) not null default 0 check (overtime_pay >= 0),
   base_salary numeric(16, 2) not null default 0 check (base_salary >= 0),
   production_quantity numeric(14, 2) not null default 0 check (production_quantity >= 0),
   incentive_rate numeric(16, 2) not null default 0 check (incentive_rate >= 0),
@@ -88,6 +92,8 @@ alter table public.payroll_records drop constraint if exists payroll_records_per
 alter table public.payroll_records add column if not exists work_date date default current_date;
 alter table public.payroll_records add column if not exists attendance_status text default 'present';
 alter table public.payroll_records add column if not exists daily_wage numeric(16, 2) default 0;
+alter table public.payroll_records add column if not exists overtime_hours numeric(6, 2) default 0;
+alter table public.payroll_records add column if not exists overtime_pay numeric(16, 2) default 0;
 alter table public.payroll_records add column if not exists notes text default '';
 
 create index if not exists payroll_records_date_idx
@@ -100,6 +106,8 @@ create table if not exists public.payroll_payouts (
   effective_days numeric(6, 2) not null default 0,
   present_days int not null default 0,
   half_days int not null default 0,
+  overtime_hours numeric(8, 2) not null default 0,
+  overtime_amount numeric(18, 2) not null default 0,
   base_amount numeric(16, 2) not null default 0,
   production_quantity numeric(14, 2) not null default 0,
   incentive_amount numeric(18, 2) not null default 0,
@@ -111,8 +119,12 @@ create table if not exists public.payroll_payouts (
   unique (employee_id, period)
 );
 
+alter table public.payroll_payouts add column if not exists overtime_hours numeric(8, 2) default 0;
+alter table public.payroll_payouts add column if not exists overtime_amount numeric(18, 2) default 0;
+
 create index if not exists payroll_payouts_period_idx
   on public.payroll_payouts (period desc);
+
 
 
 create or replace function public.prevent_negative_stock()
