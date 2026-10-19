@@ -56,29 +56,42 @@ create table if not exists public.employees (
   id uuid primary key default gen_random_uuid(),
   full_name text not null,
   position text not null default 'Produksi',
-  monthly_salary numeric(16, 2) not null check (monthly_salary >= 0),
+  daily_salary numeric(16, 2) not null default 0 check (daily_salary >= 0),
+  monthly_salary numeric(16, 2) not null default 0 check (monthly_salary >= 0),
   incentive_per_unit numeric(16, 2) not null default 0 check (incentive_per_unit >= 0),
   is_active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
+alter table public.employees add column if not exists daily_salary numeric(16, 2) not null default 0 check (daily_salary >= 0);
+
 create table if not exists public.payroll_records (
   id uuid primary key default gen_random_uuid(),
   employee_id uuid not null references public.employees(id) on delete restrict,
-  period date not null check (period = date_trunc('month', period)::date),
-  production_quantity numeric(14, 2) not null check (production_quantity >= 0),
-  base_salary numeric(16, 2) not null check (base_salary >= 0),
-  incentive_rate numeric(16, 2) not null check (incentive_rate >= 0),
-  incentive_amount numeric(18, 2) generated always as (production_quantity * incentive_rate) stored,
-  total_amount numeric(18, 2) generated always as (base_salary + (production_quantity * incentive_rate)) stored,
+  work_date date not null default current_date,
+  period date not null default current_date,
+  attendance_status text not null default 'present' check (attendance_status in ('present', 'half_day', 'permit', 'sick', 'absent')),
+  daily_wage numeric(16, 2) not null default 0 check (daily_wage >= 0),
+  base_salary numeric(16, 2) not null default 0 check (base_salary >= 0),
+  production_quantity numeric(14, 2) not null default 0 check (production_quantity >= 0),
+  incentive_rate numeric(16, 2) not null default 0 check (incentive_rate >= 0),
+  incentive_amount numeric(18, 2) not null default 0 check (incentive_amount >= 0),
+  total_amount numeric(18, 2) not null default 0 check (total_amount >= 0),
   status text not null default 'pending' check (status in ('pending', 'paid')),
   paid_at timestamptz,
+  notes text not null default '',
   created_at timestamptz not null default now(),
-  unique (employee_id, period)
+  unique (employee_id, work_date)
 );
 
-create index if not exists payroll_records_period_idx
-  on public.payroll_records (period desc);
+alter table public.payroll_records drop constraint if exists payroll_records_period_check;
+alter table public.payroll_records add column if not exists work_date date default current_date;
+alter table public.payroll_records add column if not exists attendance_status text default 'present';
+alter table public.payroll_records add column if not exists daily_wage numeric(16, 2) default 0;
+alter table public.payroll_records add column if not exists notes text default '';
+
+create index if not exists payroll_records_date_idx
+  on public.payroll_records (work_date desc);
 
 create or replace function public.prevent_negative_stock()
 returns trigger

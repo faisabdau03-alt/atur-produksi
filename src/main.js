@@ -25,6 +25,7 @@ const state = {
   isAdmin: false,
   isDemo: false,
   page: 'dashboard',
+  selectedPayrollDate: localDate,
   products: [],
   inventory: [],
   cash: [],
@@ -34,7 +35,15 @@ const state = {
 let workspaceChannel = null;
 let refreshTimer = null;
 const AUTH_DOMAIN = '@perusahaan.id';
-const DEMO_STORAGE_KEY = 'atur_produksi_demo_v1';
+const DEMO_STORAGE_KEY = 'atur_produksi_demo_v2';
+
+const ATTENDANCE_LABELS = {
+  present: { label: 'Hadir', class: 'status-present', rate: 1 },
+  half_day: { label: '½ Hari', class: 'status-half_day', rate: 0.5 },
+  permit: { label: 'Izin', class: 'status-permit', rate: 0 },
+  sick: { label: 'Sakit', class: 'status-sick', rate: 0 },
+  absent: { label: 'Alpa', class: 'status-absent', rate: 0 },
+};
 
 function getInitialDemoData() {
   const p1 = 'p-01', p2 = 'p-02', p3 = 'p-03', p4 = 'p-04';
@@ -65,46 +74,58 @@ function getInitialDemoData() {
       { id: 'c-5', direction: 'out', amount: 450000, category: 'Perawatan', description: 'Maintenance mesin perekat dan pisau potong', occurred_on: `${currentMonth}-14` },
     ],
     employees: [
-      { id: e1, full_name: 'Budi Santoso', position: 'Operator Mesin Cetak & Potong', monthly_salary: 3200000, incentive_per_unit: 150, is_active: true },
-      { id: e2, full_name: 'Siti Aminah', position: 'Finishing & Quality Control', monthly_salary: 3000000, incentive_per_unit: 120, is_active: true },
-      { id: e3, full_name: 'Ahmad Fauzi', position: 'Logistik & Penataan Gudang', monthly_salary: 2850000, incentive_per_unit: 100, is_active: true },
+      { id: e1, full_name: 'Budi Santoso', position: 'Operator Mesin Cetak & Potong', daily_salary: 130000, monthly_salary: 3250000, incentive_per_unit: 150, is_active: true },
+      { id: e2, full_name: 'Siti Aminah', position: 'Finishing & Quality Control', daily_salary: 115000, monthly_salary: 2875000, incentive_per_unit: 120, is_active: true },
+      { id: e3, full_name: 'Ahmad Fauzi', position: 'Logistik & Penataan Gudang', daily_salary: 105000, monthly_salary: 2625000, incentive_per_unit: 100, is_active: true },
     ],
     payroll: [
       {
         id: 'pay-1',
         employee_id: e1,
-        period: `${currentMonth}-01`,
-        production_quantity: 3600,
-        base_salary: 3200000,
+        work_date: localDate,
+        period: localDate,
+        attendance_status: 'present',
+        daily_wage: 130000,
+        production_quantity: 160,
         incentive_rate: 150,
-        incentive_amount: 540000,
-        total_amount: 3740000,
+        incentive_amount: 24000,
+        total_amount: 154000,
+        base_salary: 130000,
         status: 'paid',
-        paid_at: `${currentMonth}-15T09:30:00.000Z`,
+        paid_at: `${localDate}T16:00:00.000Z`,
+        notes: 'Hadir shift penuh, target tercapai',
       },
       {
         id: 'pay-2',
         employee_id: e2,
-        period: `${currentMonth}-01`,
-        production_quantity: 4100,
-        base_salary: 3000000,
+        work_date: localDate,
+        period: localDate,
+        attendance_status: 'present',
+        daily_wage: 115000,
+        production_quantity: 210,
         incentive_rate: 120,
-        incentive_amount: 492000,
-        total_amount: 3492000,
+        incentive_amount: 25200,
+        total_amount: 140200,
+        base_salary: 115000,
         status: 'pending',
         paid_at: null,
+        notes: 'Finishing kemasan box',
       },
       {
         id: 'pay-3',
         employee_id: e3,
-        period: `${currentMonth}-01`,
-        production_quantity: 3250,
-        base_salary: 2850000,
+        work_date: localDate,
+        period: localDate,
+        attendance_status: 'half_day',
+        daily_wage: 52500,
+        production_quantity: 80,
         incentive_rate: 100,
-        incentive_amount: 325000,
-        total_amount: 3175000,
+        incentive_amount: 8000,
+        total_amount: 60500,
+        base_salary: 52500,
         status: 'pending',
         paid_at: null,
+        notes: 'Setengah hari izin keperluan keluarga',
       },
     ],
   };
@@ -197,8 +218,9 @@ function monthStart(month) {
 }
 
 function monthRecords(records, month, field = 'occurred_on') {
-  return records.filter((record) => record[field]?.slice(0, 7) === month);
+  return records.filter((record) => (record[field] || record.work_date || record.period)?.slice(0, 7) === month);
 }
+
 
 function stockFor(productId) {
   return state.inventory.reduce((balance, movement) => {
@@ -299,7 +321,7 @@ function renderShell() {
           ${navItem('inventory', '▦', 'Persediaan')}
           ${navItem('cash', '↗', 'Keuangan')}
           ${navItem('products', '◇', 'Produk')}
-          ${state.isAdmin ? `<div class="nav-section-label">MANAJEMEN</div>${navItem('payroll', '◎', 'Karyawan & gaji')}` : ''}
+          ${state.isAdmin ? `<div class="nav-section-label">MANAJEMEN</div>${navItem('payroll', '◎', 'Absensi & gaji')}` : ''}
           ${navItem('reports', '▤', 'Laporan')}
         </nav>
         <div class="sidebar-bottom">
@@ -428,37 +450,191 @@ function renderCash() {
 }
 
 function renderPayroll() {
-  const period = document.querySelector('#payroll-month')?.value || currentMonth;
-  const records = monthRecords(state.payroll, period, 'period');
-  const total = records.reduce((sum, record) => sum + Number(record.total_amount), 0);
+  const selectedDate = state.selectedPayrollDate || localDate;
   const employees = [...state.employees].sort((a, b) => a.full_name.localeCompare(b.full_name));
-  const employeeRows = employees.length ? `<div class="table-wrap"><table><thead><tr><th>NAMA KARYAWAN</th><th>JABATAN</th><th>GAJI POKOK</th><th>INSENTIF / UNIT</th><th>STATUS</th><th></th></tr></thead><tbody>
-    ${employees.map((employee) => `<tr><td class="detail-cell">${escapeHtml(employee.full_name)}</td><td>${escapeHtml(employee.position)}</td><td>${formatMoney(employee.monthly_salary)}</td><td>${formatMoney(employee.incentive_per_unit)}</td><td><span class="status-pill ${employee.is_active ? 'status-active' : 'status-inactive'}">${employee.is_active ? 'Aktif' : 'Tidak aktif'}</span></td><td class="align-right"><button class="icon-button" data-action="edit-employee" data-id="${escapeHtml(employee.id)}" aria-label="Ubah ${escapeHtml(employee.full_name)}">✎</button></td></tr>`).join('')}
-  </tbody></table></div>` : emptyState('Belum ada karyawan', 'Tambahkan karyawan untuk mulai mengatur gaji dan insentif.');
-  const payrollRows = records.length ? `<div class="table-wrap"><table><thead><tr><th>KARYAWAN</th><th>PRODUKSI</th><th>GAJI POKOK</th><th>INSENTIF</th><th>TOTAL GAJI</th><th>STATUS</th><th></th></tr></thead><tbody>
-    ${records.map((record) => `<tr><td class="detail-cell">${escapeHtml(record.employees?.full_name || 'Karyawan')}</td><td>${formatQuantity(record.production_quantity)} unit</td><td>${formatMoney(record.base_salary)}</td><td>${formatMoney(record.incentive_amount)}</td><td class="amount-cell">${formatMoney(record.total_amount)}</td><td><span class="status-pill ${record.status === 'paid' ? 'status-paid' : 'status-pending'}">${record.status === 'paid' ? 'Dibayar' : 'Belum dibayar'}</span></td><td class="align-right">${record.status === 'pending' ? `<button class="button button-small button-outline" data-action="mark-paid" data-id="${escapeHtml(record.id)}">Tandai dibayar</button>` : '—'}</td></tr>`).join('')}
-  </tbody></table></div>` : emptyState('Penggajian belum dibuat', 'Catat hasil produksi bulanan untuk menghitung gaji.') ;
-  return `${heading('MANAJEMEN', 'Karyawan & penggajian', 'Kelola gaji pokok dan insentif berdasarkan hasil produksi.', '<button class="button button-primary" data-action="add-employee"><span>＋</span> Tambah karyawan</button>')}
-    <section class="stats-grid compact-stats">${statCard('Karyawan aktif', quantityFormat.format(employees.filter((employee) => employee.is_active).length), `${employees.length} terdaftar`, '◎', 'icon-blue')}${statCard('Total penggajian', formatMoney(total), `periode ${escapeHtml(period)}`, '↗', 'icon-green')}${statCard('Belum dibayar', quantityFormat.format(records.filter((record) => record.status === 'pending').length), 'catatan penggajian bulan ini', '◷', 'icon-orange')}</section>
-    <section class="content-card"><div class="card-heading"><div><h2>Perhitungan penggajian</h2><p>Gaji pokok + (jumlah produksi × insentif per unit)</p></div><div class="payroll-controls"><input aria-label="Periode penggajian" class="month-input" id="payroll-month" type="month" value="${escapeHtml(period)}" /><button class="button button-outline" data-action="add-payroll">＋ Catat produksi</button></div></div>
-      ${payrollRows}</section>
-    <section class="content-card"><div class="card-heading"><div><h2>Daftar karyawan <span class="count-badge">${employees.length}</span></h2><p>Tarif gaji dan insentif saat ini</p></div></div>${employeeRows}</section>`;
+  const activeEmployees = employees.filter((employee) => employee.is_active);
+
+  const dateRecords = state.payroll.filter((r) => (r.work_date || r.period) === selectedDate);
+  const totalDateWage = dateRecords.reduce((sum, record) => sum + Number(record.total_amount), 0);
+  const presentCount = dateRecords.filter((record) => record.attendance_status === 'present').length;
+  const pendingRecords = state.payroll.filter((record) => record.status === 'pending');
+  const pendingAmount = pendingRecords.reduce((sum, record) => sum + Number(record.total_amount), 0);
+
+  const attendanceRows = activeEmployees.length ? `<div class="table-wrap"><table><thead><tr>
+    <th>NAMA PEKERJA</th>
+    <th>STATUS KEHADIRAN</th>
+    <th>UPAH POKOK</th>
+    <th>HASIL PRODUKSI</th>
+    <th>INSENTIF</th>
+    <th>TOTAL HARI INI</th>
+    <th>STATUS BAYAR</th>
+    <th class="align-right">AKSI CEPAT / KONTROL</th>
+  </tr></thead><tbody>
+    ${activeEmployees.map((emp) => {
+      const rec = dateRecords.find((r) => r.employee_id === emp.id);
+      if (rec) {
+        const attInfo = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status, class: 'status-present' };
+        const isPaid = rec.status === 'paid';
+        return `<tr>
+          <td class="detail-cell">
+            ${escapeHtml(emp.full_name)}
+            <span class="sub-meta">${escapeHtml(emp.position)}</span>
+          </td>
+          <td><span class="status-pill ${attInfo.class}">${attInfo.label}</span></td>
+          <td>${formatMoney(rec.daily_wage || rec.base_salary)}</td>
+          <td>${formatQuantity(rec.production_quantity)} unit</td>
+          <td>${formatMoney(rec.incentive_amount)}</td>
+          <td class="amount-cell">${formatMoney(rec.total_amount)}</td>
+          <td><span class="status-pill ${isPaid ? 'status-paid' : 'status-pending'}">${isPaid ? 'Dibayar' : 'Pending'}</span></td>
+          <td class="align-right">
+            ${!isPaid ? `<button class="button button-small button-outline" data-action="mark-daily-paid" data-id="${escapeHtml(rec.id)}" title="Bayar upah hari ini">Bayar</button>` : ''}
+            <button class="icon-button" data-action="edit-attendance" data-id="${escapeHtml(rec.id)}" aria-label="Ubah absensi">✎</button>
+            <button class="icon-button danger-icon" data-action="delete-attendance" data-id="${escapeHtml(rec.id)}" aria-label="Hapus absensi">×</button>
+          </td>
+        </tr>`;
+      }
+      return `<tr>
+        <td class="detail-cell">
+          ${escapeHtml(emp.full_name)}
+          <span class="sub-meta">${escapeHtml(emp.position)}</span>
+        </td>
+        <td><span class="status-pill status-unmarked">Belum absen</span></td>
+        <td><span class="sub-meta">Tarif ${formatMoney(emp.daily_salary || 0)}/hari</span></td>
+        <td><span class="sub-meta">—</span></td>
+        <td><span class="sub-meta">—</span></td>
+        <td><span class="sub-meta">—</span></td>
+        <td><span class="sub-meta">—</span></td>
+        <td class="align-right">
+          <div class="att-quick-bar">
+            <button type="button" class="att-btn att-btn-present" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="present" title="Absen Hadir Penuh">✓ Hadir</button>
+            <button type="button" class="att-btn att-btn-half" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="half_day" title="Absen Setengah Hari">½ Hari</button>
+            <button type="button" class="att-btn att-btn-permit" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="permit" title="Absen Izin">Izin</button>
+            <button type="button" class="att-btn att-btn-sick" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="sick" title="Absen Sakit">Sakit</button>
+            <button type="button" class="att-btn att-btn-absent" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="absent" title="Absen Alpa">Alpa</button>
+            <button type="button" class="icon-button" data-action="open-attendance-modal" data-id="${escapeHtml(emp.id)}" title="Input detail & kuantitas produksi">✎</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>` : emptyState('Belum ada karyawan aktif', 'Tambahkan karyawan terlebih dahulu untuk mulai mengabsen.');
+
+  const sortedPayroll = [...state.payroll].sort((a, b) => (b.work_date || b.period).localeCompare(a.work_date || a.period)).slice(0, 15);
+  const historyRows = sortedPayroll.length ? `<div class="table-wrap"><table><thead><tr>
+    <th>TANGGAL</th>
+    <th>PEKERJA</th>
+    <th>KEHADIRAN</th>
+    <th>PRODUKSI</th>
+    <th>UPAH POKOK</th>
+    <th>INSENTIF</th>
+    <th>TOTAL UPAH</th>
+    <th>STATUS</th>
+    <th>CATATAN</th>
+    <th class="align-right">AKSI</th>
+  </tr></thead><tbody>
+    ${sortedPayroll.map((rec) => {
+      const attInfo = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status || 'Hadir', class: 'status-present' };
+      const isPaid = rec.status === 'paid';
+      return `<tr>
+        <td class="date-cell">${formatDate(rec.work_date || rec.period)}</td>
+        <td class="detail-cell">${escapeHtml(rec.employees?.full_name || 'Karyawan')}</td>
+        <td><span class="status-pill ${attInfo.class}">${attInfo.label}</span></td>
+        <td>${formatQuantity(rec.production_quantity)} unit</td>
+        <td>${formatMoney(rec.daily_wage || rec.base_salary)}</td>
+        <td>${formatMoney(rec.incentive_amount)}</td>
+        <td class="amount-cell">${formatMoney(rec.total_amount)}</td>
+        <td><span class="status-pill ${isPaid ? 'status-paid' : 'status-pending'}">${isPaid ? 'Dibayar' : 'Pending'}</span></td>
+        <td class="detail-cell" style="font-weight: normal; font-size: 9px; color: #88938d;">${escapeHtml(rec.notes || '—')}</td>
+        <td class="align-right">
+          ${!isPaid ? `<button class="button button-small button-outline" data-action="mark-daily-paid" data-id="${escapeHtml(rec.id)}">Bayar</button>` : '—'}
+          <button class="icon-button" data-action="edit-attendance" data-id="${escapeHtml(rec.id)}" aria-label="Ubah data">✎</button>
+          <button class="icon-button danger-icon" data-action="delete-attendance" data-id="${escapeHtml(rec.id)}" aria-label="Hapus data">×</button>
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>` : emptyState('Belum ada riwayat absensi', 'Absensi dan upah harian yang dicatat akan muncul di sini.');
+
+  const employeeRows = employees.length ? `<div class="table-wrap"><table><thead><tr>
+    <th>NAMA KARYAWAN</th>
+    <th>JABATAN</th>
+    <th>UPAH POKOK / HARI</th>
+    <th>INSENTIF / UNIT</th>
+    <th>STATUS</th>
+    <th class="align-right">AKSI</th>
+  </tr></thead><tbody>
+    ${employees.map((employee) => `<tr>
+      <td class="detail-cell">${escapeHtml(employee.full_name)}</td>
+      <td>${escapeHtml(employee.position)}</td>
+      <td>${formatMoney(employee.daily_salary || 0)} / hari</td>
+      <td>${formatMoney(employee.incentive_per_unit || 0)} / unit</td>
+      <td><span class="status-pill ${employee.is_active ? 'status-active' : 'status-inactive'}">${employee.is_active ? 'Aktif' : 'Tidak aktif'}</span></td>
+      <td class="align-right"><button class="icon-button" data-action="edit-employee" data-id="${escapeHtml(employee.id)}" aria-label="Ubah ${escapeHtml(employee.full_name)}">✎</button></td>
+    </tr>`).join('')}
+  </tbody></table></div>` : emptyState('Belum ada karyawan', 'Tambahkan karyawan untuk mulai mengatur upah dan insentif.');
+
+  return `${heading('MANAJEMEN KARYAWAN', 'Absensi & gaji harian', 'Admin mencatat absensi realtime dan hasil produksi. Upah dihitung harian otomatis.', `
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="button button-outline" data-action="add-employee">＋ Karyawan baru</button>
+      <button class="button button-primary" data-action="open-attendance-modal"><span>＋</span> Catat absensi</button>
+    </div>`)}
+    <section class="stats-grid compact-stats">
+      ${statCard('Karyawan aktif', `${activeEmployees.length} orang`, `${employees.length} pekerja terdaftar`, '◎', 'icon-blue')}
+      ${statCard(`Kehadiran (${formatDate(selectedDate)})`, `${presentCount} / ${activeEmployees.length} hadir`, `${dateRecords.length} dari ${activeEmployees.length} telah diabsen`, '↗', 'icon-green')}
+      ${statCard(`Upah harian (${formatDate(selectedDate)})`, formatMoney(totalDateWage), `pokok & insentif tanggal ini`, '▦', 'icon-orange')}
+      ${statCard('Total upah pending', formatMoney(pendingAmount), `${pendingRecords.length} catatan belum dibayar`, '◷', 'icon-purple')}
+    </section>
+
+    <section class="content-card">
+      <div class="card-heading">
+        <div>
+          <h2>Absensi harian realtime <span class="count-badge">${dateRecords.length}/${activeEmployees.length}</span></h2>
+          <p>Tanggal kerja: <strong>${formatDate(selectedDate)}</strong></p>
+        </div>
+        <div class="payroll-controls">
+          <label class="month-label" for="attendance-date-picker">TANGGAL KERJA</label>
+          <input class="month-input" id="attendance-date-picker" type="date" value="${escapeHtml(selectedDate)}" />
+          <button class="button button-outline button-small" data-action="set-date-today">Hari ini</button>
+        </div>
+      </div>
+      ${attendanceRows}
+    </section>
+
+    <section class="content-card">
+      <div class="card-heading">
+        <div>
+          <h2>Riwayat absensi & upah terbaru</h2>
+          <p>Catatan kehadiran dan hasil kerja harian</p>
+        </div>
+        <span class="count-badge">${state.payroll.length} total</span>
+      </div>
+      ${historyRows}
+    </section>
+
+    <section class="content-card">
+      <div class="card-heading">
+        <div>
+          <h2>Master tarif upah karyawan <span class="count-badge">${employees.length}</span></h2>
+          <p>Tarif upah pokok harian dan insentif per unit produksi</p>
+        </div>
+      </div>
+      ${employeeRows}
+    </section>`;
 }
 
 function renderReports(month = currentMonth) {
   const inventory = monthRecords(state.inventory, month);
   const cash = monthRecords(state.cash, month);
-  const payroll = state.isAdmin ? monthRecords(state.payroll, month, 'period') : [];
+  const payroll = state.isAdmin ? monthRecords(state.payroll, month, 'work_date') : [];
   const totalIn = cash.filter((row) => row.direction === 'in').reduce((sum, row) => sum + Number(row.amount), 0);
   const totalOut = cash.filter((row) => row.direction === 'out').reduce((sum, row) => sum + Number(row.amount), 0);
+  const totalPayroll = payroll.reduce((sum, row) => sum + Number(row.total_amount), 0);
   const headingHtml = heading('ANALISIS', 'Laporan bulanan', 'Pilih periode untuk meninjau dan mengunduh catatan operasional.', '');
-  return `${headingHtml}<section class="content-card report-filter-card"><div><h2>Pilih periode laporan</h2><p>Data persediaan dan kas, serta penggajian untuk admin.</p></div>
+  return `${headingHtml}<section class="content-card report-filter-card"><div><h2>Pilih periode laporan</h2><p>Data persediaan dan kas, serta absensi & penggajian harian untuk admin.</p></div>
       <div class="report-controls"><label class="month-label" for="report-month">BULAN</label><input class="month-input" id="report-month" type="month" value="${escapeHtml(month)}" /><button class="button button-primary" data-action="download-report">↓ Unduh CSV</button></div>
     </section>
-    <section class="stats-grid compact-stats">${statCard('Barang masuk/keluar', quantityFormat.format(inventory.length), 'pergerakan barang periode ini', '▦', 'icon-blue')}${statCard('Pemasukan kas', formatMoney(totalIn), `${cash.filter((row) => row.direction === 'in').length} transaksi`, '↗', 'icon-green')}${statCard('Pengeluaran kas', formatMoney(totalOut), `${cash.filter((row) => row.direction === 'out').length} transaksi`, '↘', 'icon-orange')}${state.isAdmin ? statCard('Total penggajian', formatMoney(payroll.reduce((sum, row) => sum + Number(row.total_amount), 0)), `${payroll.length} catatan gaji`, '◎', 'icon-purple') : ''}</section>
+    <section class="stats-grid compact-stats">${statCard('Barang masuk/keluar', quantityFormat.format(inventory.length), 'pergerakan barang periode ini', '▦', 'icon-blue')}${statCard('Pemasukan kas', formatMoney(totalIn), `${cash.filter((row) => row.direction === 'in').length} transaksi`, '↗', 'icon-green')}${statCard('Pengeluaran kas', formatMoney(totalOut), `${cash.filter((row) => row.direction === 'out').length} transaksi`, '↘', 'icon-orange')}${state.isAdmin ? statCard('Total upah harian', formatMoney(totalPayroll), `${payroll.length} catatan absensi & upah`, '◎', 'icon-purple') : ''}</section>
     <section class="content-card"><div class="card-heading"><div><h2>Pratinjau laporan</h2><p>Transaksi kas dan persediaan pada ${escapeHtml(month)}</p></div><span class="count-badge">${inventory.length + cash.length + payroll.length} catatan</span></div>
       ${movementTable([...inventory.map((row) => ({ ...row, type: 'inventory' })), ...cash].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)), 10)}
-      ${payroll.length ? `<div class="report-payroll-preview"><strong>Catatan penggajian</strong><span>${payroll.length} karyawan · ${formatMoney(payroll.reduce((sum, row) => sum + Number(row.total_amount), 0))}</span></div>` : ''}</section>`;
+      ${payroll.length ? `<div class="report-payroll-preview"><strong>Rekap absensi & upah harian</strong><span>${payroll.length} catatan · ${formatMoney(totalPayroll)}</span></div>` : ''}</section>`;
 }
 
 function renderPage() {
@@ -467,7 +643,7 @@ function renderPage() {
     inventory: ['Persediaan', renderInventory],
     cash: ['Keuangan', renderCash],
     products: ['Produk', renderProducts],
-    payroll: ['Karyawan & gaji', renderPayroll],
+    payroll: ['Absensi & gaji', renderPayroll],
     reports: ['Laporan', renderReports],
   };
   if (!pages[state.page] || (state.page === 'payroll' && !state.isAdmin)) state.page = 'dashboard';
@@ -479,11 +655,13 @@ function renderPage() {
   content.onchange = (event) => {
     if (event.target.id === 'report-month') {
       content.innerHTML = renderReports(event.target.value || currentMonth);
-    } else if (event.target.id === 'payroll-month') {
+    } else if (event.target.id === 'attendance-date-picker') {
+      state.selectedPayrollDate = event.target.value || localDate;
       renderPage();
     }
   };
 }
+
 
 async function refreshData() {
   if (state.isDemo) {
@@ -513,7 +691,7 @@ async function refreshData() {
   if (state.isAdmin) {
     requests.push(
       supabase.from('employees').select('*').order('full_name'),
-      supabase.from('payroll_records').select('*, employees(full_name)').order('period', { ascending: false }),
+      supabase.from('payroll_records').select('*, employees(full_name, daily_salary, incentive_per_unit)').order('work_date', { ascending: false }),
     );
   }
   const results = await Promise.all(requests);
@@ -833,22 +1011,26 @@ function cashForm() {
 }
 
 function employeeForm(employee = null) {
-  openDialog(employee ? 'Ubah data karyawan' : 'Tambah karyawan', `<form id="employee-form" class="form-stack">
-    <label>Nama lengkap<input name="full_name" maxlength="120" value="${escapeHtml(employee?.full_name || '')}" placeholder="Nama karyawan" required /></label>
-    <label>Jabatan<input name="position" maxlength="80" value="${escapeHtml(employee?.position || 'Produksi')}" placeholder="Produksi" required /></label>
-    <div class="form-row"><label>Gaji pokok per bulan (Rp)<input name="monthly_salary" type="number" min="0" step="1" value="${escapeHtml(employee?.monthly_salary ?? '')}" placeholder="0" required /></label>
-    <label>Insentif per unit (Rp)<input name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="0" required /></label></div>
+  openDialog(employee ? 'Ubah data karyawan' : 'Tambah karyawan baru', `<form id="employee-form" class="form-stack">
+    <label>Nama lengkap<input name="full_name" maxlength="120" value="${escapeHtml(employee?.full_name || '')}" placeholder="Nama lengkap karyawan" required /></label>
+    <label>Jabatan<input name="position" maxlength="80" value="${escapeHtml(employee?.position || 'Produksi')}" placeholder="Contoh: Operator Mesin Cetak, Finishing, QC" required /></label>
+    <div class="form-row">
+      <label>Upah pokok per hari (Rp)<input name="daily_salary" type="number" min="0" step="1" value="${escapeHtml(employee?.daily_salary ?? '')}" placeholder="Contoh: 120000" required /></label>
+      <label>Insentif per unit produksi (Rp)<input name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="Contoh: 150" required /></label>
+    </div>
     ${employee ? `<label class="checkbox-label"><input name="is_active" type="checkbox" ${employee.is_active ? 'checked' : ''} /> Karyawan aktif</label>` : ''}
     <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">${employee ? 'Simpan perubahan' : 'Simpan karyawan'}</button></div>
   </form>`);
   document.querySelector('#employee-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const dailySalary = Number(form.get('daily_salary')) || 0;
     const payload = {
       full_name: form.get('full_name').trim(),
       position: form.get('position').trim(),
-      monthly_salary: Number(form.get('monthly_salary')),
-      incentive_per_unit: Number(form.get('incentive_per_unit')),
+      daily_salary: dailySalary,
+      monthly_salary: dailySalary * 25,
+      incentive_per_unit: Number(form.get('incentive_per_unit')) || 0,
     };
     if (employee) payload.is_active = form.has('is_active');
     await runMutation(async () => {
@@ -868,91 +1050,223 @@ function employeeForm(employee = null) {
   });
 }
 
-function payrollForm() {
+function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) {
   const activeEmployees = state.employees.filter((employee) => employee.is_active);
   if (!activeEmployees.length) {
     notify('Tambahkan karyawan aktif terlebih dahulu.', 'error');
     return;
   }
-  const options = activeEmployees.map((employee) => `<option value="${escapeHtml(employee.id)}">${escapeHtml(employee.full_name)} · pokok ${formatMoney(employee.monthly_salary)} · insentif ${formatMoney(employee.incentive_per_unit)}/unit</option>`).join('');
-  openDialog('Catat produksi bulanan', `<form id="payroll-form" class="form-stack">
-    <label>Karyawan<select name="employee_id" required>${options}</select></label>
-    <div class="form-row"><label>Periode<input name="period" type="month" value="${currentMonth}" required /></label><label>Jumlah produksi (unit)<input name="production_quantity" type="number" min="0" step="0.01" placeholder="0" required /></label></div>
-    <div class="formula-note">Total gaji dihitung dari gaji pokok + (jumlah produksi × tarif insentif).</div>
-    <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">Hitung penggajian</button></div>
-  </form>`);
-  document.querySelector('#payroll-form').addEventListener('submit', async (event) => {
+  const selectedEmpId = record?.employee_id || defaultEmpId || activeEmployees[0].id;
+  const targetDate = record?.work_date || record?.period || defaultDate || state.selectedPayrollDate || localDate;
+  const initialStatus = record?.attendance_status || 'present';
+  const initialQty = record?.production_quantity ?? 0;
+  const initialNotes = record?.notes || '';
+
+  const employeeOptions = activeEmployees.map((emp) => `
+    <option value="${escapeHtml(emp.id)}" data-daily="${emp.daily_salary || 0}" data-incentive="${emp.incentive_per_unit || 0}" ${emp.id === selectedEmpId ? 'selected' : ''}>
+      ${escapeHtml(emp.full_name)} · Upah ${formatMoney(emp.daily_salary || 0)}/hari · Insentif ${formatMoney(emp.incentive_per_unit || 0)}/unit
+    </option>`).join('');
+
+  openDialog(record ? 'Ubah absensi & upah harian' : 'Catat absensi & upah harian', `
+    <form id="attendance-form" class="form-stack">
+      <label>Karyawan
+        <select name="employee_id" id="att-employee" required ${record ? 'disabled' : ''}>${employeeOptions}</select>
+      </label>
+      <div class="form-row">
+        <label>Tanggal kerja
+          <input name="work_date" id="att-date" type="date" value="${escapeHtml(targetDate)}" required ${record ? 'readonly' : ''} />
+        </label>
+        <label>Status kehadiran
+          <select name="attendance_status" id="att-status" required>
+            <option value="present" ${initialStatus === 'present' ? 'selected' : ''}>Hadir Penuh (100% Upah Pokok)</option>
+            <option value="half_day" ${initialStatus === 'half_day' ? 'selected' : ''}>Setengah Hari (50% Upah Pokok)</option>
+            <option value="permit" ${initialStatus === 'permit' ? 'selected' : ''}>Izin (0% Upah Pokok)</option>
+            <option value="sick" ${initialStatus === 'sick' ? 'selected' : ''}>Sakit (0% Upah Pokok)</option>
+            <option value="absent" ${initialStatus === 'absent' ? 'selected' : ''}>Alpa / Tanpa Keterangan (0% Upah Pokok)</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <label>Upah pokok hari ini (Rp)
+          <input name="daily_wage" id="att-daily-wage" type="number" min="0" step="1" required />
+        </label>
+        <label>Jumlah produksi hari ini (unit)
+          <input name="production_quantity" id="att-prod-qty" type="number" min="0" step="0.01" value="${escapeHtml(initialQty)}" placeholder="0" />
+        </label>
+      </div>
+
+      <div class="formula-note" id="att-calc-summary">
+        Menghitung rincian upah...
+      </div>
+
+      <label>Catatan kehadiran / hasil kerja <span class="optional">(opsional)</span>
+        <input name="notes" id="att-notes" maxlength="200" value="${escapeHtml(initialNotes)}" placeholder="Contoh: Lembur 1 jam, potong bahan 200 lembar" />
+      </label>
+
+      ${!record || record.status === 'pending' ? `
+        <label class="checkbox-label" style="margin-top: 4px;">
+          <input name="mark_paid" id="att-mark-paid" type="checkbox" />
+          <span><strong>Langsung bayar & potong kas operasional</strong> (status otomatis Dibayar)</span>
+        </label>
+      ` : `
+        <div class="formula-note" style="background: #edf7f0; color: #216f4c;">
+          ✓ Catatan upah ini sudah dibayar pada ${formatDate(record.paid_at || targetDate)}.
+        </div>
+      `}
+
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
+        <button class="button button-primary" type="submit">${record ? 'Simpan perubahan' : 'Simpan absensi'}</button>
+      </div>
+    </form>`);
+
+  const form = document.querySelector('#attendance-form');
+  const empSelect = form.querySelector('#att-employee');
+  const statusSelect = form.querySelector('#att-status');
+  const wageInput = form.querySelector('#att-daily-wage');
+  const qtyInput = form.querySelector('#att-prod-qty');
+  const summaryBox = form.querySelector('#att-calc-summary');
+
+  function calculateWage(autoFillWage = true) {
+    const selectedOption = empSelect.selectedOptions[0];
+    const dailySalary = Number(selectedOption?.dataset?.daily) || 0;
+    const incentiveRate = Number(selectedOption?.dataset?.incentive) || 0;
+    const status = statusSelect.value;
+    const rateMultiplier = ATTENDANCE_LABELS[status]?.rate ?? 0;
+    const standardDailyWage = Math.round(dailySalary * rateMultiplier);
+
+    if (autoFillWage || wageInput.value === '') {
+      wageInput.value = standardDailyWage;
+    }
+
+    const currentWage = Number(wageInput.value) || 0;
+    const qty = Number(qtyInput.value) || 0;
+    const incentiveAmount = Math.round(qty * incentiveRate);
+    const totalWage = currentWage + incentiveAmount;
+
+    summaryBox.innerHTML = `
+      <strong>Rincian Perhitungan Upah:</strong><br />
+      • Upah pokok: <strong>${formatMoney(currentWage)}</strong> (${ATTENDANCE_LABELS[status]?.label || status})<br />
+      • Insentif produksi: ${formatQuantity(qty)} unit × ${formatMoney(incentiveRate)} = <strong>${formatMoney(incentiveAmount)}</strong><br />
+      • <strong>Total upah hari ini: ${formatMoney(totalWage)}</strong>
+    `;
+  }
+
+  empSelect.addEventListener('change', () => calculateWage(true));
+  statusSelect.addEventListener('change', () => calculateWage(true));
+  wageInput.addEventListener('input', () => calculateWage(false));
+  qtyInput.addEventListener('input', () => calculateWage(false));
+
+  if (record) {
+    wageInput.value = record.daily_wage || record.base_salary;
+    calculateWage(false);
+  } else {
+    calculateWage(true);
+  }
+
+  form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const employee = activeEmployees.find((item) => item.id === form.get('employee_id'));
-    if (!employee) {
-      showError('Pilih karyawan yang masih aktif.');
-      return;
-    }
-    const period = monthStart(form.get('period'));
-    const prodQty = Number(form.get('production_quantity'));
+    const formData = new FormData(form);
+    const empId = record ? record.employee_id : formData.get('employee_id');
+    const workDate = record ? (record.work_date || record.period) : formData.get('work_date');
+    const status = formData.get('attendance_status');
+    const dailyWage = Number(formData.get('daily_wage')) || 0;
+    const prodQty = Number(formData.get('production_quantity')) || 0;
+    const notes = (formData.get('notes') || '').trim();
+    const shouldMarkPaid = formData.has('mark_paid');
 
-    if (state.isDemo) {
-      const existing = state.payroll.find((p) => p.employee_id === employee.id && p.period === period);
-      if (existing?.status === 'paid') {
-        showError('Penggajian periode ini sudah dibayar dan tidak dapat dihitung ulang.');
-        return;
-      }
-      const incentiveAmount = prodQty * employee.incentive_per_unit;
-      const totalAmount = employee.monthly_salary + incentiveAmount;
-      const payload = {
-        employee_id: employee.id,
-        period,
-        production_quantity: prodQty,
-        base_salary: employee.monthly_salary,
-        incentive_rate: employee.incentive_per_unit,
-        incentive_amount: incentiveAmount,
-        total_amount: totalAmount,
-        status: 'pending',
-        paid_at: null,
-      };
-      if (existing) {
-        demoStore.update('payroll', existing.id, payload);
-      } else {
-        demoStore.insert('payroll', payload);
-      }
-      document.querySelector('#app-dialog').close();
-      await refreshData();
-      renderShell();
-      notify('Perhitungan penggajian berhasil disimpan.');
+    const emp = activeEmployees.find((e) => e.id === empId);
+    if (!emp) {
+      showError('Data karyawan tidak valid.');
       return;
     }
 
-    const { data: existing, error: lookupError } = await supabase.from('payroll_records')
-      .select('id, status')
-      .eq('employee_id', employee.id)
-      .eq('period', period)
-      .maybeSingle();
-    if (lookupError) {
-      showError(`Gagal memeriksa penggajian: ${lookupError.message}`);
-      return;
-    }
-    if (existing?.status === 'paid') {
-      showError('Penggajian periode ini sudah dibayar dan tidak dapat dihitung ulang.');
-      return;
-    }
+    const incentiveRate = emp.incentive_per_unit || 0;
+    const incentiveAmount = Math.round(prodQty * incentiveRate);
+    const totalAmount = dailyWage + incentiveAmount;
+    const newStatus = (record?.status === 'paid') ? 'paid' : (shouldMarkPaid ? 'paid' : 'pending');
+    const paidAt = newStatus === 'paid' ? (record?.paid_at || new Date().toISOString()) : null;
+
     const payload = {
-      employee_id: employee.id,
-      period,
+      employee_id: empId,
+      work_date: workDate,
+      period: workDate,
+      attendance_status: status,
+      daily_wage: dailyWage,
+      base_salary: dailyWage,
       production_quantity: prodQty,
-      base_salary: employee.monthly_salary,
-      incentive_rate: employee.incentive_per_unit,
-      status: 'pending',
-      paid_at: null,
+      incentive_rate: incentiveRate,
+      incentive_amount: incentiveAmount,
+      total_amount: totalAmount,
+      status: newStatus,
+      paid_at: paidAt,
+      notes,
     };
+
     await runMutation(async () => {
-      const result = existing
-        ? await supabase.from('payroll_records').update(payload).eq('id', existing.id)
-        : await supabase.from('payroll_records').insert(payload);
-      return result.error;
-    }, 'Perhitungan penggajian berhasil disimpan.');
+      if (state.isDemo) {
+        if (record) {
+          demoStore.update('payroll', record.id, payload);
+        } else {
+          const existing = state.payroll.find((p) => p.employee_id === empId && (p.work_date || p.period) === workDate);
+          if (existing) {
+            demoStore.update('payroll', existing.id, payload);
+          } else {
+            demoStore.insert('payroll', payload);
+          }
+        }
+
+        if (shouldMarkPaid && totalAmount > 0 && record?.status !== 'paid') {
+          demoStore.insert('cash', {
+            direction: 'out',
+            amount: totalAmount,
+            category: 'Gaji & Upah Karyawan',
+            description: `Upah harian ${emp.full_name} tanggal ${formatDate(workDate)} (${ATTENDANCE_LABELS[status]?.label || status})`,
+            occurred_on: workDate,
+          });
+        }
+        return null;
+      }
+
+      if (record) {
+        const { error } = await supabase.from('payroll_records').update(payload).eq('id', record.id);
+        if (error) return error;
+      } else {
+        const { data: existing } = await supabase.from('payroll_records')
+          .select('id')
+          .eq('employee_id', empId)
+          .eq('work_date', workDate)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase.from('payroll_records').update(payload).eq('id', existing.id);
+          if (error) return error;
+        } else {
+          const { error } = await supabase.from('payroll_records').insert(payload);
+          if (error) return error;
+        }
+      }
+
+      if (shouldMarkPaid && totalAmount > 0 && record?.status !== 'paid') {
+        const { error: cashError } = await supabase.from('cash_transactions').insert({
+          direction: 'out',
+          amount: totalAmount,
+          category: 'Gaji & Upah Karyawan',
+          description: `Upah harian ${emp.full_name} tanggal ${formatDate(workDate)} (${ATTENDANCE_LABELS[status]?.label || status})`,
+          occurred_on: workDate,
+        });
+        if (cashError) return cashError;
+      }
+      return null;
+    }, shouldMarkPaid && totalAmount > 0 ? 'Absensi dan pembayaran kas berhasil dicatat.' : 'Catatan absensi berhasil disimpan.');
   });
 }
+
+function payrollForm() {
+  attendanceForm();
+}
+
 
 async function runMutation(operation, successMessage) {
   const submit = document.querySelector('#dialog-content form button[type="submit"]');
@@ -1020,16 +1334,17 @@ function downloadReport(month) {
     ]);
   }
   if (state.isAdmin) {
-    for (const item of monthRecords(state.payroll, month, 'period')) {
+    for (const item of monthRecords(state.payroll, month, 'work_date')) {
+      const attLabel = ATTENDANCE_LABELS[item.attendance_status]?.label || item.attendance_status || 'Hadir';
       rows.push([
-        item.period,
-        'Penggajian',
-        item.employees?.full_name || 'Karyawan',
+        item.work_date || item.period,
+        'Penggajian Harian',
+        `${item.employees?.full_name || 'Karyawan'} (${attLabel})`,
         '',
-        `${item.production_quantity} unit`,
+        `${item.production_quantity || 0} unit`,
         item.total_amount,
         item.status === 'paid' ? 'Lunas' : 'Belum dibayar',
-        `Gaji pokok: ${item.base_salary}; insentif: ${item.incentive_amount}`,
+        `Pokok: ${formatMoney(item.daily_wage || item.base_salary)}; Insentif: ${formatMoney(item.incentive_amount)}; ${item.notes || ''}`.trim(),
       ]);
     }
   }
@@ -1037,7 +1352,7 @@ function downloadReport(month) {
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `laporan-produksi-${month}.csv`;
+  link.download = `laporan-operasional-${month}.csv`;
   document.body.append(link);
   link.click();
   link.remove();
@@ -1102,39 +1417,151 @@ async function handlePageAction(event) {
     employeeForm();
   } else if (action === 'edit-employee') {
     employeeForm(state.employees.find((employee) => employee.id === id));
-  } else if (action === 'add-payroll') {
-    payrollForm();
-  } else if (action === 'mark-paid') {
-    if (!window.confirm('Tandai penggajian ini sebagai sudah dibayar?')) return;
+  } else if (action === 'open-attendance-modal' || action === 'add-payroll') {
+    attendanceForm(null, id || null, state.selectedPayrollDate);
+  } else if (action === 'edit-attendance') {
+    attendanceForm(state.payroll.find((p) => p.id === id));
+  } else if (action === 'set-date-today') {
+    state.selectedPayrollDate = localDate;
+    renderPage();
+  } else if (action === 'quick-attendance') {
+    const employeeId = id;
+    const status = button.dataset.status || 'present';
+    const employee = state.employees.find((emp) => emp.id === employeeId);
+    if (!employee) return;
+
+    const targetDate = state.selectedPayrollDate || localDate;
+    const rateMultiplier = ATTENDANCE_LABELS[status]?.rate ?? 0;
+    const dailyWage = Math.round((employee.daily_salary || 0) * rateMultiplier);
+    const totalAmount = dailyWage;
+
+    const payload = {
+      employee_id: employeeId,
+      work_date: targetDate,
+      period: targetDate,
+      attendance_status: status,
+      daily_wage: dailyWage,
+      base_salary: dailyWage,
+      production_quantity: 0,
+      incentive_rate: employee.incentive_per_unit || 0,
+      incentive_amount: 0,
+      total_amount: totalAmount,
+      status: 'pending',
+      paid_at: null,
+      notes: `Absen cepat ${ATTENDANCE_LABELS[status]?.label || status}`,
+    };
+
+    if (state.isDemo) {
+      const existing = state.payroll.find((p) => p.employee_id === employeeId && (p.work_date || p.period) === targetDate);
+      if (existing) {
+        demoStore.update('payroll', existing.id, payload);
+      } else {
+        demoStore.insert('payroll', payload);
+      }
+      await refreshData();
+      renderShell();
+      notify(`Absensi ${employee.full_name} (${ATTENDANCE_LABELS[status]?.label || status}) berhasil dicatat.`);
+      return;
+    }
+
+    const { data: existing, error: findError } = await supabase.from('payroll_records')
+      .select('id')
+      .eq('employee_id', employeeId)
+      .eq('work_date', targetDate)
+      .maybeSingle();
+
+    if (findError) {
+      showError(`Gagal memeriksa absensi: ${findError.message}`);
+      return;
+    }
+
+    const { error: saveError } = existing
+      ? await supabase.from('payroll_records').update(payload).eq('id', existing.id)
+      : await supabase.from('payroll_records').insert(payload);
+
+    if (saveError) {
+      showError(`Gagal mencatat absensi: ${saveError.message}`);
+      return;
+    }
+
+    await refreshData();
+    renderShell();
+    notify(`Absensi ${employee.full_name} (${ATTENDANCE_LABELS[status]?.label || status}) berhasil dicatat.`);
+  } else if (action === 'delete-attendance') {
+    const record = state.payroll.find((p) => p.id === id);
+    if (!record || !window.confirm('Hapus catatan absensi & upah ini?')) return;
+
+    if (state.isDemo) {
+      demoStore.delete('payroll', id);
+      await refreshData();
+      renderShell();
+      notify('Catatan absensi berhasil dihapus.');
+      return;
+    }
+
+    const { error } = await supabase.from('payroll_records').delete().eq('id', id);
+    if (error) {
+      showError(`Gagal menghapus absensi: ${error.message}`);
+      return;
+    }
+    await refreshData();
+    renderShell();
+    notify('Catatan absensi berhasil dihapus.');
+  } else if (action === 'mark-daily-paid' || action === 'mark-paid') {
+    const record = state.payroll.find((p) => p.id === id);
+    if (!record) return;
+    const empName = record.employees?.full_name || 'Karyawan';
+    const amount = Number(record.total_amount) || 0;
+    const targetDate = record.work_date || record.period || localDate;
+
+    if (!window.confirm(`Tandai upah ${empName} sebesar ${formatMoney(amount)} sebagai sudah dibayar?\nSistem otomatis mencatat pengeluaran kas operasional.`)) return;
+
     if (state.isDemo) {
       demoStore.update('payroll', id, {
         status: 'paid',
         paid_at: new Date().toISOString(),
       });
+      if (amount > 0) {
+        demoStore.insert('cash', {
+          direction: 'out',
+          amount,
+          category: 'Gaji & Upah Karyawan',
+          description: `Upah harian ${empName} tanggal ${formatDate(targetDate)} (${ATTENDANCE_LABELS[record.attendance_status]?.label || 'Hadir'})`,
+          occurred_on: targetDate,
+        });
+      }
       await refreshData();
       renderShell();
-      notify('Penggajian ditandai sudah dibayar.');
+      notify(`Upah ${empName} berhasil dibayar dan dicatat ke kas.`);
       return;
     }
-    const { data, error } = await supabase.from('payroll_records').update({
+
+    const { error: payError } = await supabase.from('payroll_records').update({
       status: 'paid',
       paid_at: new Date().toISOString(),
-    }).eq('id', id).eq('status', 'pending').select('id').maybeSingle();
-    if (error) {
-      showError(`Status pembayaran gagal diperbarui: ${error.message}`);
+    }).eq('id', id);
+
+    if (payError) {
+      showError(`Status pembayaran gagal diperbarui: ${payError.message}`);
       return;
     }
-    if (!data) {
-      showError('Catatan penggajian sudah berubah. Muat ulang halaman untuk melihat status terbaru.');
-      return;
+
+    if (amount > 0) {
+      const { error: cashError } = await supabase.from('cash_transactions').insert({
+        direction: 'out',
+        amount,
+        category: 'Gaji & Upah Karyawan',
+        description: `Upah harian ${empName} tanggal ${formatDate(targetDate)} (${ATTENDANCE_LABELS[record.attendance_status]?.label || 'Hadir'})`,
+        occurred_on: targetDate,
+      });
+      if (cashError) {
+        showError(`Status upah terbayar, namun kas gagal dicatat: ${cashError.message}`);
+      }
     }
-    try {
-      await refreshData();
-      renderShell();
-      notify('Penggajian ditandai sudah dibayar.');
-    } catch (refreshError) {
-      showError(`Status tersimpan, tetapi tampilan gagal diperbarui: ${refreshError.message}`);
-    }
+
+    await refreshData();
+    renderShell();
+    notify(`Upah ${empName} berhasil dibayar dan dicatat ke kas.`);
   } else if (action === 'reset-demo') {
     if (!window.confirm('Reset data demo ke kondisi awal? Seluruh perubahan lokal akan dikembalikan.')) return;
     demoStore.reset();
@@ -1150,6 +1577,7 @@ async function handlePageAction(event) {
     downloadReport(month);
   }
 }
+
 
 async function enterDemoWorkspace(role = 'admin') {
   state.isDemo = true;

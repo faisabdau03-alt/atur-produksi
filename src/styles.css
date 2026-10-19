@@ -110,6 +110,22 @@ td:first-child, th:first-child { padding-left: 4px; }
 .status-active, .status-paid { background: #edf7f0; color: #318054; }
 .status-inactive { background: #f2f3f2; color: #7e8884; }
 .status-pending { background: #fff4e7; color: #a97534; }
+.status-present { background: #edf7f0; color: #29865c; }
+.status-half_day { background: #fef7e7; color: #b87414; }
+.status-permit { background: #eaf1fb; color: #3b71af; }
+.status-sick { background: #f4ecf8; color: #8755a8; }
+.status-absent { background: #fdeeee; color: #c44040; }
+.status-unmarked { background: #f6f8f7; color: #8c9792; border: 1px dashed #d5ded9; }
+.att-quick-bar { display: inline-flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+.att-btn { display: inline-flex; align-items: center; justify-content: center; height: 26px; padding: 0 7px; border: 1px solid #dce4e0; border-radius: 5px; background: #fff; color: #43544c; font-size: 9px; font-weight: 600; transition: all .15s ease; white-space: nowrap; }
+.att-btn:hover { transform: translateY(-1px); }
+.att-btn-present:hover { background: #edf7f0; color: #23744f; border-color: #72b995; }
+.att-btn-half:hover { background: #fef7e7; color: #9c6312; border-color: #dec07d; }
+.att-btn-permit:hover { background: #eaf1fb; color: #2b5d95; border-color: #92b7e2; }
+.att-btn-sick:hover { background: #f4ecf8; color: #6a3a8d; border-color: #c8abd9; }
+.att-btn-absent:hover { background: #fdeeee; color: #ab2828; border-color: #e29c9c; }
+.sub-meta { display: block; margin-top: 2px; color: #8e9a94; font-size: 9px; font-weight: 400; }
+
 .empty-state { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; color: #a0aaa5; text-align: center; font-size: 10px; }
 .empty-state strong { color: #52615a; font-size: 12px; }
 .empty-icon { display: grid; width: 35px; height: 35px; place-items: center; border-radius: 10px; background: #f1f5f2; color: #6a927c; font-size: 18px; }
