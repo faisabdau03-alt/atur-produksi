@@ -389,12 +389,31 @@ function movementTable(records, limit = records.length) {
     ${rows.map((row) => {
       const inventory = 'product_id' in row;
       const directionIn = row.direction === 'in';
+      const notes = row.notes || '';
+      const isProduction = inventory && (notes.includes('Hasil Produksi') || notes.toLowerCase().includes('produksi'));
+      const isUsage = inventory && !directionIn && (notes.includes('Pemakaian') || notes.toLowerCase().includes('internal') || notes.toLowerCase().includes('reject'));
+
       const detail = inventory
         ? `${row.products?.name || 'Produk'}${row.notes ? ` · ${row.notes}` : ''}`
         : `${row.category}${row.description ? ` · ${row.description}` : ''}`;
+
+      let pillLabel = directionIn ? 'Masuk' : 'Keluar';
+      let pillClass = directionIn ? 'pill-in' : 'pill-out';
+      let pillStyle = '';
+
+      if (isProduction) {
+        pillLabel = '🏭 Produksi';
+        pillStyle = 'background: #edf7f0; color: #187554; border: 1px solid #b7e2c9; font-weight: 700;';
+      } else if (isUsage) {
+        pillLabel = '📦 Pemakaian';
+        pillStyle = 'background: #fff8e1; color: #855900; border: 1px solid #ffe082; font-weight: 600;';
+      } else if (inventory) {
+        pillLabel = directionIn ? '🛒 Beli' : '🚚 Jual';
+      }
+
       return `<tr><td class="date-cell">${formatDate(row.occurred_on)}</td><td>${inventory ? 'Barang' : 'Kas'}</td>
         <td class="detail-cell">${escapeHtml(detail)}</td>
-        <td><span class="direction-pill ${directionIn ? 'pill-in' : 'pill-out'}"><span></span>${directionIn ? 'Masuk' : 'Keluar'}</span></td>
+        <td><span class="direction-pill ${pillClass}" style="${pillStyle}"><span></span>${pillLabel}</span></td>
         <td class="align-right amount-cell">${inventory ? `${directionIn ? '+' : '−'}${formatQuantity(row.quantity)} ${escapeHtml(row.products?.unit || '')}` : `${directionIn ? '+' : '−'}${formatMoney(row.amount)}`}</td></tr>`;
     }).join('')}
     </tbody></table></div>`;
@@ -438,7 +457,11 @@ function renderProducts() {
 
 function renderInventory() {
   const products = [...state.products].sort((a, b) => a.name.localeCompare(b.name));
-  return `${heading('OPERASIONAL', 'Persediaan barang', 'Catat setiap barang masuk dan keluar agar stok tetap terpantau.', '<button class="button button-primary" data-action="add-inventory"><span>＋</span> Catat pergerakan</button>')}
+  return `${heading('OPERASIONAL', 'Persediaan barang', 'Catat setiap barang masuk dan keluar agar stok tetap terpantau.', `
+    <div style="display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;">
+      <button class="button button-primary" data-action="add-production" style="background:#187554;"><span>🏭</span> Tambah hasil produksi</button>
+      <button class="button button-outline" data-action="add-inventory"><span>＋</span> Catat pergerakan</button>
+    </div>`)}
     <section class="stats-grid compact-stats">${statCard('Jenis produk tersedia', quantityFormat.format(products.filter((product) => stockFor(product.id) > 0).length), 'produk dengan stok di atas nol', '◇', 'icon-blue')}${statCard('Pergerakan bulan ini', quantityFormat.format(monthRecords(state.inventory, currentMonth).length), 'barang masuk dan keluar', '▦', 'icon-orange')}</section>
     <section class="content-card"><div class="card-heading"><div><h2>Riwayat pergerakan</h2><p>Catatan stok terbaru</p></div></div>
     ${state.inventory.length ? movementTable(state.inventory.filter((row) => row.product_id), state.inventory.length) : emptyState('Belum ada pergerakan', 'Catat barang masuk untuk mulai mengelola persediaan.')}</section>`;
@@ -707,17 +730,43 @@ function openReportDetailModal(type, id, month = currentMonth) {
     if (!rec) return;
     const prod = state.products.find((p) => p.id === rec.product_id) || rec.products;
     const isIn = rec.direction === 'in';
+    const notes = rec.notes || '';
+    const isProduction = isIn && (notes.includes('Hasil Produksi') || notes.toLowerCase().includes('produksi'));
+    const isUsage = !isIn && (notes.includes('Pemakaian') || notes.toLowerCase().includes('internal') || notes.toLowerCase().includes('reject'));
     const purchasePrice = Number(prod?.purchase_price) || 0;
     const sellingPrice = Number(prod?.selling_price) || 0;
     const qty = Number(rec.quantity) || 0;
     const totalCost = Math.round(qty * purchasePrice);
     const totalSale = Math.round(qty * sellingPrice);
 
-    openDialog(`Pratinjau Pergerakan Barang — ${isIn ? 'Barang Masuk' : 'Barang Keluar'}`, `
+    const titleModal = isProduction
+      ? 'Pratinjau Hasil Produksi Sendiri — Barang Masuk'
+      : (isUsage ? 'Pratinjau Pemakaian Internal / Reject' : `Pratinjau Pergerakan Barang — ${isIn ? 'Barang Masuk' : 'Barang Keluar'}`);
+
+    let directionLabel = isIn ? 'Barang Masuk (Penerimaan Stok)' : 'Barang Keluar (Pengiriman / Pemakaian)';
+    let pillStyle = '';
+    if (isProduction) {
+      directionLabel = '🏭 Hasil Produksi Sendiri (Stok Masuk)';
+      pillStyle = 'background: #edf7f0; color: #187554; border: 1px solid #b7e2c9; font-weight: 700;';
+    } else if (isUsage) {
+      directionLabel = '📦 Pemakaian Internal / Reject (Stok Berkurang)';
+      pillStyle = 'background: #fff8e1; color: #855900; border: 1px solid #ffe082; font-weight: 600;';
+    }
+
+    let operationalClassification = isIn
+      ? 'Penerimaan Stok Gudang (Menambah Persediaan)'
+      : 'Barang Keluar Gudang (Pengiriman Pesanan / Terjual)';
+    if (isProduction) {
+      operationalClassification = 'Hasil Produksi Mandiri Pabrik. Menambah stok barang jadi tanpa beban kas belanja (karena biaya bahan & gaji telah dicatat terpisah).';
+    } else if (isUsage) {
+      operationalClassification = 'Pemakaian Operasional / Afkir Reject. Mengurangi stok fisik tanpa uang masuk.';
+    }
+
+    openDialog(titleModal, `
       <div class="slip-box">
         <div class="slip-row">
           <span>Arah Pergerakan:</span>
-          <strong><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}"><span></span>${isIn ? 'Barang Masuk (Penerimaan Stok)' : 'Barang Keluar (Pengiriman / Pemakaian)'}</span></strong>
+          <strong><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}" style="${pillStyle}"><span></span>${directionLabel}</span></strong>
         </div>
         <div class="slip-row">
           <span>Tanggal:</span>
@@ -749,7 +798,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
         </div>
         <div class="slip-row">
           <span>Klasifikasi Operasional:</span>
-          <strong style="color: #176d51; font-size: 11px;">${isIn ? 'Penerimaan Stok Gudang (Menambah Persediaan)' : 'Barang Keluar Gudang (Pengiriman Pesanan / Terjual)'}</strong>
+          <strong style="color: #176d51; font-size: 11px;">${operationalClassification}</strong>
         </div>
       </div>
       <div class="dialog-actions">
@@ -1229,12 +1278,33 @@ function renderReports(month = currentMonth) {
         if (item.itemType === 'inventory') {
           const prod = item.products || state.products.find((p) => p.id === item.product_id);
           const isIn = item.direction === 'in';
+          const notes = item.notes || '';
+          const isProd = isIn && (notes.includes('Hasil Produksi') || notes.toLowerCase().includes('produksi'));
+          const isUsg = !isIn && (notes.includes('Pemakaian') || notes.toLowerCase().includes('internal') || notes.toLowerCase().includes('reject'));
+
+          let pillLabel = isIn ? 'Masuk' : 'Keluar';
+          let pillStyle = '';
+          let statusLabel = `Stok ${isIn ? 'Masuk' : 'Keluar'}`;
+          let statusPillClass = isIn ? 'status-present' : 'status-inactive';
+
+          if (isProd) {
+            pillLabel = '🏭 Produksi';
+            pillStyle = 'background: #edf7f0; color: #187554; border: 1px solid #b7e2c9; font-weight: 700;';
+            statusLabel = 'Hasil Produksi';
+            statusPillClass = 'status-active';
+          } else if (isUsg) {
+            pillLabel = '📦 Pemakaian';
+            pillStyle = 'background: #fff8e1; color: #855900; border: 1px solid #ffe082; font-weight: 600;';
+            statusLabel = 'Pemakaian/Reject';
+            statusPillClass = 'status-pending';
+          }
+
           return `<tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Klik untuk melihat detail pergerakan barang">
             <td class="date-cell">${formatDate(item.occurred_on)}</td>
             <td><strong>Persediaan</strong></td>
             <td class="detail-cell">${escapeHtml(prod?.name || 'Produk')}${item.notes ? `<span class="sub-meta">${escapeHtml(item.notes)}</span>` : ''}</td>
-            <td><span class="status-pill status-present" style="font-size: 8px;">Stok ${isIn ? 'Masuk' : 'Keluar'}</span></td>
-            <td><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}"><span></span>${isIn ? 'Masuk' : 'Keluar'}</span></td>
+            <td><span class="status-pill ${statusPillClass}" style="font-size: 8px;">${statusLabel}</span></td>
+            <td><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}" style="${pillStyle}"><span></span>${pillLabel}</span></td>
             <td class="align-right amount-cell">${isIn ? '+' : '−'}${formatQuantity(item.quantity)} ${escapeHtml(prod?.unit || 'unit')}</td>
             <td class="align-right">
               <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Pratinjau pergerakan barang">🔍</button>
@@ -1822,39 +1892,72 @@ function productForm(product = null) {
   });
 }
 
-function inventoryForm() {
+function inventoryForm(initialType = 'in_production', initialProductId = null) {
   if (!state.products.length) {
     notify('Tambahkan produk terlebih dahulu sebelum mencatat persediaan.', 'error');
     state.page = 'products';
     renderShell();
     return;
   }
+  const defaultPid = initialProductId || state.products[0]?.id;
   const options = state.products.map((product) => `
-    <option value="${escapeHtml(product.id)}" data-purchase="${product.purchase_price || 0}" data-selling="${product.selling_price || 0}" data-unit="${escapeHtml(product.unit)}">
+    <option value="${escapeHtml(product.id)}" data-purchase="${product.purchase_price || 0}" data-selling="${product.selling_price || 0}" data-unit="${escapeHtml(product.unit)}" ${product.id === defaultPid ? 'selected' : ''}>
       ${escapeHtml(product.name)} · stok ${formatQuantity(stockFor(product.id))} ${escapeHtml(product.unit)}
     </option>`).join('');
 
-  openDialog('Catat pergerakan barang', `
+  const dialogTitle = initialType === 'in_production' ? 'Tambah Stok Hasil Produksi Pabrik' : 'Catat pergerakan barang';
+
+  openDialog(dialogTitle, `
     <form id="inventory-form" class="form-stack">
-      <label>Produk<select name="product_id" id="inv-product" required>${options}</select></label>
+      <label>Jenis pergerakan
+        <select name="movement_type" id="inv-movement-type" required>
+          <option value="in_production" ${initialType === 'in_production' ? 'selected' : ''}>🏭 Barang Masuk: Hasil Produksi Sendiri (Barang Jadi)</option>
+          <option value="in_purchase" ${initialType === 'in_purchase' ? 'selected' : ''}>🛒 Barang Masuk: Belanja / Beli dari Supplier (Bahan Baku / Kulakan)</option>
+          <option value="out_sale" ${initialType === 'out_sale' ? 'selected' : ''}>🚚 Barang Keluar: Penjualan ke Pelanggan (Pesanan Kirim)</option>
+          <option value="out_usage" ${initialType === 'out_usage' ? 'selected' : ''}>📦 Barang Keluar: Pemakaian Internal / Reject (Rusak)</option>
+        </select>
+      </label>
+
+      <label>Produk yang dicatat<select name="product_id" id="inv-product" required>${options}</select></label>
+      
       <div class="form-row">
-        <label>Jenis pergerakan
-          <select name="direction" id="inv-direction" required>
-            <option value="in">Barang Masuk (Belanja / Beli)</option>
-            <option value="out">Barang Keluar (Penjualan)</option>
-          </select>
+        <label>Jumlah unit
+          <input name="quantity" id="inv-qty" type="number" min="0.01" step="0.01" placeholder="0" required />
         </label>
-        <label>Jumlah<input name="quantity" id="inv-qty" type="number" min="0.01" step="0.01" placeholder="0" required /></label>
+        <label>Tanggal pergerakan
+          <input name="occurred_on" type="date" value="${localDate}" required />
+        </label>
       </div>
 
-      <div class="formula-note" id="inv-cash-box" style="margin: 3px 0 4px; padding: 12px 14px; border-radius: 8px;">
+      <!-- Info Box Khusus Hasil Produksi -->
+      <div class="formula-note" id="inv-prod-info" style="margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #edf7f0; border-left: 4px solid #187554; color: #187554;">
+        <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
+          <span>🏭</span> Produksi Pabrik Sendiri
+        </div>
+        <div style="font-size: 11px; line-height: 1.5; color: #205c3d;">
+          Stok fisik barang jadi akan <strong>bertambah</strong> tanpa memotong kas belanja perusahaan. Biaya bahan baku dan gaji pekerja pabrik telah dicatat terpisah pada buku kas dan absensi harian.
+        </div>
+      </div>
+
+      <!-- Info Box Pemakaian Internal / Reject -->
+      <div class="formula-note" id="inv-usage-info" style="display: none; margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #fff8e1; border-left: 4px solid #fbc02d; color: #7f6000;">
+        <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
+          <span>📦</span> Pemakaian Internal / Reject (Rusak)
+        </div>
+        <div style="font-size: 11px; line-height: 1.5; color: #6d4c00;">
+          Stok fisik akan <strong>berkurang</strong> karena digunakan untuk keperluan internal pabrik, sampel, atau afkir (rusak). Transaksi keuangan tidak terpengaruh.
+        </div>
+      </div>
+
+      <!-- Cash Box untuk Pembelian Supplier atau Penjualan Pelanggan -->
+      <div class="formula-note" id="inv-cash-box" style="display: none; margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px;">
         <label class="checkbox-label" style="font-weight: 700; color: #187554; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
           <input type="checkbox" name="sync_cash" id="inv-sync-cash" checked />
           <span>Sinkronkan ke Keuangan Otomatis</span>
         </label>
         <div id="inv-cash-fields">
           <div class="form-row">
-            <label id="inv-unit-price-label">Harga Beli Satuan (Rp)
+            <label id="inv-unit-price-label">Harga Satuan (Rp)
               <input name="unit_price" id="inv-unit-price" type="number" min="0" step="1" placeholder="0" />
             </label>
             <label>Total Nominal Kas (Rp)
@@ -1862,13 +1965,15 @@ function inventoryForm() {
             </label>
           </div>
           <div id="inv-cash-desc" style="font-size: 10px; color: #3a6850; margin-top: 6px; line-height: 1.5;">
-            💡 Dicatat sebagai <strong>Kas Keluar (Belanja Barang)</strong>.
+            💡 Dicatat otomatis ke buku kas.
           </div>
         </div>
       </div>
 
-      <label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label>
-      <label>Catatan / Keterangan <span class="optional">(opsional)</span><input name="notes" maxlength="240" placeholder="Keterangan transaksi atau nama supplier/pembeli" /></label>
+      <label>Catatan / Keterangan <span class="optional">(opsional)</span>
+        <input name="notes" id="inv-notes" maxlength="240" placeholder="Keterangan pergerakan atau nama supplier/pembeli" />
+      </label>
+      
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
         <button class="button button-primary" type="submit">Simpan catatan</button>
@@ -1877,89 +1982,126 @@ function inventoryForm() {
 
   const form = document.querySelector('#inventory-form');
   const productSelect = form.querySelector('#inv-product');
-  const dirSelect = form.querySelector('#inv-direction');
+  const moveTypeSelect = form.querySelector('#inv-movement-type');
   const qtyInput = form.querySelector('#inv-qty');
   const syncCash = form.querySelector('#inv-sync-cash');
+  const cashBox = form.querySelector('#inv-cash-box');
   const cashFields = form.querySelector('#inv-cash-fields');
+  const prodInfo = form.querySelector('#inv-prod-info');
+  const usageInfo = form.querySelector('#inv-usage-info');
   const priceLabel = form.querySelector('#inv-unit-price-label');
   const unitPriceInput = form.querySelector('#inv-unit-price');
   const totalAmountInput = form.querySelector('#inv-total-amount');
   const cashDesc = form.querySelector('#inv-cash-desc');
+  const notesInput = form.querySelector('#inv-notes');
 
-  function updatePricing(autoFill = true) {
+  function updateTypeState(autoFill = true) {
+    const type = moveTypeSelect.value;
     const selectedOption = productSelect.selectedOptions[0];
-    const isIncoming = dirSelect.value === 'in';
-    const defaultPrice = Number(isIncoming ? selectedOption?.dataset.purchase : selectedOption?.dataset.selling) || 0;
 
-    if (autoFill) {
-      unitPriceInput.value = defaultPrice || '';
-    }
-
-    priceLabel.childNodes[0].nodeValue = isIncoming ? 'Harga Beli Satuan (Rp) ' : 'Harga Jual Satuan (Rp) ';
-
-    const qty = Number(qtyInput.value) || 0;
-    const unitPrice = Number(unitPriceInput.value) || 0;
-    const calcTotal = Math.round(qty * unitPrice);
-
-    if (autoFill || !totalAmountInput.value) {
-      totalAmountInput.value = calcTotal || '';
-    }
-
-    const currentTotal = Number(totalAmountInput.value) || calcTotal;
-    if (isIncoming) {
-      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Keluar (Belanja Barang)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+    if (type === 'in_production') {
+      prodInfo.style.display = 'block';
+      usageInfo.style.display = 'none';
+      cashBox.style.display = 'none';
+      syncCash.checked = false;
+      notesInput.placeholder = 'Contoh: Selesai rakit 500 box, Shift Pagi, Batch #10';
+    } else if (type === 'out_usage') {
+      prodInfo.style.display = 'none';
+      usageInfo.style.display = 'block';
+      cashBox.style.display = 'none';
+      syncCash.checked = false;
+      notesInput.placeholder = 'Contoh: Pemakaian internal pabrik, sampel display, atau afkir rusak';
     } else {
-      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Masuk (Penjualan Produk)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+      prodInfo.style.display = 'none';
+      usageInfo.style.display = 'none';
+      cashBox.style.display = 'block';
+      syncCash.checked = true;
+      cashFields.style.display = 'block';
+
+      const isPurchase = type === 'in_purchase';
+      const defaultPrice = Number(isPurchase ? selectedOption?.dataset.purchase : selectedOption?.dataset.selling) || 0;
+      if (autoFill) {
+        unitPriceInput.value = defaultPrice || '';
+      }
+      priceLabel.childNodes[0].nodeValue = isPurchase ? 'Harga Beli Satuan (Rp) ' : 'Harga Jual Satuan (Rp) ';
+      notesInput.placeholder = isPurchase ? 'Contoh: Supplier PT ABC, Nota #123' : 'Contoh: Kirim ke Toko Berkah, Faktur #456';
+
+      const qty = Number(qtyInput.value) || 0;
+      const unitPrice = Number(unitPriceInput.value) || 0;
+      const calcTotal = Math.round(qty * unitPrice);
+
+      if (autoFill || !totalAmountInput.value) {
+        totalAmountInput.value = calcTotal || '';
+      }
+
+      const currentTotal = Number(totalAmountInput.value) || calcTotal;
+      if (isPurchase) {
+        cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Keluar (Belanja Bahan Baku / Barang)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+      } else {
+        cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Masuk (Penjualan Produk)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
+      }
     }
   }
 
-  productSelect.addEventListener('change', () => updatePricing(true));
-  dirSelect.addEventListener('change', () => updatePricing(true));
+  productSelect.addEventListener('change', () => updateTypeState(true));
+  moveTypeSelect.addEventListener('change', () => updateTypeState(true));
   qtyInput.addEventListener('input', () => {
     const qty = Number(qtyInput.value) || 0;
     const unitPrice = Number(unitPriceInput.value) || 0;
     totalAmountInput.value = Math.round(qty * unitPrice) || '';
-    updatePricing(false);
+    updateTypeState(false);
   });
   unitPriceInput.addEventListener('input', () => {
     const qty = Number(qtyInput.value) || 0;
     const unitPrice = Number(unitPriceInput.value) || 0;
     totalAmountInput.value = Math.round(qty * unitPrice) || '';
-    updatePricing(false);
+    updateTypeState(false);
   });
-  totalAmountInput.addEventListener('input', () => updatePricing(false));
+  totalAmountInput.addEventListener('input', () => updateTypeState(false));
   syncCash.addEventListener('change', () => {
     cashFields.style.display = syncCash.checked ? 'block' : 'none';
   });
 
-  updatePricing(true);
+  updateTypeState(true);
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const pId = formData.get('product_id');
-    const dir = formData.get('direction');
+    const moveType = formData.get('movement_type');
+    const dir = (moveType === 'in_production' || moveType === 'in_purchase') ? 'in' : 'out';
     const qty = Number(formData.get('quantity'));
     const occ = formData.get('occurred_on');
-    const notes = formData.get('notes').trim();
-    const shouldSyncCash = formData.has('sync_cash');
+    const rawNotes = formData.get('notes').trim();
+    const shouldSyncCash = (moveType === 'in_purchase' || moveType === 'out_sale') && formData.has('sync_cash');
     const totalAmount = Number(formData.get('total_amount')) || 0;
 
     const product = state.products.find((item) => item.id === pId);
     const prodName = product?.name || 'Produk';
     const prodUnit = product?.unit || 'unit';
 
+    let formattedNotes = rawNotes;
+    if (moveType === 'in_production') {
+      formattedNotes = rawNotes ? `[Hasil Produksi] ${rawNotes}` : '[Hasil Produksi] Selesai produksi pabrik';
+    } else if (moveType === 'out_usage') {
+      formattedNotes = rawNotes ? `[Pemakaian Internal] ${rawNotes}` : '[Pemakaian Internal] Operasional / Reject';
+    } else if (moveType === 'in_purchase' && rawNotes) {
+      formattedNotes = rawNotes.startsWith('[Beli]') ? rawNotes : `[Beli] ${rawNotes}`;
+    } else if (moveType === 'out_sale' && rawNotes) {
+      formattedNotes = rawNotes.startsWith('[Penjualan]') ? rawNotes : `[Penjualan] ${rawNotes}`;
+    }
+
     await runMutation(async () => {
       if (state.isDemo) {
         if (dir === 'out' && qty > stockFor(pId)) {
-          return { message: `Stok tidak mencukupi. Stok tersedia: ${formatQuantity(stockFor(pId))}` };
+          return { message: `Stok tidak mencukupi. Stok saat ini: ${formatQuantity(stockFor(pId))} ${prodUnit}` };
         }
         demoStore.insert('inventory', {
           product_id: pId,
           direction: dir,
           quantity: qty,
           occurred_on: occ,
-          notes,
+          notes: formattedNotes,
         });
 
         if (shouldSyncCash && totalAmount > 0) {
@@ -1968,12 +2110,16 @@ function inventoryForm() {
             amount: totalAmount,
             category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
             description: dir === 'in'
-              ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`
-              : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`,
+              ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`
+              : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`,
             occurred_on: occ,
           });
         }
         return null;
+      }
+
+      if (dir === 'out' && qty > stockFor(pId)) {
+        return { message: `Stok tidak mencukupi. Stok saat ini: ${formatQuantity(stockFor(pId))} ${prodUnit}` };
       }
 
       const { error: invError } = await supabase.from('inventory_movements').insert({
@@ -1981,7 +2127,7 @@ function inventoryForm() {
         direction: dir,
         quantity: qty,
         occurred_on: occ,
-        notes,
+        notes: formattedNotes,
       });
       if (invError) return invError;
 
@@ -1991,16 +2137,18 @@ function inventoryForm() {
           amount: totalAmount,
           category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
           description: dir === 'in'
-            ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`
-            : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${notes ? ` · ${notes}` : ''}`,
+            ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`
+            : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`,
           occurred_on: occ,
         });
         if (cashError) return cashError;
       }
       return null;
-    }, shouldSyncCash && totalAmount > 0
-      ? 'Pergerakan barang dan transaksi kas berhasil dicatat.'
-      : 'Pergerakan barang berhasil dicatat.');
+    }, moveType === 'in_production'
+      ? `Stok hasil produksi (${formatQuantity(qty)} ${prodUnit} ${prodName}) berhasil ditambahkan ke persediaan.`
+      : (shouldSyncCash && totalAmount > 0
+        ? 'Pergerakan barang dan transaksi kas berhasil dicatat.'
+        : 'Pergerakan barang berhasil dicatat.'));
   });
 }
 
@@ -2168,6 +2316,21 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
         </label>
       </div>
 
+      ${state.products.length && !record ? `
+      <div id="att-sync-box" style="display: ${initialQty > 0 ? 'block' : 'none'}; margin: 3px 0 6px; padding: 10px 12px; background: #edf7f0; border: 1px solid #c2e7cc; border-radius: 8px;">
+        <label class="checkbox-label" style="font-weight: 600; color: #187554; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 6px;">
+          <input type="checkbox" name="sync_to_stock" id="att-sync-stock" />
+          <span>🏭 Masukkan hasil produksi ini langsung ke stok persediaan</span>
+        </label>
+        <div id="att-sync-prod-wrap" style="display: none; margin-top: 6px;">
+          <label style="font-size: 11px; color: #285e43;">Pilih produk yang dihasilkan:
+            <select name="sync_product_id" id="att-sync-prod-id" style="margin-top: 4px;">
+              ${state.products.map((p) => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.name)} (${escapeHtml(p.unit)})</option>`).join('')}
+            </select>
+          </label>
+        </div>
+      </div>` : ''}
+
       <div class="form-row">
         <label>Jam lembur hari ini (jam)
           <input name="overtime_hours" id="att-ot-hours" type="number" min="0" max="24" step="0.5" value="${escapeHtml(initialOtHours)}" placeholder="0" />
@@ -2199,6 +2362,15 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
   const otHoursInput = form.querySelector('#att-ot-hours');
   const otRateInput = form.querySelector('#att-ot-rate');
   const summaryBox = form.querySelector('#att-calc-summary');
+  const syncBox = form.querySelector('#att-sync-box');
+  const syncStockCheck = form.querySelector('#att-sync-stock');
+  const syncProdWrap = form.querySelector('#att-sync-prod-wrap');
+
+  if (syncBox && syncStockCheck && syncProdWrap) {
+    syncStockCheck.addEventListener('change', () => {
+      syncProdWrap.style.display = syncStockCheck.checked ? 'block' : 'none';
+    });
+  }
 
   function calculateWage(autoFillDefaults = true) {
     const selectedOption = empSelect.selectedOptions[0];
@@ -2231,6 +2403,14 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
       • Insentif produksi: ${formatQuantity(qty)} unit × ${formatMoney(incentiveRate)} = <strong>${formatMoney(incentiveAmount)}</strong><br />
       • <strong>Total estimasi hari ini: ${formatMoney(totalWage)}</strong> (diakumulasi untuk gaji akhir bulan)
     `;
+
+    if (syncBox) {
+      syncBox.style.display = qty > 0 ? 'block' : 'none';
+      if (qty <= 0 && syncStockCheck) {
+        syncStockCheck.checked = false;
+        if (syncProdWrap) syncProdWrap.style.display = 'none';
+      }
+    }
   }
 
   empSelect.addEventListener('change', () => calculateWage(true));
@@ -2261,6 +2441,8 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     const otHours = Number(formData.get('overtime_hours')) || 0;
     const otRate = Number(formData.get('overtime_rate')) || 0;
     const notes = (formData.get('notes') || '').trim();
+    const shouldSyncStock = !record && formData.has('sync_to_stock') && prodQty > 0;
+    const syncProdId = formData.get('sync_product_id');
 
     const emp = activeEmployees.find((e) => e.id === empId);
     if (!emp) {
@@ -2302,6 +2484,16 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
             demoStore.insert('payroll', payload);
           }
         }
+
+        if (shouldSyncStock && syncProdId) {
+          demoStore.insert('inventory', {
+            product_id: syncProdId,
+            direction: 'in',
+            quantity: prodQty,
+            occurred_on: workDate,
+            notes: `[Hasil Produksi] Pekerja: ${emp.full_name}${notes ? ` · ${notes}` : ''}`,
+          });
+        }
         return null;
       }
 
@@ -2323,8 +2515,22 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
           if (error) return error;
         }
       }
+
+      if (shouldSyncStock && syncProdId) {
+        const { error: invErr } = await supabase.from('inventory_movements').insert({
+          product_id: syncProdId,
+          direction: 'in',
+          quantity: prodQty,
+          occurred_on: workDate,
+          notes: `[Hasil Produksi] Pekerja: ${emp.full_name}${notes ? ` · ${notes}` : ''}`,
+        });
+        if (invErr) return invErr;
+      }
+
       return null;
-    }, 'Catatan absensi berhasil disimpan.');
+    }, shouldSyncStock
+      ? `Catatan absensi disimpan & ${formatQuantity(prodQty)} unit hasil produksi ditambahkan ke stok persediaan.`
+      : 'Catatan absensi berhasil disimpan.');
   });
 }
 
@@ -2506,7 +2712,11 @@ async function handlePageAction(event) {
   if (action === 'close-dialog') {
     document.querySelector('#app-dialog').close();
   } else if (action === 'quick-entry') {
-    openDialog('Catat transaksi', `<div class="quick-actions"><button class="quick-action-card" data-action="add-inventory"><span class="quick-action-icon icon-blue">▦</span><strong>Pergerakan barang</strong><small>Catat stok masuk atau keluar</small><span class="quick-action-arrow">→</span></button><button class="quick-action-card" data-action="add-cash"><span class="quick-action-icon icon-green">↗</span><strong>Transaksi kas</strong><small>Catat uang masuk atau keluar</small><span class="quick-action-arrow">→</span></button></div>`);
+    openDialog('Catat transaksi', `<div class="quick-actions">
+      <button class="quick-action-card" data-action="add-production"><span class="quick-action-icon" style="background:#edf7f0; color:#187554;">🏭</span><strong>Hasil produksi</strong><small>Tambah stok barang jadi pabrik</small><span class="quick-action-arrow">→</span></button>
+      <button class="quick-action-card" data-action="add-inventory"><span class="quick-action-icon icon-blue">▦</span><strong>Pergerakan barang</strong><small>Beli dari supplier / kirim penjualan</small><span class="quick-action-arrow">→</span></button>
+      <button class="quick-action-card" data-action="add-cash"><span class="quick-action-icon icon-green">↗</span><strong>Transaksi kas</strong><small>Catat uang masuk atau keluar</small><span class="quick-action-arrow">→</span></button>
+    </div>`);
   } else if (action === 'add-product') {
     productForm();
   } else if (action === 'edit-product') {
@@ -2540,9 +2750,12 @@ async function handlePageAction(event) {
     } catch (error) {
       showError(`Produk terhapus, tetapi tampilan gagal diperbarui: ${error.message}`);
     }
+  } else if (action === 'add-production') {
+    document.querySelector('#app-dialog').close();
+    inventoryForm('in_production');
   } else if (action === 'add-inventory') {
     document.querySelector('#app-dialog').close();
-    inventoryForm();
+    inventoryForm('in_purchase');
   } else if (action === 'add-cash') {
     document.querySelector('#app-dialog').close();
     cashForm();
