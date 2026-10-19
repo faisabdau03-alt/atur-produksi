@@ -181,15 +181,33 @@ function formatQuantity(value) {
 
 function formatDate(value) {
   if (!value) return '—';
-  return new Intl.DateTimeFormat('id-ID', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  }).format(new Date(`${value.slice(0, 10)}T00:00:00`));
+  const str = String(value);
+  if (str.includes('akhir')) {
+    const parts = str.split('-');
+    return `Akhir ${parts[0]}-${parts[1]}`;
+  }
+  try {
+    const d = new Date(`${str.slice(0, 10)}T00:00:00`);
+    if (isNaN(d.getTime())) return str;
+    return new Intl.DateTimeFormat('id-ID', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(d);
+  } catch (_) {
+    return str;
+  }
 }
 
 function monthStart(month) {
   return `${month}-01`;
+}
+
+function monthEnd(month) {
+  if (!month) return '';
+  const [y, m] = month.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${month}-${String(lastDay).padStart(2, '0')}`;
 }
 
 function monthRecords(records, month, field = 'occurred_on') {
@@ -462,6 +480,7 @@ function calculateMonthlySalary(employee, month) {
   const payout = (state.payouts || []).find((p) => p.employee_id === employee.id && p.period === month);
 
   return {
+    employee,
     records,
     present,
     halfDay,
@@ -489,11 +508,29 @@ function payMonthlySalaryModal(employeeId, month) {
   if (!employee) return;
   const calc = calculateMonthlySalary(employee, month);
 
-  openDialog(`Bayar Gaji Akhir Bulan — ${escapeHtml(employee.full_name)}`, `
+  const title = calc.isPaid
+    ? `Rincian Slip Gaji — ${escapeHtml(employee.full_name)} (${escapeHtml(month)})`
+    : `Bayar Gaji Akhir Bulan — ${escapeHtml(employee.full_name)}`;
+
+  openDialog(title, `
     <div class="slip-box">
       <div class="slip-row"><span>Nama Pekerja:</span><strong>${escapeHtml(employee.full_name)}</strong></div>
       <div class="slip-row"><span>Jabatan:</span><strong>${escapeHtml(employee.position)}</strong></div>
       <div class="slip-row"><span>Periode Gaji:</span><strong>${escapeHtml(month)}</strong></div>
+      <div class="slip-row">
+        <span>Status Pembayaran:</span>
+        <strong>
+          <span class="status-pill ${calc.isPaid ? 'status-paid' : 'status-pending'}">
+            ${calc.isPaid ? 'Lunas (Sudah Dibayar)' : 'Belum Dibayar'}
+          </span>
+        </strong>
+      </div>
+      ${calc.isPaid && calc.payout?.paid_at ? `
+        <div class="slip-row">
+          <span>Waktu Pembayaran:</span>
+          <strong>${formatDate(calc.payout.paid_at)}</strong>
+        </div>
+      ` : ''}
       <div class="slip-row">
         <span>Rekap Kehadiran:</span>
         <strong>${calc.effectiveDays} hari kerja efektif (${calc.present}x Hadir, ${calc.halfDay}x ½ Hari, ${calc.permit + calc.sick + calc.absent}x Absen)</strong>
@@ -511,19 +548,28 @@ function payMonthlySalaryModal(employeeId, month) {
         <strong>${formatMoney(calc.incentiveAmount)}</strong>
       </div>
       <div class="slip-row">
-        <span>TOTAL GAJI DIBAYARKAN:</span>
-        <strong>${formatMoney(calc.totalSalary)}</strong>
+        <span>TOTAL GAJI:</span>
+        <strong style="font-size: 14px;">${formatMoney(calc.totalSalary)}</strong>
       </div>
     </div>
-    <p class="muted" style="margin: 12px 0 16px; font-size: 11px;">
-      💡 Mengonfirmasi pembayaran ini akan menandai status gaji pekerja menjadi <strong>Lunas</strong> dan otomatis mencatat transaksi <strong>Kas Keluar (Gaji & Upah Karyawan)</strong> sebesar <strong>${formatMoney(calc.totalSalary)}</strong>.
-    </p>
-    <div class="dialog-actions">
-      <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
-      <button type="button" class="button button-primary" data-action="confirm-pay-monthly" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-        Konfirmasi & Bayar Gaji (Potong Kas)
-      </button>
-    </div>
+    ${!calc.isPaid ? `
+      <p class="muted" style="margin: 12px 0 16px; font-size: 11px;">
+        💡 Mengonfirmasi pembayaran ini akan menandai status gaji pekerja menjadi <strong>Lunas</strong> dan otomatis mencatat transaksi <strong>Kas Keluar (Gaji & Upah Karyawan)</strong> sebesar <strong>${formatMoney(calc.totalSalary)}</strong>.
+      </p>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
+        <button type="button" class="button button-primary" data-action="confirm-pay-monthly" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
+          Konfirmasi & Bayar Gaji (Potong Kas)
+        </button>
+      </div>
+    ` : `
+      <div class="dialog-actions" style="margin-top: 16px;">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        <button type="button" class="button button-outline" data-action="view-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
+          Lihat Rincian Absensi 📋
+        </button>
+      </div>
+    `}
   `);
 }
 
@@ -930,20 +976,24 @@ function renderPayroll() {
 }
 
 function renderReports(month = currentMonth) {
-  const selectedMonth = month || state.selectedReportMonth || currentMonth;
+  const selectedMonth = (typeof month === 'string' && month) ? month : (state.selectedReportMonth || currentMonth);
+  state.selectedReportMonth = selectedMonth;
   const currentFilter = state.selectedReportFilter || 'all';
 
   const inventory = monthRecords(state.inventory, selectedMonth);
   const cash = monthRecords(state.cash, selectedMonth);
 
   const activeEmployees = state.employees.filter((emp) => emp.is_active);
-  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, selectedMonth));
+  const monthlyCalcs = activeEmployees.map((emp) => ({
+    employee: emp,
+    calc: calculateMonthlySalary(emp, selectedMonth),
+  }));
   
-  const totalPayroll = monthlyCalcs.reduce((sum, calc) => sum + calc.totalSalary, 0);
-  const totalPayrollBase = monthlyCalcs.reduce((sum, calc) => sum + calc.baseSalary, 0);
-  const totalPayrollOvertime = monthlyCalcs.reduce((sum, calc) => sum + calc.overtimeAmount, 0);
-  const totalPayrollIncentive = monthlyCalcs.reduce((sum, calc) => sum + calc.incentiveAmount, 0);
-  const totalOvertimeHours = monthlyCalcs.reduce((sum, calc) => sum + calc.totalOvertimeHours, 0);
+  const totalPayroll = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
+  const totalPayrollBase = monthlyCalcs.reduce((sum, item) => sum + item.calc.baseSalary, 0);
+  const totalPayrollOvertime = monthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
+  const totalPayrollIncentive = monthlyCalcs.reduce((sum, item) => sum + item.calc.incentiveAmount, 0);
+  const totalOvertimeHours = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalOvertimeHours, 0);
 
   const incomeRecords = cash.filter((row) => row.direction === 'in');
   const totalIn = incomeRecords.reduce((sum, row) => sum + Number(row.amount), 0);
@@ -1000,7 +1050,7 @@ function renderReports(month = currentMonth) {
       ...expenseRecords.map((r) => ({ ...r, itemType: 'cash', financialCategory: (r.category || '').toLowerCase().includes('bahan') ? 'HPP / Bahan Baku' : 'Beban Operasional' })),
       ...monthlyCalcs.map(({ employee: emp, calc }) => ({
         id: emp.id,
-        occurred_on: `${selectedMonth}-akhir`,
+        occurred_on: monthEnd(selectedMonth),
         itemType: 'payroll',
         financialCategory: 'Beban Gaji & Upah',
         title: `${emp.full_name} (${emp.position})`,
@@ -1014,7 +1064,7 @@ function renderReports(month = currentMonth) {
   } else if (currentFilter === 'payroll') {
     filteredItems = monthlyCalcs.map(({ employee: emp, calc }) => ({
       id: emp.id,
-      occurred_on: `${selectedMonth}-akhir`,
+      occurred_on: monthEnd(selectedMonth),
       itemType: 'payroll',
       financialCategory: 'Beban Gaji & Upah',
       title: `${emp.full_name} (${emp.position})`,
@@ -1033,7 +1083,7 @@ function renderReports(month = currentMonth) {
       ...inventory.map((r) => ({ ...r, itemType: 'inventory', financialCategory: 'Persediaan Barang' })),
       ...monthlyCalcs.map(({ employee: emp, calc }) => ({
         id: emp.id,
-        occurred_on: `${selectedMonth}-akhir`,
+        occurred_on: monthEnd(selectedMonth),
         itemType: 'payroll',
         financialCategory: 'Beban Gaji & Upah',
         title: `${emp.full_name} (${emp.position})`,
@@ -1049,14 +1099,14 @@ function renderReports(month = currentMonth) {
   filteredItems.sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
 
   const filterTabs = [
-    { key: 'all', label: 'Semua Catatan', count: inventory.length + cash.length + monthlyCalcs.length },
+    { key: 'all', label: 'Semua Catatan', count: inventory.length + cash.length + (state.isAdmin ? monthlyCalcs.length : 0) },
     { key: 'gross_profit', label: 'Laba Kotor', count: incomeRecords.length + cogsRecords.length },
-    { key: 'net_profit', label: 'Laba Bersih', count: cash.length + monthlyCalcs.length },
+    { key: 'net_profit', label: 'Laba Bersih', count: cash.length + (state.isAdmin ? monthlyCalcs.length : 0) },
     { key: 'income', label: 'Pemasukan (Omzet)', count: incomeRecords.length },
     { key: 'expense', label: 'Pengeluaran Kas', count: expenseRecords.length },
     { key: 'cogs', label: 'HPP / Bahan Baku', count: cogsRecords.length },
     { key: 'operational', label: 'Beban Operasional', count: operationalCashRecords.length },
-    { key: 'payroll', label: 'Gaji & Lembur', count: monthlyCalcs.length },
+    ...(state.isAdmin ? [{ key: 'payroll', label: 'Gaji & Lembur', count: monthlyCalcs.length }] : []),
     { key: 'inventory', label: 'Persediaan Barang', count: inventory.length },
   ];
 
@@ -1981,7 +2031,7 @@ function downloadReport(month) {
     for (const emp of activeEmployees) {
       const calc = calculateMonthlySalary(emp, month);
       rows.push([
-        `${month}-akhir`,
+        monthEnd(month),
         'Gaji Bulanan',
         `${emp.full_name} (${calc.effectiveDays} hari kerja, ${calc.totalOvertimeHours} jam lembur)`,
         'Keluar',
