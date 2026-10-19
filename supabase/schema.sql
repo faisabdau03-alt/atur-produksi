@@ -93,6 +93,28 @@ alter table public.payroll_records add column if not exists notes text default '
 create index if not exists payroll_records_date_idx
   on public.payroll_records (work_date desc);
 
+create table if not exists public.payroll_payouts (
+  id uuid primary key default gen_random_uuid(),
+  employee_id uuid not null references public.employees(id) on delete restrict,
+  period text not null,
+  effective_days numeric(6, 2) not null default 0,
+  present_days int not null default 0,
+  half_days int not null default 0,
+  base_amount numeric(16, 2) not null default 0,
+  production_quantity numeric(14, 2) not null default 0,
+  incentive_amount numeric(18, 2) not null default 0,
+  total_amount numeric(18, 2) not null default 0,
+  status text not null default 'paid' check (status in ('pending', 'paid')),
+  paid_at timestamptz not null default now(),
+  notes text not null default '',
+  created_at timestamptz not null default now(),
+  unique (employee_id, period)
+);
+
+create index if not exists payroll_payouts_period_idx
+  on public.payroll_payouts (period desc);
+
+
 create or replace function public.prevent_negative_stock()
 returns trigger
 language plpgsql
@@ -132,6 +154,7 @@ alter table public.inventory_movements enable row level security;
 alter table public.cash_transactions enable row level security;
 alter table public.employees enable row level security;
 alter table public.payroll_records enable row level security;
+alter table public.payroll_payouts enable row level security;
 
 drop policy if exists "Authenticated users can manage products" on public.products;
 create policy "Authenticated users can manage products"
@@ -163,14 +186,22 @@ create policy "Admins can manage payroll"
   using (public.is_admin())
   with check (public.is_admin());
 
+drop policy if exists "Admins can manage payroll payouts" on public.payroll_payouts;
+create policy "Admins can manage payroll payouts"
+  on public.payroll_payouts for all to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on
   public.products,
   public.inventory_movements,
   public.cash_transactions,
   public.employees,
-  public.payroll_records
+  public.payroll_records,
+  public.payroll_payouts
 to authenticated;
+
 
 do $$
 declare

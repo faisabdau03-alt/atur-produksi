@@ -125,6 +125,12 @@ td:first-child, th:first-child { padding-left: 4px; }
 .att-btn-sick:hover { background: #f4ecf8; color: #6a3a8d; border-color: #c8abd9; }
 .att-btn-absent:hover { background: #fdeeee; color: #ab2828; border-color: #e29c9c; }
 .sub-meta { display: block; margin-top: 2px; color: #8e9a94; font-size: 9px; font-weight: 400; }
+.att-summary-pills { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.att-pill-mini { display: inline-block; padding: 2px 5px; border-radius: 4px; font-size: 8px; font-weight: 700; letter-spacing: .2px; }
+.slip-box { background: #fbfdfc; border: 1px solid #e1ebe5; border-radius: 8px; padding: 14px 16px; margin: 12px 0; }
+.slip-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px dashed #e6eee8; font-size: 11px; color: #43544c; }
+.slip-row:last-child { border-bottom: 0; padding-top: 10px; margin-top: 4px; font-size: 13px; font-weight: 700; color: #176d51; }
+.slip-row strong { color: #24352c; }
 
 .empty-state { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 20px; color: #a0aaa5; text-align: center; font-size: 10px; }
 .empty-state strong { color: #52615a; font-size: 12px; }
