@@ -1730,13 +1730,10 @@ function renderReports(month = currentMonth) {
         <h2>Pilih periode laporan</h2>
         <p>Kelompokkan analisis performa berdasarkan laba bersih, laba kotor, rincian pengeluaran kas, omzet, dan persediaan.</p>
       </div>
-      <div class="report-controls" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-        <div>
-          <label class="month-label" for="report-month">BULAN</label>
-          <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
-        </div>
+      <div class="report-controls">
+        <label class="month-label" for="report-month">BULAN</label>
+        <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
         <button class="button button-primary" data-action="download-report">↓ Unduh Laporan Bulanan</button>
-        ${state.isAdmin ? `<button class="button button-outline" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}" title="Unduh khusus rekapitulasi gaji dan absensi pekerja bulan ini">📥 Unduh Gaji & Absensi</button>` : ''}
       </div>
     </section>
 
