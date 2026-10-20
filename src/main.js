@@ -851,6 +851,17 @@ function openReportDetailModal(type, id, month = currentMonth) {
           <span>Harga Jual Produk:</span>
           <span>${formatMoney(sellingPrice)} / ${escapeHtml(prod?.unit || 'unit')} (Total: ${formatMoney(totalSale)})</span>
         </div>
+        ${notes.includes('Pembeli:') ? `
+        <div class="slip-row">
+          <span>Nama Pembeli / Pelanggan:</span>
+          <strong style="color: #187554;">${escapeHtml((notes.match(/Pembeli:\s*([^·\r\n]+)/) || [])[1] || '—')}</strong>
+        </div>` : ''}
+        ${notes.includes('Supplier:') ? `
+        <div class="slip-row">
+          <span>Nama Supplier / Asal Pembelian:</span>
+          <strong style="color: #187554;">${escapeHtml((notes.match(/Supplier:\s*([^·\r\n]+)/) || [])[1] || '—')}</strong>
+        </div>` : ''}
+
         <div class="slip-row">
           <span>Catatan Kerja / Muatan:</span>
           <strong style="color: #37453e;">${escapeHtml(rec.notes || '—')}</strong>
@@ -2054,8 +2065,14 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
         </div>
       </div>
 
-      <label>Catatan / Keterangan <span class="optional">(opsional)</span>
-        <input name="notes" id="inv-notes" maxlength="240" placeholder="Keterangan pergerakan atau nama supplier/pembeli" />
+      <!-- Input Khusus Pihak Terkait (Nama Pembeli / Nama Supplier / Tim) -->
+      <label id="inv-party-wrap">
+        <span id="inv-party-label">Nama Pembeli / Pelanggan <span class="optional">(opsional)</span></span>
+        <input name="party_name" id="inv-party-name" maxlength="120" placeholder="Contoh: Toko Berkah, CV Mandiri, Pak Hendra" />
+      </label>
+
+      <label>Catatan Tambahan <span class="optional">(opsional)</span>
+        <input name="notes" id="inv-notes" maxlength="240" placeholder="Keterangan pergerakan atau nomor nota/invoice" />
       </label>
       
       <div class="dialog-actions">
@@ -2077,6 +2094,9 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
   const unitPriceInput = form.querySelector('#inv-unit-price');
   const totalAmountInput = form.querySelector('#inv-total-amount');
   const cashDesc = form.querySelector('#inv-cash-desc');
+  const partyWrap = form.querySelector('#inv-party-wrap');
+  const partyLabel = form.querySelector('#inv-party-label');
+  const partyInput = form.querySelector('#inv-party-name');
   const notesInput = form.querySelector('#inv-notes');
   const paymentStatusSelect = form.querySelector('#inv-payment-status');
   const paidAmountWrap = form.querySelector('#inv-paid-amount-wrap');
@@ -2146,13 +2166,19 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
       usageInfo.style.display = 'none';
       cashBox.style.display = 'none';
       syncCash.checked = false;
-      notesInput.placeholder = 'Contoh: Selesai rakit 500 box, Shift Pagi, Batch #10';
+      partyWrap.style.display = 'block';
+      partyLabel.innerHTML = 'Tim / Shift / Mesin Produksi <span class="optional">(opsional)</span>';
+      partyInput.placeholder = 'Contoh: Shift Pagi, Mesin Cetak A, Batch #12';
+      notesInput.placeholder = 'Contoh: Selesai rakit 500 box, SPK-089';
     } else if (type === 'out_usage') {
       prodInfo.style.display = 'none';
       usageInfo.style.display = 'block';
       cashBox.style.display = 'none';
       syncCash.checked = false;
-      notesInput.placeholder = 'Contoh: Pemakaian internal pabrik, sampel display, atau afkir rusak';
+      partyWrap.style.display = 'block';
+      partyLabel.innerHTML = 'Keperluan Pemakaian / Keterangan Reject <span class="optional">(opsional)</span>';
+      partyInput.placeholder = 'Contoh: Sampel display, Rusak saat proses cetak';
+      notesInput.placeholder = 'Contoh: Divisi marketing, QC afkir';
     } else {
       prodInfo.style.display = 'none';
       usageInfo.style.display = 'none';
@@ -2166,7 +2192,17 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
         unitPriceInput.value = defaultPrice || '';
       }
       priceLabel.childNodes[0].nodeValue = isPurchase ? 'Harga Beli Satuan (Rp) ' : 'Harga Jual Satuan (Rp) ';
-      notesInput.placeholder = isPurchase ? 'Contoh: Supplier PT ABC, Nota #123' : 'Contoh: Kirim ke Toko Berkah, Faktur #456';
+      
+      partyWrap.style.display = 'block';
+      if (isPurchase) {
+        partyLabel.innerHTML = 'Nama Supplier / Tempat Beli <span class="optional">(opsional)</span>';
+        partyInput.placeholder = 'Contoh: PT Kertas Nusantara, Toko Bahan Abadi';
+        notesInput.placeholder = 'Contoh: Nomor Nota #123, kontak supplier';
+      } else {
+        partyLabel.innerHTML = 'Nama Pembeli / Pelanggan <span class="optional">(opsional)</span>';
+        partyInput.placeholder = 'Contoh: Toko Berkah, CV Mandiri, Pak Hendra';
+        notesInput.placeholder = 'Contoh: No. Faktur / Invoice #456, alamat kirim';
+      }
 
       const qty = Number(qtyInput.value) || 0;
       const unitPrice = Number(unitPriceInput.value) || 0;
@@ -2230,25 +2266,41 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
     }
     const remainingAmount = Math.max(0, totalAmount - actualPaidAmount);
 
+    const partyName = (formData.get('party_name') || '').trim();
     const product = state.products.find((item) => item.id === pId);
     const prodName = product?.name || 'Produk';
     const prodUnit = product?.unit || 'unit';
 
-    let formattedNotes = rawNotes;
-    if (moveType === 'in_production') {
-      formattedNotes = rawNotes ? `[Hasil Produksi] ${rawNotes}` : '[Hasil Produksi] Selesai produksi pabrik';
+    let detailsText = '';
+    if (moveType === 'out_sale') {
+      if (partyName) detailsText += `Pembeli: ${partyName}`;
+    } else if (moveType === 'in_purchase') {
+      if (partyName) detailsText += `Supplier: ${partyName}`;
+    } else if (moveType === 'in_production') {
+      if (partyName) detailsText += `Produksi: ${partyName}`;
     } else if (moveType === 'out_usage') {
-      formattedNotes = rawNotes ? `[Pemakaian Internal] ${rawNotes}` : '[Pemakaian Internal] Operasional / Reject';
+      if (partyName) detailsText += `Keperluan: ${partyName}`;
+    }
+
+    if (rawNotes) {
+      detailsText = detailsText ? `${detailsText} · ${rawNotes}` : rawNotes;
+    }
+
+    let formattedNotes = detailsText;
+    if (moveType === 'in_production') {
+      formattedNotes = detailsText ? `[Hasil Produksi] ${detailsText}` : '[Hasil Produksi] Selesai produksi pabrik';
+    } else if (moveType === 'out_usage') {
+      formattedNotes = detailsText ? `[Pemakaian Internal] ${detailsText}` : '[Pemakaian Internal] Operasional / Reject';
     } else if (moveType === 'in_purchase') {
       let payPrefix = '[Beli Lunas]';
       if (payStatus === 'dp') payPrefix = `[Beli DP ${formatMoney(actualPaidAmount)} · Sisa Utang ${formatMoney(remainingAmount)}]`;
       else if (payStatus === 'unpaid') payPrefix = `[Beli Tempo/Utang ${formatMoney(totalAmount)}]`;
-      formattedNotes = rawNotes ? `${payPrefix} ${rawNotes}` : payPrefix;
+      formattedNotes = detailsText ? `${payPrefix} ${detailsText}` : payPrefix;
     } else if (moveType === 'out_sale') {
       let payPrefix = '[Penjualan Lunas]';
       if (payStatus === 'dp') payPrefix = `[Penjualan DP ${formatMoney(actualPaidAmount)} · Sisa Piutang ${formatMoney(remainingAmount)}]`;
       else if (payStatus === 'unpaid') payPrefix = `[Penjualan Tempo/Piutang ${formatMoney(totalAmount)}]`;
-      formattedNotes = rawNotes ? `${payPrefix} ${rawNotes}` : payPrefix;
+      formattedNotes = detailsText ? `${payPrefix} ${detailsText}` : payPrefix;
     }
 
     await runMutation(async () => {
@@ -2271,11 +2323,11 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
             : (payStatus === 'dp' ? 'Belanja Bahan Baku / Barang (DP)' : 'Belanja Bahan Baku / Barang');
           const description = isSale
             ? (payStatus === 'dp'
-                ? `DP Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} · Diterima: ${formatMoney(actualPaidAmount)} (Sisa Tagihan: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
-                : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`)
+                ? `DP Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} · Diterima: ${formatMoney(actualPaidAmount)} (Sisa Tagihan: ${formatMoney(remainingAmount)})${detailsText ? ` · ${detailsText}` : ''}`
+                : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${detailsText ? ` · ${detailsText}` : ''}`)
             : (payStatus === 'dp'
-                ? `DP Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} · Dibayar: ${formatMoney(actualPaidAmount)} (Sisa Utang: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
-                : `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`);
+                ? `DP Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} · Dibayar: ${formatMoney(actualPaidAmount)} (Sisa Utang: ${formatMoney(remainingAmount)})${detailsText ? ` · ${detailsText}` : ''}`
+                : `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${detailsText ? ` · ${detailsText}` : ''}`);
 
           demoStore.insert('cash', {
             direction: isSale ? 'in' : 'out',
