@@ -408,7 +408,21 @@ function movementTable(records, limit = records.length) {
         pillLabel = '📦 Pemakaian';
         pillStyle = 'background: #fff8e1; color: #855900; border: 1px solid #ffe082; font-weight: 600;';
       } else if (inventory) {
-        pillLabel = directionIn ? '🛒 Beli' : '🚚 Jual';
+        if (!directionIn && notes.includes('DP')) {
+          pillLabel = '🚚 Jual (DP)';
+          pillStyle = 'background: #fff8e1; color: #9c6500; border: 1px solid #ffe082; font-weight: 600;';
+        } else if (!directionIn && (notes.includes('Tempo') || notes.includes('Piutang'))) {
+          pillLabel = '🚚 Jual (Tempo)';
+          pillStyle = 'background: #fdf2e9; color: #b05a18; border: 1px solid #fcd6b5; font-weight: 600;';
+        } else if (directionIn && notes.includes('DP')) {
+          pillLabel = '🛒 Beli (DP)';
+          pillStyle = 'background: #fff8e1; color: #9c6500; border: 1px solid #ffe082; font-weight: 600;';
+        } else if (directionIn && (notes.includes('Tempo') || notes.includes('Utang'))) {
+          pillLabel = '🛒 Beli (Tempo)';
+          pillStyle = 'background: #fdf2e9; color: #b05a18; border: 1px solid #fcd6b5; font-weight: 600;';
+        } else {
+          pillLabel = directionIn ? '🛒 Beli' : '🚚 Jual';
+        }
       }
 
       return `<tr><td class="date-cell">${formatDate(row.occurred_on)}</td><td>${inventory ? 'Barang' : 'Kas'}</td>
@@ -786,6 +800,12 @@ function openReportDetailModal(type, id, month = currentMonth) {
     } else if (isUsage) {
       directionLabel = '📦 Pemakaian Internal / Reject (Stok Berkurang)';
       pillStyle = 'background: #fff8e1; color: #855900; border: 1px solid #ffe082; font-weight: 600;';
+    } else if (!isIn && notes.includes('DP')) {
+      directionLabel = '🚚 Penjualan Barang (Uang Muka / DP)';
+      pillStyle = 'background: #fff8e1; color: #9c6500; border: 1px solid #ffe082; font-weight: 600;';
+    } else if (!isIn && (notes.includes('Tempo') || notes.includes('Piutang'))) {
+      directionLabel = '🚚 Penjualan Barang (Tempo / Piutang Belum Lunas)';
+      pillStyle = 'background: #fdf2e9; color: #b05a18; border: 1px solid #fcd6b5; font-weight: 600;';
     }
 
     let operationalClassification = isIn
@@ -795,6 +815,10 @@ function openReportDetailModal(type, id, month = currentMonth) {
       operationalClassification = 'Hasil Produksi Mandiri Pabrik. Menambah stok barang jadi tanpa beban kas belanja (karena biaya bahan & gaji telah dicatat terpisah).';
     } else if (isUsage) {
       operationalClassification = 'Pemakaian Operasional / Afkir Reject. Mengurangi stok fisik tanpa uang masuk.';
+    } else if (!isIn && notes.includes('DP')) {
+      operationalClassification = 'Penjualan Barang dengan Pembayaran Uang Muka (DP). Kas masuk sebesar uang DP, sisa dicatat sebagai piutang pelanggan.';
+    } else if (!isIn && (notes.includes('Tempo') || notes.includes('Piutang'))) {
+      operationalClassification = 'Penjualan Barang Tempo (Piutang Penuh). Barang dikirim ke pelanggan tanpa kas masuk saat ini.';
     }
 
     openDialog(titleModal, `
@@ -2000,10 +2024,30 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
             <label id="inv-unit-price-label">Harga Satuan (Rp)
               <input name="unit_price" id="inv-unit-price" type="number" min="0" step="1" placeholder="0" />
             </label>
-            <label>Total Nominal Kas (Rp)
+            <label id="inv-total-label">Total Nilai Tagihan (Rp)
               <input name="total_amount" id="inv-total-amount" type="number" min="0" step="1" placeholder="0" />
             </label>
           </div>
+
+          <!-- OPSI METODE / STATUS PEMBAYARAN -->
+          <div id="inv-payment-box" style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbe2d5;">
+            <div class="form-row">
+              <label>Status / Metode Pembayaran
+                <select name="payment_status" id="inv-payment-status">
+                  <option value="paid">✓ Lunas Langsung (Dibayar 100%)</option>
+                  <option value="dp">⏳ Bayar Uang Muka / DP Dulu</option>
+                  <option value="unpaid">📋 Belum Dibayar (Tempo / Piutang Penuh)</option>
+                </select>
+              </label>
+              <label id="inv-paid-amount-wrap" style="display: none;">
+                <span id="inv-paid-amount-title">Nominal DP Diterima (Rp)</span>
+                <input name="paid_amount" id="inv-paid-amount" type="number" min="0" step="1" placeholder="0" />
+              </label>
+            </div>
+            <div id="inv-payment-summary" style="margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 11px; line-height: 1.5; background: #edf7f0; color: #187554;">
+            </div>
+          </div>
+
           <div id="inv-cash-desc" style="font-size: 10px; color: #3a6850; margin-top: 6px; line-height: 1.5;">
             💡 Dicatat otomatis ke buku kas.
           </div>
@@ -2034,6 +2078,64 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
   const totalAmountInput = form.querySelector('#inv-total-amount');
   const cashDesc = form.querySelector('#inv-cash-desc');
   const notesInput = form.querySelector('#inv-notes');
+  const paymentStatusSelect = form.querySelector('#inv-payment-status');
+  const paidAmountWrap = form.querySelector('#inv-paid-amount-wrap');
+  const paidAmountTitle = form.querySelector('#inv-paid-amount-title');
+  const paidAmountInput = form.querySelector('#inv-paid-amount');
+  const paymentSummary = form.querySelector('#inv-payment-summary');
+
+  function updatePaymentCalc() {
+    const isSale = moveTypeSelect.value === 'out_sale';
+    const isPurchase = moveTypeSelect.value === 'in_purchase';
+    if (!isSale && !isPurchase) return;
+
+    const total = Number(totalAmountInput.value) || 0;
+    const status = paymentStatusSelect.value;
+
+    paidAmountTitle.textContent = isSale ? 'Nominal DP Diterima di Kas (Rp)' : 'Nominal DP Dibayar dari Kas (Rp)';
+
+    if (status === 'paid') {
+      paidAmountWrap.style.display = 'none';
+      paidAmountInput.value = total || '';
+      paymentSummary.style.display = 'block';
+      paymentSummary.style.background = '#edf7f0';
+      paymentSummary.style.color = '#187554';
+      paymentSummary.style.border = '1px solid #c2e7cc';
+      paymentSummary.innerHTML = `✓ <strong>Lunas Langsung (100%)</strong>: Uang kas ${isSale ? 'masuk' : 'keluar'} penuh sebesar <strong>${formatMoney(total)}</strong>.`;
+      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>${isSale ? 'Kas Masuk (Penjualan Produk)' : 'Kas Keluar (Belanja Barang)'}</strong> sebesar <strong>${formatMoney(total)}</strong>.`;
+    } else if (status === 'dp') {
+      paidAmountWrap.style.display = 'block';
+      if (!paidAmountInput.value && total > 0) {
+        paidAmountInput.value = Math.round(total / 2);
+      }
+      const paid = Number(paidAmountInput.value) || 0;
+      const remaining = Math.max(0, total - paid);
+
+      paymentSummary.style.display = 'block';
+      paymentSummary.style.background = '#fff8e1';
+      paymentSummary.style.color = '#855900';
+      paymentSummary.style.border = '1px solid #ffe082';
+      paymentSummary.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 3px;">⏳ Pembayaran Uang Muka (DP)</div>
+        • ${isSale ? 'Uang DP Diterima di Kas' : 'Uang DP Dibayar dari Kas'}: <strong>${formatMoney(paid)}</strong><br />
+        • Sisa ${isSale ? 'Tagihan (Piutang Pelanggan)' : 'Utang Supplier'}: <strong style="color: #c93b2b;">${formatMoney(remaining)}</strong> (${remaining <= 0 ? 'Lunas' : 'Belum Dilunasi'})
+      `;
+      cashDesc.innerHTML = `💡 Hanya uang DP sebesar <strong>${formatMoney(paid)}</strong> yang dibukukan ke kas. Sisa ${formatMoney(remaining)} dicatat sebagai catatan ${isSale ? 'piutang' : 'utang'}.`;
+    } else if (status === 'unpaid') {
+      paidAmountWrap.style.display = 'none';
+      paidAmountInput.value = '0';
+      paymentSummary.style.display = 'block';
+      paymentSummary.style.background = '#fdf2e9';
+      paymentSummary.style.color = '#9c4d00';
+      paymentSummary.style.border = '1px solid #fcd6b5';
+      paymentSummary.innerHTML = `
+        <div style="font-weight: 700; margin-bottom: 3px;">📋 ${isSale ? 'Penjualan Tempo / Piutang 100%' : 'Beli Tempo / Utang 100%'}</div>
+        Barang fisik ${isSale ? 'keluar dikirim ke pembeli' : 'masuk diterima dari supplier'}. <strong>Tidak ada uang kas yang ${isSale ? 'masuk' : 'keluar'} saat ini (Rp 0)</strong>.<br />
+        Total ${isSale ? 'piutang yang akan ditagih' : 'utang yang harus dibayar'}: <strong>${formatMoney(total)}</strong>.
+      `;
+      cashDesc.innerHTML = `💡 Saldo kas saat ini <strong>TIDAK terpengaruh (Rp 0)</strong> karena transaksi tempo/kredit.`;
+    }
+  }
 
   function updateTypeState(autoFill = true) {
     const type = moveTypeSelect.value;
@@ -2074,12 +2176,7 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
         totalAmountInput.value = calcTotal || '';
       }
 
-      const currentTotal = Number(totalAmountInput.value) || calcTotal;
-      if (isPurchase) {
-        cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Keluar (Belanja Bahan Baku / Barang)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
-      } else {
-        cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>Kas Masuk (Penjualan Produk)</strong> sebesar <strong>${formatMoney(currentTotal)}</strong>.`;
-      }
+      updatePaymentCalc();
     }
   }
 
@@ -2097,7 +2194,15 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
     totalAmountInput.value = Math.round(qty * unitPrice) || '';
     updateTypeState(false);
   });
-  totalAmountInput.addEventListener('input', () => updateTypeState(false));
+  totalAmountInput.addEventListener('input', () => {
+    updatePaymentCalc();
+  });
+  paymentStatusSelect.addEventListener('change', () => {
+    updatePaymentCalc();
+  });
+  paidAmountInput.addEventListener('input', () => {
+    updatePaymentCalc();
+  });
   syncCash.addEventListener('change', () => {
     cashFields.style.display = syncCash.checked ? 'block' : 'none';
   });
@@ -2115,6 +2220,15 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
     const rawNotes = formData.get('notes').trim();
     const shouldSyncCash = (moveType === 'in_purchase' || moveType === 'out_sale') && formData.has('sync_cash');
     const totalAmount = Number(formData.get('total_amount')) || 0;
+    const payStatus = formData.get('payment_status') || 'paid';
+
+    let actualPaidAmount = totalAmount;
+    if (payStatus === 'dp') {
+      actualPaidAmount = Number(formData.get('paid_amount')) || 0;
+    } else if (payStatus === 'unpaid') {
+      actualPaidAmount = 0;
+    }
+    const remainingAmount = Math.max(0, totalAmount - actualPaidAmount);
 
     const product = state.products.find((item) => item.id === pId);
     const prodName = product?.name || 'Produk';
@@ -2125,10 +2239,16 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
       formattedNotes = rawNotes ? `[Hasil Produksi] ${rawNotes}` : '[Hasil Produksi] Selesai produksi pabrik';
     } else if (moveType === 'out_usage') {
       formattedNotes = rawNotes ? `[Pemakaian Internal] ${rawNotes}` : '[Pemakaian Internal] Operasional / Reject';
-    } else if (moveType === 'in_purchase' && rawNotes) {
-      formattedNotes = rawNotes.startsWith('[Beli]') ? rawNotes : `[Beli] ${rawNotes}`;
-    } else if (moveType === 'out_sale' && rawNotes) {
-      formattedNotes = rawNotes.startsWith('[Penjualan]') ? rawNotes : `[Penjualan] ${rawNotes}`;
+    } else if (moveType === 'in_purchase') {
+      let payPrefix = '[Beli Lunas]';
+      if (payStatus === 'dp') payPrefix = `[Beli DP ${formatMoney(actualPaidAmount)} · Sisa Utang ${formatMoney(remainingAmount)}]`;
+      else if (payStatus === 'unpaid') payPrefix = `[Beli Tempo/Utang ${formatMoney(totalAmount)}]`;
+      formattedNotes = rawNotes ? `${payPrefix} ${rawNotes}` : payPrefix;
+    } else if (moveType === 'out_sale') {
+      let payPrefix = '[Penjualan Lunas]';
+      if (payStatus === 'dp') payPrefix = `[Penjualan DP ${formatMoney(actualPaidAmount)} · Sisa Piutang ${formatMoney(remainingAmount)}]`;
+      else if (payStatus === 'unpaid') payPrefix = `[Penjualan Tempo/Piutang ${formatMoney(totalAmount)}]`;
+      formattedNotes = rawNotes ? `${payPrefix} ${rawNotes}` : payPrefix;
     }
 
     await runMutation(async () => {
@@ -2144,14 +2264,24 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
           notes: formattedNotes,
         });
 
-        if (shouldSyncCash && totalAmount > 0) {
+        if (shouldSyncCash && actualPaidAmount > 0) {
+          const isSale = dir === 'out';
+          const category = isSale
+            ? (payStatus === 'dp' ? 'Penjualan Produk (DP)' : 'Penjualan Produk')
+            : (payStatus === 'dp' ? 'Belanja Bahan Baku / Barang (DP)' : 'Belanja Bahan Baku / Barang');
+          const description = isSale
+            ? (payStatus === 'dp'
+                ? `DP Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} · Diterima: ${formatMoney(actualPaidAmount)} (Sisa Tagihan: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
+                : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`)
+            : (payStatus === 'dp'
+                ? `DP Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} · Dibayar: ${formatMoney(actualPaidAmount)} (Sisa Utang: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
+                : `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`);
+
           demoStore.insert('cash', {
-            direction: dir === 'in' ? 'out' : 'in',
-            amount: totalAmount,
-            category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
-            description: dir === 'in'
-              ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`
-              : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`,
+            direction: isSale ? 'in' : 'out',
+            amount: actualPaidAmount,
+            category,
+            description,
             occurred_on: occ,
           });
         }
@@ -2171,14 +2301,24 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
       });
       if (invError) return invError;
 
-      if (shouldSyncCash && totalAmount > 0) {
+      if (shouldSyncCash && actualPaidAmount > 0) {
+        const isSale = dir === 'out';
+        const category = isSale
+          ? (payStatus === 'dp' ? 'Penjualan Produk (DP)' : 'Penjualan Produk')
+          : (payStatus === 'dp' ? 'Belanja Bahan Baku / Barang (DP)' : 'Belanja Bahan Baku / Barang');
+        const description = isSale
+          ? (payStatus === 'dp'
+              ? `DP Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} · Diterima: ${formatMoney(actualPaidAmount)} (Sisa Tagihan: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
+              : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`)
+          : (payStatus === 'dp'
+              ? `DP Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} · Dibayar: ${formatMoney(actualPaidAmount)} (Sisa Utang: ${formatMoney(remainingAmount)})${rawNotes ? ` · ${rawNotes}` : ''}`
+              : `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${rawNotes ? ` · ${rawNotes}` : ''}`);
+
         const { error: cashError } = await supabase.from('cash_transactions').insert({
-          direction: dir === 'in' ? 'out' : 'in',
-          amount: totalAmount,
-          category: dir === 'in' ? 'Belanja Bahan Baku / Barang' : 'Penjualan Produk',
-          description: dir === 'in'
-            ? `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`
-            : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName}${rawNotes ? ` · ${rawNotes}` : ''}`,
+          direction: isSale ? 'in' : 'out',
+          amount: actualPaidAmount,
+          category,
+          description,
           occurred_on: occ,
         });
         if (cashError) return cashError;
@@ -2186,9 +2326,13 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
       return null;
     }, moveType === 'in_production'
       ? `Stok hasil produksi (${formatQuantity(qty)} ${prodUnit} ${prodName}) berhasil ditambahkan ke persediaan.`
-      : (shouldSyncCash && totalAmount > 0
-        ? 'Pergerakan barang dan transaksi kas berhasil dicatat.'
-        : 'Pergerakan barang berhasil dicatat.'));
+      : (moveType === 'out_sale' && payStatus === 'dp'
+        ? `Penjualan dicatat. Stok berkurang & DP sebesar ${formatMoney(actualPaidAmount)} masuk ke kas (Sisa piutang: ${formatMoney(remainingAmount)}).`
+        : (moveType === 'out_sale' && payStatus === 'unpaid'
+          ? `Penjualan tempo dicatat. Stok berkurang & piutang pembeli tercatat ${formatMoney(totalAmount)}.`
+          : (shouldSyncCash && actualPaidAmount > 0
+            ? 'Pergerakan barang dan transaksi kas berhasil dicatat.'
+            : 'Pergerakan barang berhasil dicatat.'))));
   });
 }
 
@@ -2214,6 +2358,9 @@ function cashForm() {
             <option value="Transportasi & Logistik" />
             <option value="Konsumsi & Keperluan Kantor" />
             <option value="Penjualan Produk" />
+            <option value="Penjualan Produk (DP)" />
+            <option value="Pelunasan Piutang Penjualan" />
+            <option value="Pelunasan Utang Pembelian" />
             <option value="Lain-lain" />
           </datalist>
         </label>
