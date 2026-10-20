@@ -434,6 +434,14 @@ function movementTable(records, limit = records.length) {
     </tbody></table></div>`;
 }
 
+function getPreviousMonth(monthStr) {
+  const [year, month] = (monthStr || currentMonth).split('-').map(Number);
+  const d = new Date(year, month - 2, 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 function renderDashboard() {
   const monthCash = monthRecords(state.cash, currentMonth);
   const balance = cashBalance();
@@ -444,7 +452,10 @@ function renderDashboard() {
   ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
   const inStock = state.products.filter((product) => stockFor(product.id) > 0).length;
   return `${heading('PUSAT KENDALI', 'Selamat datang kembali', 'Pantau posisi stok, arus kas, dan aktivitas operasional Anda.', `
-    <button class="button button-primary" data-action="quick-entry"><span>＋</span> Catat transaksi</button>`)}
+    <div style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button class="button button-outline" data-action="download-report" data-month="${currentMonth}" title="Unduh laporan operasional dan keuangan bulan ini kapan saja"><span>↓</span> Unduh Laporan</button>
+      <button class="button button-primary" data-action="quick-entry"><span>＋</span> Catat transaksi</button>
+    </div>`)}
     <section class="stats-grid">
       ${statCard('Nilai kas saat ini', formatMoney(balance), `${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))} bersih bulan ini`, '↗', 'icon-green')}
       ${statCard('Jenis produk', quantityFormat.format(state.products.length), `${inStock} produk tersedia di stok`, '◇', 'icon-blue')}
@@ -515,7 +526,11 @@ function renderInventory() {
 }
 
 function renderCash() {
-  return `${heading('OPERASIONAL', 'Arus keuangan', 'Catat uang masuk dan keluar untuk memantau posisi kas.', '<button class="button button-primary" data-action="add-cash"><span>＋</span> Catat transaksi</button>')}
+  return `${heading('OPERASIONAL', 'Arus keuangan', 'Catat uang masuk dan keluar untuk memantau posisi kas.', `
+    <div style="display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap;">
+      <button class="button button-outline" data-action="download-report" data-month="${currentMonth}" title="Unduh laporan operasional dan keuangan bulan ini kapan saja"><span>↓</span> Unduh Laporan</button>
+      <button class="button button-primary" data-action="add-cash"><span>＋</span> Catat transaksi</button>
+    </div>`)}
     <section class="stats-grid compact-stats">${statCard('Saldo kas tercatat', formatMoney(cashBalance()), 'akumulasi seluruh transaksi', '↗', 'icon-green')}${statCard('Transaksi bulan ini', quantityFormat.format(monthRecords(state.cash, currentMonth).length), 'catatan kas masuk dan keluar', '◎', 'icon-purple')}</section>
     <section class="content-card"><div class="card-heading"><div><h2>Riwayat transaksi</h2><p>Arus kas terbaru</p></div></div>
       ${state.cash.length ? movementTable(state.cash, state.cash.length) : emptyState('Belum ada transaksi kas', 'Catat pemasukan atau pengeluaran untuk mulai.')}</section>`;
@@ -2416,7 +2431,9 @@ function renderReports(month = currentMonth) {
       <div class="report-controls">
         <label class="month-label" for="report-month">BULAN</label>
         <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
-        <button class="button button-primary" data-action="download-report">↓ Unduh Laporan Bulanan</button>
+        <button type="button" class="button button-small button-outline" data-action="set-report-month" data-month="${currentMonth}" title="Lihat dan unduh laporan bulan berjalan">Bulan Ini</button>
+        <button type="button" class="button button-small button-outline" data-action="set-report-month" data-month="${getPreviousMonth(currentMonth)}" title="Lihat dan unduh laporan bulan kemarin">Bulan Lalu</button>
+        <button class="button button-primary" data-action="download-report" data-month="${escapeHtml(selectedMonth)}" title="Unduh laporan lengkap operasional & keuangan bulan ini ke CSV/Excel"><span>↓</span> Unduh Laporan Bulanan</button>
       </div>
     </section>
 
@@ -3648,12 +3665,14 @@ function downloadSingleEmployeeAttendance(employeeId, month) {
 }
 
 function downloadReport(month) {
-  const inventory = monthRecords(state.inventory, month);
-  const cash = monthRecords(state.cash, month);
+  const selectedMonth = (typeof month === 'string' && month) ? month : (state.selectedReportMonth || currentMonth);
+  const inventory = monthRecords(state.inventory, selectedMonth);
+  const cash = monthRecords(state.cash, selectedMonth);
   const activeEmployees = state.employees.filter((emp) => emp.is_active);
-  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, month));
+  const monthlyCalcs = activeEmployees.map((emp) => calculateMonthlySalary(emp, selectedMonth));
 
   const totalIn = cash.filter((r) => r.direction === 'in').reduce((sum, r) => sum + Number(r.amount), 0);
+  const totalOut = cash.filter((r) => r.direction === 'out').reduce((sum, r) => sum + Number(r.amount), 0);
   const cogsCash = cash.filter((r) => r.direction === 'out' && ((r.category || '').toLowerCase().includes('bahan') || (r.category || '').toLowerCase().includes('material') || (r.category || '').toLowerCase().includes('belanja'))).reduce((sum, r) => sum + Number(r.amount), 0);
   const inventoryHpp = inventory.filter((inv) => inv.direction === 'out').reduce((sum, inv) => {
     const prod = state.products.find((p) => p.id === inv.product_id);
@@ -3680,7 +3699,11 @@ function downloadReport(month) {
 
   const rows = [
     ['RINGKASAN LAPORAN KEUANGAN & OPERASIONAL BULANAN'],
-    ['Periode Bulan', month],
+    ['Nama Perusahaan', 'Jaya Wijaya'],
+    ['Periode Bulan', selectedMonth],
+    ['Tanggal Unduh / Ekspor', formatDate(localDate)],
+    [],
+    ['=== 1. RINGKASAN LABA RUGI OPERASIONAL ==='],
     ['Total Pendapatan Penjualan (Omzet)', totalIn],
     ['Beban Pokok Penjualan (HPP / Bahan Baku)', totalCogs],
     ['Laba Kotor (Gross Profit)', grossProfit],
@@ -3691,24 +3714,29 @@ function downloadReport(month) {
     ['Laba Bersih Operasional (Net Profit)', netProfit],
     ['Margin Laba Bersih', `${netMargin}%`],
     [],
-    ['RINCIAN PENGELUARAN KAS BERDASARKAN KATEGORI (UNTUK APA SAJA)'],
+    ['=== 2. RINCIAN PENGELUARAN KAS BERDASARKAN KATEGORI (UNTUK APA SAJA) ==='],
     ['Kategori Pengeluaran', 'Jumlah Transaksi', 'Total Nominal (IDR)', 'Pangsa Pengeluaran (%)'],
     ...Object.values(expCats).map((c) => [c.name, c.count, c.amount, `${totalOut > 0 ? ((c.amount / totalOut) * 100).toFixed(1) : 0}%`]),
+    ['TOTAL SELURUH PENGELUARAN KAS', cash.filter((r) => r.direction === 'out').length, totalOut, '100%'],
     [],
-    ['RINCIAN TRANSAKSI OPERASIONAL'],
-    ['Tanggal', 'Jenis catatan', 'Nama/rincian', 'Arah', 'Jumlah/unit', 'Nilai (IDR)', 'Status', 'Catatan/Keterangan']
+    ['=== 3. RINCIAN CATATAN TRANSAKSI OPERASIONAL & PERSEDIAAN ==='],
+    ['Tanggal', 'Jenis Catatan', 'Nama / Kategori', 'Arah', 'Jumlah / Unit', 'Nilai (IDR)', 'Klasifikasi', 'Catatan / Pihak Terkait (Pembeli/Supplier)']
   ];
 
   for (const item of inventory) {
+    const prod = item.products || state.products.find((p) => p.id === item.product_id);
+    const isIn = item.direction === 'in';
+    const unitPrice = isIn ? (Number(prod?.purchase_price) || 0) : (Number(prod?.selling_price) || 0);
+    const totalVal = Math.round(Number(item.quantity || 0) * unitPrice);
     rows.push([
       item.occurred_on,
       'Persediaan',
-      item.products?.name || 'Produk',
-      item.direction === 'in' ? 'Masuk' : 'Keluar',
-      `${item.quantity} ${item.products?.unit || ''}`.trim(),
-      '',
-      '',
-      item.notes,
+      prod?.name || 'Produk',
+      isIn ? 'Masuk' : 'Keluar',
+      `${item.quantity} ${prod?.unit || ''}`.trim(),
+      totalVal > 0 ? totalVal : '',
+      isIn ? 'Penerimaan Stok' : 'Pengeluaran Stok',
+      item.notes || '',
     ]);
   }
   for (const item of cash) {
@@ -3728,9 +3756,9 @@ function downloadReport(month) {
   }
   if (state.isAdmin) {
     for (const emp of activeEmployees) {
-      const calc = calculateMonthlySalary(emp, month);
+      const calc = calculateMonthlySalary(emp, selectedMonth);
       rows.push([
-        monthEnd(month),
+        monthEnd(selectedMonth),
         'Gaji Bulanan',
         `${emp.full_name} (${calc.effectiveDays} hari kerja, ${calc.totalOvertimeHours} jam lembur)`,
         'Keluar',
@@ -3741,7 +3769,7 @@ function downloadReport(month) {
       ]);
     }
 
-    for (const item of monthRecords(state.payroll, month, 'work_date')) {
+    for (const item of monthRecords(state.payroll, selectedMonth, 'work_date')) {
       const attLabel = ATTENDANCE_LABELS[item.attendance_status]?.label || item.attendance_status || 'Hadir';
       rows.push([
         item.work_date || item.period,
@@ -3759,7 +3787,7 @@ function downloadReport(month) {
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `laporan-operasional-${month}.csv`;
+  link.download = `laporan-operasional-${selectedMonth}.csv`;
   document.body.append(link);
   link.click();
   link.remove();
@@ -4015,12 +4043,19 @@ async function handlePageAction(event) {
     renderShell();
     notify('Data demo telah direset ke kondisi awal.');
   } else if (action === 'download-report') {
-    const month = document.querySelector('#report-month')?.value;
+    const month = button.dataset.month || document.querySelector('#report-month')?.value || state.selectedReportMonth || currentMonth;
     if (!month) {
       showError('Pilih bulan laporan terlebih dahulu.');
       return;
     }
     downloadReport(month);
+    notify(`Laporan bulanan periode ${month} berhasil diunduh.`);
+  } else if (action === 'set-report-month') {
+    const month = button.dataset.month;
+    if (month) {
+      state.selectedReportMonth = month;
+      renderPage();
+    }
   } else if (action === 'download-payroll-report') {
     const month = button.dataset.month || document.querySelector('#payroll-month-picker')?.value || document.querySelector('#report-month')?.value || state.selectedPayrollMonth || currentMonth;
     downloadPayrollReport(month);
