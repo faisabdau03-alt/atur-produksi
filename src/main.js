@@ -2937,8 +2937,6 @@ function renderReports(month = currentMonth) {
       <div class="report-controls">
         <label class="month-label" for="report-month">BULAN</label>
         <input class="month-input" id="report-month" type="month" value="${escapeHtml(selectedMonth)}" />
-        <button type="button" class="button button-small button-outline" data-action="set-report-month" data-month="${currentMonth}" title="Lihat dan unduh laporan bulan berjalan">Bulan Ini</button>
-        <button type="button" class="button button-small button-outline" data-action="set-report-month" data-month="${getPreviousMonth(currentMonth)}" title="Lihat dan unduh laporan bulan kemarin">Bulan Lalu</button>
         <button class="button button-primary" data-action="download-report" data-month="${escapeHtml(selectedMonth)}" title="Unduh laporan lengkap operasional & keuangan bulan ini ke CSV/Excel"><span>↓</span> Unduh Laporan Bulanan</button>
       </div>
     </section>
