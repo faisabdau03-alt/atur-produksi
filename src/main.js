@@ -246,129 +246,21 @@ function renderAuthBrandHero() {
     <aside class="auth-hero-wood">
       <!-- Top Brand Row -->
       <div class="auth-hero-brand">
-        <div class="auth-brand-logo">
-          <span class="auth-brand-monogram">JW</span>
+        <div class="auth-brand-logo-frame">
+          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-brand-thumb-logo" />
         </div>
         <div class="auth-brand-info">
           <div class="auth-brand-name">JAYA WIJAYA</div>
-          <div class="auth-brand-tagline">Manufaktur Sapu &amp; Alat Kebersihan Kayu</div>
+          <div class="auth-brand-tagline">Wooden Cleaning Tools — Manufaktur Sapu &amp; Alat Kayu</div>
         </div>
-        <div class="auth-brand-badge">Wood &amp; Clean Tech</div>
+        <div class="auth-brand-badge">Official Seal</div>
       </div>
 
-      <!-- Hero Visual: Craftsmanship & Modern Lathe Broom Illustration -->
-      <div class="auth-hero-visual">
-        <svg class="auth-hero-svg" viewBox="0 0 520 330" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Manufaktur Sapu Kayu Jaya Wijaya">
-          <defs>
-            <radialGradient id="heroGlow" cx="50%" cy="45%" r="55%">
-              <stop offset="0%" stop-color="#D4A64A" stop-opacity="0.18" />
-              <stop offset="60%" stop-color="#145A42" stop-opacity="0.08" />
-              <stop offset="100%" stop-color="#103C30" stop-opacity="0" />
-            </radialGradient>
-            <linearGradient id="woodHandleGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stop-color="#6F4425" />
-              <stop offset="25%" stop-color="#8B5E3C" />
-              <stop offset="55%" stop-color="#B88656" />
-              <stop offset="75%" stop-color="#8B5E3C" />
-              <stop offset="100%" stop-color="#5A3519" />
-            </linearGradient>
-            <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#FFE082" />
-              <stop offset="40%" stop-color="#D4A64A" />
-              <stop offset="75%" stop-color="#AA7C28" />
-              <stop offset="100%" stop-color="#886018" />
-            </linearGradient>
-            <linearGradient id="blockWoodGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#A87447" />
-              <stop offset="50%" stop-color="#8B5E3C" />
-              <stop offset="100%" stop-color="#5C3B20" />
-            </linearGradient>
-            <linearGradient id="bristleGrad1" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#4A3423" />
-              <stop offset="50%" stop-color="#7B5433" />
-              <stop offset="100%" stop-color="#D4A64A" stop-opacity="0.9" />
-            </linearGradient>
-            <filter id="heroShadow" x="-10%" y="-10%" width="125%" height="125%">
-              <feDropShadow dx="0" dy="5" stdDeviation="5" flood-color="#081E18" flood-opacity="0.4" />
-            </filter>
-          </defs>
-
-          <!-- Ambient Glow -->
-          <rect x="20" y="20" width="480" height="290" rx="16" fill="url(#heroGlow)" />
-
-          <!-- Blueprint & Precision Lathe Grid Lines -->
-          <g opacity="0.32">
-            <circle cx="260" cy="165" r="135" stroke="#D4A64A" stroke-width="1" stroke-dasharray="4 6" />
-            <circle cx="260" cy="165" r="90" stroke="#D4A64A" stroke-width="0.8" stroke-dasharray="2 4" />
-            <line x1="60" y1="165" x2="460" y2="165" stroke="#D4A64A" stroke-width="0.75" stroke-dasharray="6 6" />
-            <line x1="260" y1="40" x2="260" y2="290" stroke="#D4A64A" stroke-width="0.75" stroke-dasharray="6 6" />
-          </g>
-
-          <!-- Precision Caliper Markings -->
-          <g opacity="0.5" stroke="#D4A64A" stroke-width="1">
-            <path d="M 215 48 L 215 72 M 225 53 L 225 67 M 235 53 L 235 67 M 245 48 L 245 72" />
-            <text x="210" y="42" fill="#D4A64A" font-size="9" font-family="'Inter', sans-serif" font-weight="600" letter-spacing="0.5">Ø 22.5 mm</text>
-          </g>
-
-          <!-- Main Wooden Broomstick & Bristles Composition -->
-          <g transform="translate(260, 155) rotate(-22)">
-            <!-- Bristle Fan -->
-            <path d="M -50 45 C -75 90, -95 150, -100 195 L 100 195 C 95 150, 75 90, 50 45 Z" fill="url(#bristleGrad1)" />
-            <!-- Bristle Texture Lines -->
-            <path d="M -40 50 L -85 195 M -25 50 L -55 195 M -10 50 L -25 195 M 0 50 L 0 195 M 10 50 L 25 195 M 25 50 L 55 195 M 40 50 L 85 195" stroke="#E5BA6A" stroke-width="1.2" opacity="0.5" />
-            <path d="M -30 65 L -70 195 M -15 65 L -40 195 M 15 65 L 40 195 M 30 65 L 70 195" stroke="#603C1F" stroke-width="1.5" opacity="0.6" />
-            <path d="M -45 100 C -20 105, 20 105, 45 100" stroke="url(#goldGrad)" stroke-width="3" fill="none" />
-            <path d="M -55 140 C -25 146, 25 146, 55 140" stroke="url(#goldGrad)" stroke-width="2.5" fill="none" opacity="0.9" />
-
-            <!-- Hardwood Broom Head Block -->
-            <rect x="-56" y="20" width="112" height="32" rx="8" fill="url(#blockWoodGrad)" stroke="#AA7C28" stroke-width="1.2" />
-            <path d="M -46 32 Q 0 28 46 32 M -48 38 Q 0 42 48 38" stroke="#FFE082" stroke-width="0.8" opacity="0.3" fill="none" />
-
-            <!-- Golden Ferrule Collar -->
-            <rect x="-14" y="0" width="28" height="22" rx="3" fill="url(#goldGrad)" />
-            <line x1="-14" y1="10" x2="14" y2="10" stroke="#FFE082" stroke-width="1" />
-            <line x1="-14" y1="14" x2="14" y2="14" stroke="#7A5212" stroke-width="1" />
-
-            <!-- Lathe-Turned Wooden Handle -->
-            <rect x="-11" y="-170" width="22" height="175" rx="5" fill="url(#woodHandleGrad)" />
-            <line x1="-3" y1="-165" x2="-3" y2="0" stroke="#FFE082" stroke-width="1" opacity="0.4" />
-            <line x1="5" y1="-165" x2="5" y2="0" stroke="#5A3519" stroke-width="1.2" opacity="0.5" />
-
-            <!-- Top Cap / Handle Knob -->
-            <ellipse cx="0" cy="-170" rx="14" ry="7" fill="url(#goldGrad)" />
-            <circle cx="0" cy="-173" r="5" fill="#FFE082" />
-            <circle cx="0" cy="-173" r="2.5" stroke="#7A5212" stroke-width="1" fill="none" />
-          </g>
-
-          <!-- Floating Lathe Wood Shavings -->
-          <path d="M 120 185 Q 140 165, 160 180 T 180 195" stroke="#E2C79A" stroke-width="3" stroke-linecap="round" fill="none" opacity="0.6" />
-          <path d="M 390 115 Q 410 95, 425 110 T 445 125" stroke="#E2C79A" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5" />
-
-          <!-- Floating Metric Chip 1: Top Right (Kayu Bubut Presisi) -->
-          <g filter="url(#heroShadow)" transform="translate(325, 40)">
-            <rect width="168" height="48" rx="12" fill="#103C30" stroke="#D4A64A" stroke-width="1.2" />
-            <circle cx="24" cy="24" r="13" fill="#145A42" />
-            <text x="24" y="29" font-size="14" text-anchor="middle">🪵</text>
-            <text x="46" y="21" fill="#FFFFFF" font-family="'Inter', sans-serif" font-size="11" font-weight="700">Kayu Bubut Presisi</text>
-            <text x="46" y="36" fill="#D4A64A" font-family="'Inter', sans-serif" font-size="9" font-weight="500">Halus &amp; Berstandar Mutu</text>
-          </g>
-
-          <!-- Floating Metric Chip 2: Bottom Left (Serat Alami) -->
-          <g filter="url(#heroShadow)" transform="translate(35, 220)">
-            <rect width="180" height="48" rx="12" fill="#103C30" stroke="#8B5E3C" stroke-width="1.2" />
-            <circle cx="24" cy="24" r="13" fill="#8B5E3C" />
-            <text x="24" y="29" font-size="14" text-anchor="middle">🧹</text>
-            <text x="46" y="21" fill="#FFFFFF" font-family="'Inter', sans-serif" font-size="11" font-weight="700">Serat Alami Terstandar</text>
-            <text x="46" y="36" fill="#E5BA6A" font-family="'Inter', sans-serif" font-size="9" font-weight="500">Kekuatan Ikatan Tinggi</text>
-          </g>
-
-          <!-- Floating Metric Chip 3: Center Bottom -->
-          <g filter="url(#heroShadow)" transform="translate(195, 275)">
-            <rect width="162" height="34" rx="17" fill="#145A42" stroke="rgba(212, 166, 74, 0.4)" stroke-width="1" />
-            <circle cx="18" cy="17" r="4.5" fill="#4ADE80" />
-            <text x="32" y="21" fill="#F7F4EC" font-family="'Inter', sans-serif" font-size="10" font-weight="600" letter-spacing="0.3">Operasional Terintegrasi</text>
-          </g>
-        </svg>
+      <!-- Hero Visual: Official Logo Badge Showcase -->
+      <div class="auth-hero-logo-showcase">
+        <div class="auth-logo-badge-container">
+          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-official-logo" />
+        </div>
       </div>
 
       <!-- Hero Copy -->
@@ -699,7 +591,13 @@ function renderShell() {
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
-        <a class="brand" href="#" data-page="dashboard"><span class="brand-mark">AP</span><span>atur<span class="brand-light">produksi</span></span></a>
+        <a class="brand brand-jaya-wijaya" href="#" data-page="dashboard" title="Jaya Wijaya — Sistem Manufaktur & Operasional">
+          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="sidebar-logo-img" />
+          <div class="sidebar-brand-text">
+            <span class="sidebar-brand-title">JAYA WIJAYA</span>
+            <span class="sidebar-brand-sub">WOODEN CLEANING TOOLS</span>
+          </div>
+        </a>
         <div class="workspace-label">RUANG KERJA</div>
         <nav class="main-nav" aria-label="Navigasi utama">
           ${navItem('dashboard', '◫', 'Ringkasan')}
