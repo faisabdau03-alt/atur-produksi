@@ -844,6 +844,7 @@ td:first-child, th:first-child { padding-left: 4px; }
   .dialog-heading,
   .dialog-actions,
   .nota-audit-details,
+  .no-print,
   button,
   .icon-button {
     display: none !important;

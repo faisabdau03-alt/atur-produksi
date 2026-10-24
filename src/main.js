@@ -1059,7 +1059,13 @@ function openReportDetailModal(type, id, month = currentMonth) {
     let isDP = false;
     let remainingAmount = 0;
 
-    if (desc.includes('DP') || (rec.category || '').includes('DP')) {
+    if (desc.includes('Lunas') && !desc.includes('Sisa Tagihan') && !desc.includes('Sisa Piutang') && !desc.includes('Sisa Utang')) {
+      paymentStatusText = 'Lunas';
+      paymentStatusClass = 'lunas';
+      isDP = false;
+      paidAmount = Number(rec.amount) || 0;
+      remainingAmount = 0;
+    } else if (desc.includes('DP') || (rec.category || '').includes('DP')) {
       paymentStatusText = 'Uang Muka (DP)';
       paymentStatusClass = 'dp';
       isDP = true;
@@ -1255,6 +1261,16 @@ function openReportDetailModal(type, id, month = currentMonth) {
               <span>${isIncome ? 'Total Diterima (Kas):' : 'Total Dibayar (Kas):'}</span>
               <span class="receipt-grand-total">${formatMoney(paidAmount)}</span>
             </div>`}
+            ${remainingAmount > 0 ? `
+            <div class="receipt-row no-print" style="background:#eff6ff; border:1px dashed #38bdf8; border-radius:6px; padding:6px 9px; margin:7px 0; align-items:center;">
+              <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
+                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px;">
+                  💳 Lunasi
+                </button>
+              </div>
+            </div>` : ''}
             <div class="receipt-row">
               <span>Status Pembayaran:</span>
               <strong style="color: ${paymentStatusClass === 'lunas' ? '#187554' : (paymentStatusClass === 'dp' ? '#9c6312' : '#b82d2d')};">${escapeHtml(paymentStatusText)}</strong>
@@ -1287,6 +1303,10 @@ function openReportDetailModal(type, id, month = currentMonth) {
 
       <div class="dialog-actions nota-dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        ${remainingAmount > 0 ? `
+        <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
+          <span>💰</span> Lunasi ${isIncome ? 'Piutang' : 'Utang'} (${formatMoney(remainingAmount)})
+        </button>` : ''}
         <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
           <span>📋</span> Salin Teks Struk
         </button>
@@ -1319,7 +1339,13 @@ function openReportDetailModal(type, id, month = currentMonth) {
     let paidAmount = totalAmount;
     let remainingAmount = 0;
 
-    if (notes.includes('DP')) {
+    if (notes.includes('Lunas') && !notes.includes('Sisa Piutang') && !notes.includes('Sisa Utang') && !notes.includes('Sisa Tagihan')) {
+      paymentStatusText = 'Lunas';
+      paymentStatusClass = 'lunas';
+      isDP = false;
+      paidAmount = totalAmount;
+      remainingAmount = 0;
+    } else if (notes.includes('DP')) {
       paymentStatusText = 'Uang Muka (DP)';
       paymentStatusClass = 'dp';
       isDP = true;
@@ -1468,6 +1494,16 @@ function openReportDetailModal(type, id, month = currentMonth) {
               <span>Total Transaksi:</span>
               <span class="receipt-grand-total">${formatMoney(totalAmount)}</span>
             </div>`}
+            ${remainingAmount > 0 ? `
+            <div class="receipt-row no-print" style="background:#eff6ff; border:1px dashed #38bdf8; border-radius:6px; padding:6px 9px; margin:7px 0; align-items:center;">
+              <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
+                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px;">
+                  💳 Lunasi
+                </button>
+              </div>
+            </div>` : ''}
             <div class="receipt-row">
               <span>Status:</span>
               <strong>${escapeHtml(paymentStatusText)}</strong>
@@ -1500,6 +1536,10 @@ function openReportDetailModal(type, id, month = currentMonth) {
 
       <div class="dialog-actions nota-dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        ${remainingAmount > 0 ? `
+        <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
+          <span>💰</span> Lunasi ${isIn ? 'Utang' : 'Piutang'} (${formatMoney(remainingAmount)})
+        </button>` : ''}
         <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
           <span>📋</span> Salin Teks Struk
         </button>
@@ -1513,6 +1553,241 @@ function openReportDetailModal(type, id, month = currentMonth) {
     if (!emp) return;
     payMonthlySalaryModal(emp.id, month);
   }
+}
+
+
+function openSettlementModal(targetType, targetId) {
+  let rec, isSale, partyName = '', itemName = 'Produk', itemQtyText = '1 unit', totalAmount = 0, paidAmount = 0, remainingAmount = 0;
+
+  if (targetType === 'inventory') {
+    rec = state.inventory.find((i) => i.id === targetId);
+    if (!rec) return;
+    const prod = state.products.find((p) => p.id === rec.product_id) || rec.products;
+    const isIn = rec.direction === 'in';
+    isSale = !isIn;
+    const notes = rec.notes || '';
+    partyName = (notes.match(/Pembeli:\s*([^·\r\n]+)/i) || notes.match(/Supplier:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
+    const qty = Number(rec.quantity) || 0;
+    const unitPrice = isIn ? (Number(prod?.purchase_price) || 0) : (Number(prod?.selling_price) || 0);
+    totalAmount = Math.round(qty * unitPrice);
+
+    paidAmount = totalAmount;
+    remainingAmount = 0;
+
+    if (notes.includes('DP')) {
+      const dpMatch = notes.match(/DP\s+(?:Rp\s*)?([\d.,]+)/i);
+      const remMatch = notes.match(/(?:Sisa Tagihan|Sisa Piutang|Sisa Utang)[:\s]+(?:Rp\s*)?([\d.,]+)/i);
+      if (dpMatch) paidAmount = Number(dpMatch[1].replace(/[.,]/g, '')) || 0;
+      if (remMatch) remainingAmount = Number(remMatch[1].replace(/[.,]/g, '')) || 0;
+      if (remainingAmount === 0 && totalAmount > paidAmount) {
+        remainingAmount = Math.max(0, totalAmount - paidAmount);
+      }
+    } else if (notes.includes('Tempo') || notes.includes('Piutang') || notes.includes('Utang')) {
+      paidAmount = 0;
+      remainingAmount = totalAmount;
+    }
+
+    itemName = prod?.name || 'Produk';
+    itemQtyText = `${formatQuantity(qty)} ${prod?.unit || 'unit'}`;
+  } else if (targetType === 'cash') {
+    rec = state.cash.find((c) => c.id === targetId);
+    if (!rec) return;
+    const isIncome = rec.direction === 'in';
+    isSale = isIncome;
+    const desc = rec.description || '';
+    partyName = (desc.match(/Pembeli:\s*([^·\r\n]+)/i) || desc.match(/Supplier:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
+    paidAmount = Number(rec.amount) || 0;
+
+    remainingAmount = 0;
+    const remMatch = desc.match(/(?:Sisa Tagihan|Sisa Piutang|Sisa Utang)[:\s]+(?:Rp\s*)?([\d.,]+)/i);
+    if (remMatch) {
+      remainingAmount = Number(remMatch[1].replace(/[.,]/g, '')) || 0;
+    }
+    totalAmount = paidAmount + remainingAmount;
+
+    const matchingInv = state.inventory.find((inv) => {
+      if (inv.occurred_on !== rec.occurred_on) return false;
+      if (isSale && inv.direction === 'out' && partyName && (inv.notes || '').includes(partyName)) return true;
+      if (!isSale && inv.direction === 'in' && partyName && (inv.notes || '').includes(partyName)) return true;
+      return false;
+    });
+
+    if (matchingInv) {
+      const prod = state.products.find((p) => p.id === matchingInv.product_id) || matchingInv.products;
+      itemName = prod?.name || 'Produk';
+      itemQtyText = `${formatQuantity(matchingInv.quantity)} ${prod?.unit || 'unit'}`;
+    } else {
+      const itemMatch = desc.match(/(?:Penjualan|DP Penjualan|Belanja|DP Belanja)\s+([\d.,]+)\s+([a-zA-Z]+)\s+([^·\r\n(]+)/i);
+      if (itemMatch) {
+        itemQtyText = `${itemMatch[1]} ${itemMatch[2]}`;
+        itemName = itemMatch[3].trim();
+      } else {
+        const parts = desc.split('·').map((p) => p.trim());
+        itemName = parts[0] || rec.category;
+        itemQtyText = '1 transaksi';
+      }
+    }
+  }
+
+  if (remainingAmount <= 0) {
+    showError('Transaksi ini sudah lunas, tidak ada sisa tagihan.');
+    return;
+  }
+
+  openDialog(`Pelunasan ${isSale ? 'Piutang Penjualan' : 'Utang Pembelian'}`, `
+    <form id="settlement-form" class="form-stack">
+      <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px 14px; font-size: 11px;">
+        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+          <span style="color:#166534; font-weight:700;">${isSale ? 'Pelanggan / Pembeli:' : 'Supplier / Toko:'}</span>
+          <strong style="font-size:13px; color:#14532d;">${escapeHtml(partyName || (isSale ? 'Pelanggan' : 'Supplier'))}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#4b5563;">Rincian Barang:</span>
+          <strong>${escapeHtml(itemName)} (${escapeHtml(itemQtyText)})</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#4b5563;">Total Nilai Pesanan:</span>
+          <span>${formatMoney(totalAmount)}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+          <span style="color:#15803d;">Sudah Dibayar (DP):</span>
+          <strong style="color:#15803d;">${formatMoney(paidAmount)}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; border-top:1px dashed #86efac; padding-top:6px; margin-top:5px;">
+          <span style="color:#dc2626; font-weight:700;">Sisa Tagihan Belum Lunas:</span>
+          <strong style="color:#dc2626; font-size:14px;">${formatMoney(remainingAmount)}</strong>
+        </div>
+      </div>
+
+      <input type="hidden" name="target_type" value="${targetType}" />
+      <input type="hidden" name="target_id" value="${escapeHtml(targetId)}" />
+
+      <label>Jumlah Pembayaran Pelunasan (Rp) <span style="color:#dc2626;">*</span>
+        <input name="settle_amount" id="settle-amount" type="number" min="1" max="${remainingAmount}" value="${remainingAmount}" required />
+        <span class="sub-meta">Bisa melunasi penuh (${formatMoney(remainingAmount)}) atau membayar cicilan bertahap.</span>
+      </label>
+
+      <div class="form-row">
+        <label>Tanggal Pembayaran
+          <input name="settle_date" type="date" value="${localDate}" required />
+        </label>
+        <label>Pencatatan Kas
+          <select name="sync_cash" required>
+            <option value="yes">Catat Kas Masuk (+Rp)</option>
+            <option value="no">Hanya Update Status Nota (Tanpa Kas)</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Catatan Pembayaran / Kuitansi <span class="optional">(opsional)</span>
+        <input name="settle_notes" maxlength="200" placeholder="Contoh: Transfer Bank BCA / Cash di kantor / Kuitansi #045" />
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="back-to-nota" data-type="${targetType}" data-id="${escapeHtml(targetId)}">Kembali</button>
+        <button type="submit" class="button button-primary" style="background:#187554;">Simpan Pembayaran Pelunasan</button>
+      </div>
+    </form>
+  `);
+
+  document.querySelector('#settlement-form')?.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    const settleAmount = Number(form.get('settle_amount')) || 0;
+    const settleDate = form.get('settle_date') || localDate;
+    const syncCash = form.get('sync_cash') === 'yes';
+    const settleNotes = (form.get('settle_notes') || '').trim();
+
+    if (settleAmount <= 0) {
+      showError('Nominal pelunasan harus lebih dari Rp 0.');
+      return;
+    }
+
+    const newRemaining = Math.max(0, remainingAmount - settleAmount);
+    const isFullSettlement = newRemaining === 0;
+    const newPaidAmount = paidAmount + settleAmount;
+
+    let updatedNote = '';
+    if (isFullSettlement) {
+      updatedNote = isSale
+        ? `[Penjualan Lunas - Dilunasi ${formatDate(settleDate)}]`
+        : `[Beli Lunas - Dilunasi ${formatDate(settleDate)}]`;
+    } else {
+      updatedNote = isSale
+        ? `[Penjualan DP ${formatMoney(newPaidAmount)} · Sisa Piutang ${formatMoney(newRemaining)}]`
+        : `[Beli DP ${formatMoney(newPaidAmount)} · Sisa Utang ${formatMoney(newRemaining)}]`;
+    }
+
+    if (partyName) {
+      updatedNote += ` ${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}`;
+    }
+    if (settleNotes) {
+      updatedNote += ` · ${settleNotes}`;
+    }
+
+    await runMutation(async () => {
+      if (targetType === 'inventory') {
+        if (state.isDemo) {
+          demoStore.update('inventory', targetId, { notes: updatedNote });
+        } else {
+          const { error: invErr } = await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', targetId);
+          if (invErr) return invErr;
+        }
+      } else if (targetType === 'cash') {
+        const updatedCashDesc = isFullSettlement
+          ? `${rec.category} (Lunas - Dilunasi ${formatDate(settleDate)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}${settleNotes ? ' · ' + settleNotes : ''}`
+          : `${rec.category} (DP Diterima ${formatMoney(newPaidAmount)} · Sisa Tagihan: ${formatMoney(newRemaining)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}`;
+
+        if (state.isDemo) {
+          demoStore.update('cash', targetId, { description: updatedCashDesc });
+        } else {
+          const { error: cashErr } = await supabase.from('cash_transactions').update({ description: updatedCashDesc }).eq('id', targetId);
+          if (cashErr) return cashErr;
+        }
+
+        const origInv = state.inventory.find((i) =>
+          i.occurred_on === rec.occurred_on &&
+          i.notes &&
+          i.notes.includes(partyName || '')
+        );
+        if (origInv) {
+          if (state.isDemo) {
+            demoStore.update('inventory', origInv.id, { notes: updatedNote });
+          } else {
+            await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', origInv.id);
+          }
+        }
+      }
+
+      if (syncCash && settleAmount > 0) {
+        const cashCategory = isSale ? 'Pelunasan Piutang Penjualan' : 'Pelunasan Utang Pembelian';
+        const cashDesc = `Pelunasan ${isSale ? 'piutang penjualan' : 'utang pembelian'} ${itemName} (${itemQtyText}) · ${isSale ? 'Pembeli' : 'Supplier'}: ${partyName || 'Pelanggan'}${isFullSettlement ? ' (LUNAS)' : ` (Sisa Tagihan: ${formatMoney(newRemaining)})`}${settleNotes ? ` · ${settleNotes}` : ''}`;
+
+        const cashPayload = {
+          direction: isSale ? 'in' : 'out',
+          amount: settleAmount,
+          category: cashCategory,
+          description: cashDesc,
+          occurred_on: settleDate,
+        };
+
+        if (state.isDemo) {
+          demoStore.insert('cash', cashPayload);
+        } else {
+          const { error: newCashErr } = await supabase.from('cash_transactions').insert(cashPayload);
+          if (newCashErr) return newCashErr;
+        }
+      }
+
+      return null;
+    }, isFullSettlement
+      ? `Pelunasan berhasil! Tagihan ${partyName ? `atas nama ${partyName}` : ''} sebesar ${formatMoney(settleAmount)} telah LUNAS.`
+      : `Pembayaran cicilan sebesar ${formatMoney(settleAmount)} berhasil dicatat (Sisa tagihan: ${formatMoney(newRemaining)}).`);
+
+    await refreshData();
+    renderPage();
+    openReportDetailModal(targetType, targetId, state.selectedReportMonth || currentMonth);
+  });
 }
 
 function renderPayroll() {
@@ -4071,6 +4346,10 @@ async function handlePageAction(event) {
     printThermalReceipt();
   } else if (action === 'copy-receipt-text') {
     copyReceiptText();
+  } else if (action === 'open-settlement-modal') {
+    openSettlementModal(button.dataset.type, button.dataset.id);
+  } else if (action === 'back-to-nota') {
+    openReportDetailModal(button.dataset.type, button.dataset.id, state.selectedReportMonth || currentMonth);
   }
 }
 
