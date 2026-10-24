@@ -241,282 +241,178 @@ function showError(message) {
   notify(message, 'error');
 }
 
-function renderAuthBrandHero() {
+function renderAuthBrandHeader() {
   return `
-    <aside class="auth-hero-wood">
-      <!-- Top Brand Row -->
-      <div class="auth-hero-brand">
-        <div class="auth-brand-logo-frame">
-          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-brand-thumb-logo" />
-        </div>
-        <div class="auth-brand-info">
-          <div class="auth-brand-name">JAYA WIJAYA</div>
-          <div class="auth-brand-tagline">Wooden Cleaning Tools — Manufaktur Sapu &amp; Alat Kayu</div>
-        </div>
-        <div class="auth-brand-badge">Official Seal</div>
+    <div class="auth-center-brand">
+      <div class="auth-center-logo-box">
+        <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-center-logo-img" />
+      </div>
+      <div class="auth-center-brand-name">JAYA WIJAYA</div>
+      <div class="auth-center-brand-sub">Manufaktur Sapu &amp; Alat Kebersihan Berbahan Kayu</div>
+    </div>`;
+}
+
+function renderSetupCard() {
+  return `
+    <section class="auth-card-centered">
+      ${renderAuthBrandHeader()}
+
+      <div class="auth-center-header">
+        <h1 class="auth-center-title">Ruang Kerja Jaya Wijaya</h1>
+        <p class="auth-center-desc">Pilih metode akses untuk memulai operasional perusahaan.</p>
       </div>
 
-      <!-- Hero Visual: Official Logo Badge Showcase -->
-      <div class="auth-hero-logo-showcase">
-        <div class="auth-logo-badge-container">
-          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-official-logo" />
+      <!-- Status Koneksi Database Supabase -->
+      <div class="auth-status-compact is-unconfigured">
+        <span class="status-pulse-dot dot-amber"></span>
+        <div class="status-compact-text">
+          <strong>Database Cloud: Belum Dikonfigurasi</strong>
+          <span>Kredensial database Supabase belum terpasang. Aplikasi siap digunakan secara penuh via <em>Mode Demo</em> lokal.</span>
         </div>
       </div>
 
-      <!-- Hero Copy -->
-      <div class="auth-hero-copy">
-        <div class="auth-eyebrow-pill">
-          <span class="pill-dot"></span> SISTEM INFORMASI MANUFAKTUR
+      <!-- Kartu / Tombol Utama: Mode Demo Interaktif -->
+      <div class="auth-demo-center-card">
+        <div class="demo-center-header">
+          <div class="demo-center-icon-badge">
+            <span>⚡</span>
+          </div>
+          <div class="demo-center-info">
+            <div class="demo-center-title-row">
+              <h3 class="demo-center-title">Mode Demo Interaktif</h3>
+              <span class="demo-center-pill">★ REKOMENDASI · LANGSUNG PAKAI</span>
+            </div>
+            <p class="demo-center-desc">Jelajahi seluruh modul operasional dengan data simulasi yang tersimpan di browser tanpa database eksternal.</p>
+          </div>
         </div>
-        <h1 class="auth-hero-title">
-          Presisi Manufaktur Kayu,<br />
-          <span class="text-gold">Efisiensi Produksi Digital.</span>
-        </h1>
-        <p class="auth-hero-desc">
-          Platform terpadu untuk industri sapu dan perkakas kebersihan berbahan kayu: integrasi mutasi persediaan, pencatatan transaksi kas &amp; pelunasan piutang, hingga perhitungan upah karyawan dalam satu sistem.
+
+        <div class="demo-highlights-grid">
+          <div class="highlight-chip">🪵 Stok Sapu &amp; Kayu</div>
+          <div class="highlight-chip">💰 Kas &amp; Piutang DP</div>
+          <div class="highlight-chip">🧾 Cetak Struk Bluetooth</div>
+          <div class="highlight-chip">👥 Gaji &amp; Lembur Karyawan</div>
+        </div>
+
+        <button type="button" class="btn-primary-forest-center" id="btn-enter-demo">
+          <span class="btn-bolt">⚡</span>
+          <span>Masuk ke Mode Demo Interaktif</span>
+          <span class="btn-arrow" aria-hidden="true">→</span>
+        </button>
+
+        <p class="demo-footer-note">
+          🔒 Seluruh data tersimpan aman di browser Anda (Local Storage) dan dapat direset kapan saja.
         </p>
       </div>
 
-      <!-- Production Pipeline Highlights -->
-      <div class="auth-pipeline-grid">
-        <div class="pipeline-item">
-          <span class="pipeline-num">01</span>
-          <div class="pipeline-text">
-            <strong>Seleksi Bahan Baku</strong>
-            <small>Kayu keras &amp; serat alami</small>
-          </div>
-        </div>
-        <div class="pipeline-item">
-          <span class="pipeline-num">02</span>
-          <div class="pipeline-text">
-            <strong>Pembubutan Presisi</strong>
-            <small>Gagang simetris &amp; halus</small>
-          </div>
-        </div>
-        <div class="pipeline-item">
-          <span class="pipeline-num">03</span>
-          <div class="pipeline-text">
-            <strong>Perakitan &amp; QC Mutu</strong>
-            <small>Ikatan kuat &amp; uji ketahanan</small>
-          </div>
-        </div>
-        <div class="pipeline-item">
-          <span class="pipeline-num">04</span>
-          <div class="pipeline-text">
-            <strong>Digitalisasi Pabrik</strong>
-            <small>Stok, kas &amp; payroll otomatis</small>
-          </div>
-        </div>
+      <!-- Divider -->
+      <div class="auth-center-divider">
+        <span>ATAU HUBUNGKAN KE DATABASE SUPABASE</span>
       </div>
 
-      <!-- Hero Trust Footer -->
-      <div class="auth-hero-footer">
-        <span>🛡️ Standar Mutu Manufaktur Terpercaya</span>
-        <span>•</span>
-        <span>Jaya Wijaya</span>
-      </div>
-    </aside>`;
-}
-
-function renderSetupPanel() {
-  return `
-    <section class="auth-panel-wood">
-      <div class="auth-panel-card">
-        
-        <!-- Header -->
-        <header class="auth-panel-header">
-          <span class="auth-panel-eyebrow">PORTAL PERSIAPAN APLIKASI</span>
-          <h2 class="auth-panel-title">Ruang Kerja Jaya Wijaya</h2>
-          <p class="auth-panel-subtitle">
-            Pilih metode akses di bawah ini untuk memulai operasional atau hubungkan database produksi perusahaan.
-          </p>
-        </header>
-
-        <!-- Honest Connection Status -->
-        <div class="auth-status-banner is-unconfigured">
-          <div class="status-banner-icon">
-            <span class="status-pulse-dot dot-amber"></span>
+      <!-- Bagian Konfigurasi Supabase (Ringkas & Rapi) -->
+      <div class="supabase-center-card">
+        <div class="supabase-center-header">
+          <div class="supabase-center-title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="#3ECF8E"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L.242 13.916a.396.396 0 0 0 .307.638H12v8.958a.396.396 0 0 0 .716.233l11.042-13.753a.396.396 0 0 0-.396-.638z"/></svg>
+            <strong>Konfigurasi Lingkungan (.env)</strong>
           </div>
-          <div class="status-banner-body">
-            <strong>Database Cloud: Belum Dikonfigurasi</strong>
-            <p>Kredensial database Supabase belum terpasang di file <code>.env</code>. Anda dapat langsung menjalankan seluruh fitur secara penuh melalui <strong>Mode Demo Interaktif</strong> di bawah.</p>
-          </div>
+          <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" class="supabase-center-link">
+            Dashboard Supabase ↗
+          </a>
         </div>
-
-        <!-- Featured CTA Card: Mode Demo Interaktif -->
-        <div class="demo-cta-card">
-          <div class="demo-cta-badge-row">
-            <span class="demo-badge-pill">★ REKOMENDASI · LANGSUNG PAKAI</span>
-          </div>
-          <div class="demo-cta-header">
-            <div class="demo-cta-icon-box">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
-              </svg>
-            </div>
-            <div>
-              <h3 class="demo-cta-title">Mode Demo Interaktif</h3>
-              <p class="demo-cta-lead">Jelajahi seluruh modul operasional dengan data simulasi langsung di browser tanpa database eksternal.</p>
-            </div>
-          </div>
-
-          <div class="demo-feature-list">
-            <div class="demo-feature-item">
-              <span class="feature-icon">📦</span>
-              <span><strong>Inventaris &amp; Stok:</strong> Bahan kayu mentah, tutup uk 19, sapu siap kirim</span>
-            </div>
-            <div class="demo-feature-item">
-              <span class="feature-icon">💰</span>
-              <span><strong>Keuangan &amp; Kas:</strong> Penjualan tunai, uang muka (DP), dan pelunasan piutang</span>
-            </div>
-            <div class="demo-feature-item">
-              <span class="feature-icon">🧾</span>
-              <span><strong>Nota &amp; Struk:</strong> Desain nota modern &amp; cetak thermal Bluetooth (58/80mm)</span>
-            </div>
-            <div class="demo-feature-item">
-              <span class="feature-icon">👥</span>
-              <span><strong>Gaji &amp; Absensi:</strong> Hitung hari kerja, lembur, dan insentif per unit produksi</span>
-            </div>
-            <div class="demo-feature-item">
-              <span class="feature-icon">📊</span>
-              <span><strong>Laporan Bulanan:</strong> Rekap laba kotor/bersih, omzet, dan unduh CSV</span>
-            </div>
-          </div>
-
-          <button type="button" class="btn-forest-cta" id="btn-enter-demo">
-            <span>Masuk ke Mode Demo Interaktif</span>
-            <span class="btn-arrow" aria-hidden="true">→</span>
-          </button>
-
-          <p class="demo-storage-note">
-            🔒 Data simulasi tersimpan aman di browser Anda (Local Storage) dan dapat direset kapan saja tanpa mempengaruhi database utama.
-          </p>
-        </div>
-
-        <!-- Divider -->
-        <div class="auth-section-divider">
-          <span>ATAU HUBUNGKAN KE SUPABASE</span>
-        </div>
-
-        <!-- Supabase Setup Card -->
-        <div class="supabase-setup-card">
-          <div class="supabase-card-header">
-            <div class="supabase-logo-pill">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#3ECF8E"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L.242 13.916a.396.396 0 0 0 .307.638H12v8.958a.396.396 0 0 0 .716.233l11.042-13.753a.396.396 0 0 0-.396-.638z"/></svg>
-              <strong>Konfigurasi Lingkungan (.env)</strong>
-            </div>
-            <a class="supabase-link-ext" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">
-              Dashboard Supabase ↗
-            </a>
-          </div>
-          <p class="supabase-setup-desc">
-            Untuk menghubungkan database PostgreSQL Supabase bersama, tambahkan konfigurasi ini pada file <code>.env</code> lokal atau menu <em>Environment Variables</em> hosting Vercel:
-          </p>
-
-          <div class="env-code-box">
-            <pre>VITE_SUPABASE_URL=https://&lt;project-ref&gt;.supabase.co
+        <p class="supabase-center-desc">
+          Untuk menghubungkan database PostgreSQL Supabase multi-pengguna, masukkan variabel berikut pada file <code>.env</code> lokal atau dashboard hosting Vercel:
+        </p>
+        <div class="env-code-compact">
+          <pre>VITE_SUPABASE_URL=https://&lt;project-ref&gt;.supabase.co
 VITE_SUPABASE_ANON_KEY=&lt;anon-atau-publishable-key&gt;</pre>
-            <button type="button" class="btn-copy-env" id="btn-copy-config" title="Salin variabel lingkungan ke clipboard">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <span>Salin Format .env</span>
-            </button>
-          </div>
-
-          <div class="supabase-schema-footer">
-            <span>📄 Skema database siap impor tersedia di berkas <code>supabase/schema.sql</code></span>
-          </div>
+          <button type="button" class="btn-copy-env-center" id="btn-copy-config" title="Salin format variabel lingkungan ke clipboard">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>Salin Format .env</span>
+          </button>
         </div>
-
+        <div class="supabase-center-schema">
+          <span>📄 Skema tabel PostgreSQL siap impor tersedia pada berkas <code>supabase/schema.sql</code></span>
+        </div>
       </div>
     </section>`;
 }
 
-function renderLoginPanel(message = '') {
+function renderLoginCard(message = '') {
   return `
-    <section class="auth-panel-wood">
-      <div class="auth-panel-card">
-        
-        <!-- Header -->
-        <header class="auth-panel-header">
-          <span class="auth-panel-eyebrow">PORTAL AKSES APLIKASI</span>
-          <h2 class="auth-panel-title">Masuk ke Ruang Kerja</h2>
-          <p class="auth-panel-subtitle">
-            Kelola lini produksi, inventaris kayu &amp; sapu, kas keuangan, dan tim kerja Jaya Wijaya.
-          </p>
-        </header>
+    <section class="auth-card-centered">
+      ${renderAuthBrandHeader()}
 
-        <!-- Honest Connection Status -->
-        <div class="auth-status-banner is-connected">
-          <div class="status-banner-icon">
-            <span class="status-pulse-dot dot-green"></span>
-          </div>
-          <div class="status-banner-body">
-            <strong>Database Cloud: Terhubung &amp; Siap</strong>
-            <p>Koneksi Supabase aktif. Masuk menggunakan akun terdaftar perusahaan.</p>
-          </div>
-        </div>
-
-        <!-- Error Alert if any -->
-        ${message ? `
-        <div class="auth-error-alert" role="alert">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-          <span>${escapeHtml(message)}</span>
-        </div>` : ''}
-
-        <!-- Login Form -->
-        <form id="login-form" class="auth-form-wood">
-          <div class="form-group-wood">
-            <label for="input-userId">ID Pengguna / Email</label>
-            <div class="input-with-icon">
-              <span class="input-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-              </span>
-              <input id="input-userId" name="userId" type="text" autocomplete="username" placeholder="Masukkan ID (contoh: admin)" required />
-            </div>
-          </div>
-
-          <div class="form-group-wood">
-            <label for="input-password">Kata Sandi</label>
-            <div class="input-with-icon">
-              <span class="input-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-              </span>
-              <input id="input-password" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required />
-              <button type="button" class="btn-toggle-pw" id="btn-toggle-password" aria-label="Tampilkan kata sandi">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="3" r="3"></circle></svg>
-              </button>
-            </div>
-          </div>
-
-          <button class="btn-forest-cta" type="submit">
-            <span>Masuk ke Ruang Kerja</span>
-            <span class="btn-arrow" aria-hidden="true">→</span>
-          </button>
-        </form>
-
-        <!-- Divider -->
-        <div class="auth-section-divider">
-          <span>ATAU COBA MODE DEMO INTERAKTIF</span>
-        </div>
-
-        <!-- Secondary Demo CTA -->
-        <div class="demo-alt-box">
-          <button type="button" class="btn-outline-demo" id="btn-enter-demo">
-            <span class="bolt-icon">⚡</span>
-            <span>Coba Mode Demo (Tanpa Database)</span>
-          </button>
-          <p class="auth-footnote">Akses akun dikelola oleh administrator Jaya Wijaya.</p>
-        </div>
-
+      <div class="auth-center-header">
+        <h1 class="auth-center-title">Masuk ke Ruang Kerja</h1>
+        <p class="auth-center-desc">Kelola lini produksi, inventaris kayu &amp; sapu, kas keuangan, dan tim kerja.</p>
       </div>
+
+      <!-- Status Koneksi Database Supabase -->
+      <div class="auth-status-compact is-connected">
+        <span class="status-pulse-dot dot-green"></span>
+        <div class="status-compact-text">
+          <strong>Database Cloud: Terhubung &amp; Siap</strong>
+          <span>Koneksi Supabase aktif. Masuk menggunakan akun terdaftar perusahaan.</span>
+        </div>
+      </div>
+
+      <!-- Error Alert if any -->
+      ${message ? `
+      <div class="auth-error-alert" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <span>${escapeHtml(message)}</span>
+      </div>` : ''}
+
+      <!-- Form Login -->
+      <form id="login-form" class="auth-form-center">
+        <div class="form-group-center">
+          <label for="input-userId">ID Pengguna / Email</label>
+          <div class="input-with-icon">
+            <span class="input-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+            <input id="input-userId" name="userId" type="text" autocomplete="username" placeholder="Masukkan ID (contoh: admin)" required />
+          </div>
+        </div>
+
+        <div class="form-group-center">
+          <label for="input-password">Kata Sandi</label>
+          <div class="input-with-icon">
+            <span class="input-icon">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </span>
+            <input id="input-password" name="password" type="password" autocomplete="current-password" placeholder="Masukkan kata sandi" required />
+            <button type="button" class="btn-toggle-pw" id="btn-toggle-password" aria-label="Tampilkan kata sandi">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="3" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
+        <button class="btn-primary-forest-center" type="submit">
+          <span>Masuk ke Ruang Kerja</span>
+          <span class="btn-arrow" aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="auth-center-divider">
+        <span>ATAU COBA MODE DEMO INTERAKTIF</span>
+      </div>
+
+      <button type="button" class="btn-outline-demo-center" id="btn-enter-demo">
+        <span class="btn-bolt">⚡</span>
+        <span>Coba Mode Demo (Tanpa Database)</span>
+      </button>
+
+      <p class="auth-footnote-center">Akses akun dikelola oleh administrator Jaya Wijaya.</p>
     </section>`;
 }
 
 function renderAuthLayout({ mode = 'setup', message = '' }) {
   return `
     <main class="auth-page">
-      ${renderAuthBrandHero()}
-      ${mode === 'login' ? renderLoginPanel(message) : renderSetupPanel()}
+      ${mode === 'login' ? renderLoginCard(message) : renderSetupCard()}
     </main>`;
 }
 
