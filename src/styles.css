@@ -251,6 +251,9 @@ td:first-child, th:first-child { padding-left: 4px; }
 .stat-card-clickable:hover { transform: translateY(-2px); border-color: #8cc2a4; box-shadow: 0 8px 20px rgba(23, 109, 81, .1); }
 .stat-card-clickable.is-active { border-color: #176d51; background: #f8fbf9; box-shadow: 0 0 0 2px rgba(23, 109, 81, .18); }
 .stat-card-clickable .click-hint { font-size: 8px; color: #176d51; font-weight: 600; margin-top: 4px; display: flex; align-items: center; gap: 3px; }
+.stat-card-clickable .stat-icon { transition: transform .18s ease, box-shadow .18s ease; }
+.stat-card-clickable:hover .stat-icon { transform: scale(1.15); }
+.stat-card-clickable .stat-icon:active { transform: scale(0.92); }
 
 .report-tab-bar { display: flex; align-items: center; gap: 7px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; }
 .report-tab-pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-size: 10px; font-weight: 600; background: #f2f5f3; color: #53645b; border: 1px solid transparent; cursor: pointer; white-space: nowrap; transition: all .15s ease; }

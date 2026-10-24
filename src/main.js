@@ -366,15 +366,26 @@ function heading(eyebrow, title, description, action = '') {
 }
 
 function statCard(label, value, note, icon, tone = '', options = {}) {
-  const { clickable = false, filter = '', isActive = false, hint = '' } = options;
+  const { clickable = false, action = '', statType = '', filter = '', isActive = false, hint = '' } = options;
+  const isInteractive = clickable || Boolean(action);
   const activeClass = isActive ? ' is-active' : '';
-  const clickClass = clickable ? ' stat-card-clickable' : '';
-  const clickAttrs = clickable ? ` data-action="filter-report" data-filter="${escapeHtml(filter)}" title="Klik untuk pratinjau kategori ini"` : '';
+  const clickClass = isInteractive ? ' stat-card-clickable' : '';
+
+  let clickAttrs = '';
+  if (action) {
+    clickAttrs = ` data-action="${escapeHtml(action)}" data-stat="${escapeHtml(statType)}" title="Klik untuk melihat rincian ${escapeHtml(label)}"`;
+  } else if (clickable && filter) {
+    clickAttrs = ` data-action="filter-report" data-filter="${escapeHtml(filter)}" title="Klik untuk pratinjau kategori ini"`;
+  }
+
   return `<article class="stat-card${clickClass}${activeClass}"${clickAttrs}>
-    <div class="stat-top"><span>${label}</span><span class="stat-icon ${tone}">${icon}</span></div>
+    <div class="stat-top">
+      <span>${label}</span>
+      <span class="stat-icon ${tone}"${action ? ` data-action="${escapeHtml(action)}" data-stat="${escapeHtml(statType)}" style="cursor: pointer;" title="Klik icon untuk melihat rincian ${escapeHtml(label)}"` : ''}>${icon}</span>
+    </div>
     <div class="stat-value">${value}</div>
     <div class="stat-note">${note}</div>
-    ${clickable ? `<div class="click-hint"><span>${hint || 'Klik untuk pratinjau'}</span> <span aria-hidden="true">→</span></div>` : ''}
+    ${isInteractive ? `<div class="click-hint"><span>${hint || 'Klik untuk lihat rincian'}</span> <span aria-hidden="true">→</span></div>` : ''}
   </article>`;
 }
 
@@ -457,10 +468,10 @@ function renderDashboard() {
       <button class="button button-primary" data-action="quick-entry"><span>＋</span> Catat transaksi</button>
     </div>`)}
     <section class="stats-grid">
-      ${statCard('Nilai kas saat ini', formatMoney(balance), `${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))} bersih bulan ini`, '↗', 'icon-green')}
-      ${statCard('Jenis produk', quantityFormat.format(state.products.length), `${inStock} produk tersedia di stok`, '◇', 'icon-blue')}
-      ${statCard('Pergerakan barang', quantityFormat.format(monthRecords(state.inventory, currentMonth).length), 'catatan barang bulan ini', '▦', 'icon-orange')}
-      ${statCard('Transaksi kas', quantityFormat.format(monthCash.length), 'catatan keuangan bulan ini', '◎', 'icon-purple')}
+      ${statCard('Nilai kas saat ini', formatMoney(balance), `${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))} bersih bulan ini`, '↗', 'icon-green', { action: 'open-stat-detail', statType: 'cash-balance', hint: 'Klik untuk rincian kas' })}
+      ${statCard('Jenis produk', quantityFormat.format(state.products.length), `${inStock} produk tersedia di stok`, '◇', 'icon-blue', { action: 'open-stat-detail', statType: 'products', hint: 'Klik untuk rincian produk' })}
+      ${statCard('Pergerakan barang', quantityFormat.format(monthRecords(state.inventory, currentMonth).length), 'catatan barang bulan ini', '▦', 'icon-orange', { action: 'open-stat-detail', statType: 'inventory-movements', hint: 'Klik untuk riwayat stok' })}
+      ${statCard('Transaksi kas', quantityFormat.format(monthCash.length), 'catatan keuangan bulan ini', '◎', 'icon-purple', { action: 'open-stat-detail', statType: 'cash-transactions', hint: 'Klik untuk riwayat kas' })}
     </section>
     <section class="content-card activity-card"><div class="card-heading"><div><h2>Aktivitas terbaru</h2><p>Ringkasan pergerakan barang dan kas</p></div><button class="button button-quiet" data-page="reports">Lihat laporan <span>→</span></button></div>
       ${movementTable(latest, 7)}</section>
@@ -1788,6 +1799,226 @@ function openSettlementModal(targetType, targetId) {
     renderPage();
     openReportDetailModal(targetType, targetId, state.selectedReportMonth || currentMonth);
   });
+}
+
+
+function openStatDetailModal(statType) {
+  const monthCash = monthRecords(state.cash, currentMonth);
+  const monthInventory = monthRecords(state.inventory, currentMonth);
+  const balance = cashBalance();
+  const netMonthCash = cashBalance(monthCash);
+  const monthIn = monthCash.filter((r) => r.direction === 'in').reduce((sum, r) => sum + Number(r.amount), 0);
+  const monthOut = monthCash.filter((r) => r.direction === 'out').reduce((sum, r) => sum + Number(r.amount), 0);
+  const monthInCount = monthCash.filter((r) => r.direction === 'in').length;
+  const monthOutCount = monthCash.filter((r) => r.direction === 'out').length;
+
+  if (statType === 'cash-balance') {
+    openDialog('Rincian Nilai Kas Perusahaan', `
+      <div class="modal-stat-detail">
+        <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+          <div class="kpi-strip-item" style="border-left: 3px solid #187554;">
+            <div class="kpi-label">Saldo Kas Saat Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #187554;">${formatMoney(balance)}</div>
+            <div class="kpi-sub">Total kas riil tercatat</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #23855e;">
+            <div class="kpi-label">Pemasukan Bulan Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #23855e;">+${formatMoney(monthIn)}</div>
+            <div class="kpi-sub">${monthInCount} transaksi masuk</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #c93b2b;">
+            <div class="kpi-label">Pengeluaran Bulan Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #c93b2b;">−${formatMoney(monthOut)}</div>
+            <div class="kpi-sub">${monthOutCount} transaksi keluar</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid ${netMonthCash >= 0 ? '#187554' : '#c93b2b'};">
+            <div class="kpi-label">Arus Kas Bersih</div>
+            <div class="kpi-val" style="font-size: 15px; color: ${netMonthCash >= 0 ? '#187554' : '#c93b2b'};">${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))}</div>
+            <div class="kpi-sub">Bulan berjalan</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <h3 style="font-size: 13px; font-weight: 700; color: #24312c; margin-bottom: 4px;">Riwayat Transaksi Kas Bulan Ini</h3>
+          <p style="font-size: 11px; color: #62746b; margin-bottom: 8px;">Klik salah satu transaksi untuk melihat rincian nota & struk pembayaran.</p>
+          ${monthCash.length ? movementTable(monthCash, 10) : emptyState('Belum ada transaksi kas bulan ini', 'Catat transaksi pemasukan atau pengeluaran untuk mulai.')}
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+          <button type="button" class="button button-outline" data-action="add-cash"><span>＋</span> Catat Transaksi</button>
+          <button type="button" class="button button-primary" data-page="cash" data-action="close-dialog">Buka Menu Keuangan →</button>
+        </div>
+      </div>
+    `);
+  } else if (statType === 'products') {
+    const inStockCount = state.products.filter((p) => stockFor(p.id) > 0).length;
+    const outOfStockCount = state.products.filter((p) => stockFor(p.id) <= 0).length;
+    const totalAssetHpp = state.products.reduce((sum, p) => {
+      const stock = Math.max(0, stockFor(p.id));
+      return sum + Math.round(stock * (Number(p.purchase_price) || 0));
+    }, 0);
+
+    openDialog('Daftar & Rincian Jenis Produk Perusahaan', `
+      <div class="modal-stat-detail">
+        <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+          <div class="kpi-strip-item" style="border-left: 3px solid #2563eb;">
+            <div class="kpi-label">Total Jenis Produk</div>
+            <div class="kpi-val" style="font-size: 15px; color: #2563eb;">${state.products.length} Jenis</div>
+            <div class="kpi-sub">Katalog produk aktif</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #187554;">
+            <div class="kpi-label">Stok Tersedia</div>
+            <div class="kpi-val" style="font-size: 15px; color: #187554;">${inStockCount} Produk</div>
+            <div class="kpi-sub">Stok di atas 0</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #ea580c;">
+            <div class="kpi-label">Stok Habis / Kosong</div>
+            <div class="kpi-val" style="font-size: 15px; color: #ea580c;">${outOfStockCount} Produk</div>
+            <div class="kpi-sub">Perlu restock/produksi</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #7c3aed;">
+            <div class="kpi-label">Total Nilai Aset Stok</div>
+            <div class="kpi-val" style="font-size: 15px; color: #7c3aed;">${formatMoney(totalAssetHpp)}</div>
+            <div class="kpi-sub">Estimasi modal HPP</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <h3 style="font-size: 13px; font-weight: 700; color: #24312c; margin-bottom: 4px;">Daftar Seluruh Jenis Produk Perusahaan (${state.products.length} Produk)</h3>
+          <p style="font-size: 11px; color: #62746b; margin-bottom: 8px;">Berikut rincian jenis produk, stok fisik saat ini, serta harga modal dan jual.</p>
+          <div class="table-wrap" style="max-height: 280px; overflow-y: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>NAMA PRODUK</th>
+                  <th>SKU</th>
+                  <th>STOK FISIK</th>
+                  <th>HARGA BELI</th>
+                  <th>HARGA JUAL</th>
+                  <th class="align-right">AKSI</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${state.products.length ? state.products.map((p) => {
+                  const s = stockFor(p.id);
+                  const isZero = s <= 0;
+                  return `<tr>
+                    <td class="detail-cell">
+                      <strong>${escapeHtml(p.name)}</strong>
+                    </td>
+                    <td><small style="color:#64748b;">${escapeHtml(p.sku || '—')}</small></td>
+                    <td>
+                      <strong style="color:${isZero ? '#dc2626' : '#187554'}; font-size:12px;">
+                        ${formatQuantity(s)} ${escapeHtml(p.unit || 'unit')}
+                      </strong>
+                      ${isZero ? '<span style="font-size:8px; background:#fee2e2; color:#b91c1c; padding:1px 4px; border-radius:3px; margin-left:3px;">Habis</span>' : ''}
+                    </td>
+                    <td>${formatMoney(p.purchase_price || 0)}</td>
+                    <td><strong style="color:#187554;">${formatMoney(p.selling_price || 0)}</strong></td>
+                    <td class="align-right">
+                      <button type="button" class="button button-small button-outline" data-action="product-movement" data-id="${escapeHtml(p.id)}" style="font-size:10px; padding:2px 7px;">
+                        ± Gerak
+                      </button>
+                    </td>
+                  </tr>`;
+                }).join('') : `<tr><td colspan="6" style="text-align:center; padding:16px; color:#888;">Belum ada produk terdaftar.</td></tr>`}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+          <button type="button" class="button button-outline" data-action="add-product"><span>＋</span> Tambah Produk</button>
+          <button type="button" class="button button-primary" data-page="products" data-action="close-dialog">Buka Menu Produk →</button>
+        </div>
+      </div>
+    `);
+  } else if (statType === 'inventory-movements') {
+    const invInCount = monthInventory.filter((i) => i.direction === 'in').length;
+    const invOutCount = monthInventory.filter((i) => i.direction === 'out').length;
+    const prodInCount = monthInventory.filter((i) => i.direction === 'in' && (i.notes || '').includes('Hasil Produksi')).length;
+
+    openDialog('Riwayat Pergerakan Barang (Stok Masuk & Keluar)', `
+      <div class="modal-stat-detail">
+        <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+          <div class="kpi-strip-item" style="border-left: 3px solid #ea580c;">
+            <div class="kpi-label">Pergerakan Bulan Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #ea580c;">${monthInventory.length} Catatan</div>
+            <div class="kpi-sub">Total mutasi gudang</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #187554;">
+            <div class="kpi-label">Stok Masuk</div>
+            <div class="kpi-val" style="font-size: 15px; color: #187554;">${invInCount} Kali</div>
+            <div class="kpi-sub">Produksi & belanja</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #0284c7;">
+            <div class="kpi-label">Stok Keluar</div>
+            <div class="kpi-val" style="font-size: 15px; color: #0284c7;">${invOutCount} Kali</div>
+            <div class="kpi-sub">Penjualan & pemakaian</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #16a34a;">
+            <div class="kpi-label">Hasil Produksi Pabrik</div>
+            <div class="kpi-val" style="font-size: 15px; color: #16a34a;">${prodInCount} Kali</div>
+            <div class="kpi-sub">Barang jadi mandiri</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <h3 style="font-size: 13px; font-weight: 700; color: #24312c; margin-bottom: 4px;">Riwayat Mutasi Barang Bulan Ini</h3>
+          <p style="font-size: 11px; color: #62746b; margin-bottom: 8px;">Klik salah satu mutasi di bawah untuk melihat rincian nota / surat jalan barang.</p>
+          ${monthInventory.length ? movementTable(monthInventory, 10) : emptyState('Belum ada pergerakan barang bulan ini', 'Catat barang masuk atau keluar untuk mulai.')}
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+          <button type="button" class="button button-outline" data-action="add-production" style="color:#187554;"><span>🏭</span> Hasil Produksi</button>
+          <button type="button" class="button button-outline" data-action="add-inventory"><span>＋</span> Catat Pergerakan</button>
+          <button type="button" class="button button-primary" data-page="inventory" data-action="close-dialog">Buka Menu Persediaan →</button>
+        </div>
+      </div>
+    `);
+  } else if (statType === 'cash-transactions') {
+    openDialog('Riwayat Transaksi Kas Perusahaan', `
+      <div class="modal-stat-detail">
+        <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+          <div class="kpi-strip-item" style="border-left: 3px solid #7c3aed;">
+            <div class="kpi-label">Transaksi Bulan Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #7c3aed;">${monthCash.length} Transaksi</div>
+            <div class="kpi-sub">Arus kas tercatat</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #187554;">
+            <div class="kpi-label">Total Uang Masuk</div>
+            <div class="kpi-val" style="font-size: 15px; color: #187554;">+${formatMoney(monthIn)}</div>
+            <div class="kpi-sub">${monthInCount} transaksi penjualan/kas</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #c93b2b;">
+            <div class="kpi-label">Total Uang Keluar</div>
+            <div class="kpi-val" style="font-size: 15px; color: #c93b2b;">−${formatMoney(monthOut)}</div>
+            <div class="kpi-sub">${monthOutCount} transaksi belanja/biaya</div>
+          </div>
+          <div class="kpi-strip-item" style="border-left: 3px solid #0284c7;">
+            <div class="kpi-label">Saldo Kas Saat Ini</div>
+            <div class="kpi-val" style="font-size: 15px; color: #0284c7;">${formatMoney(balance)}</div>
+            <div class="kpi-sub">Posisi kas keseluruhan</div>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 12px;">
+          <h3 style="font-size: 13px; font-weight: 700; color: #24312c; margin-bottom: 4px;">Riwayat Seluruh Transaksi Kas Bulan Ini</h3>
+          <p style="font-size: 11px; color: #62746b; margin-bottom: 8px;">Klik transaksi kas di bawah untuk membuka nota kuitansi / rincian bukti kas.</p>
+          ${monthCash.length ? movementTable(monthCash, 10) : emptyState('Belum ada transaksi kas bulan ini', 'Catat transaksi pemasukan atau pengeluaran untuk mulai.')}
+        </div>
+
+        <div class="dialog-actions">
+          <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+          <button type="button" class="button button-outline" data-action="add-cash"><span>＋</span> Catat Transaksi</button>
+          <button type="button" class="button button-primary" data-page="cash" data-action="close-dialog">Buka Menu Keuangan →</button>
+        </div>
+      </div>
+    `);
+  }
 }
 
 function renderPayroll() {
@@ -4346,6 +4577,8 @@ async function handlePageAction(event) {
     printThermalReceipt();
   } else if (action === 'copy-receipt-text') {
     copyReceiptText();
+  } else if (action === 'open-stat-detail') {
+    openStatDetailModal(button.dataset.stat);
   } else if (action === 'open-settlement-modal') {
     openSettlementModal(button.dataset.type, button.dataset.id);
   } else if (action === 'back-to-nota') {
