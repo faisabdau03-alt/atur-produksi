@@ -248,7 +248,8 @@ function renderAuthBrandHeader() {
         <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="auth-center-logo-img" />
       </div>
       <div class="auth-center-brand-name">JAYA WIJAYA</div>
-      <div class="auth-center-brand-sub">Manufaktur Sapu &amp; Alat Kebersihan Berbahan Kayu</div>
+      <div class="auth-center-brand-badge">PRODUKSI • DISTRIBUSI • GROSIR</div>
+      <p class="auth-center-brand-slogan">“Produksi Berkualitas, Harga Bersahabat, Mitra Terpercaya.”</p>
     </div>`;
 }
 
@@ -487,11 +488,11 @@ function renderShell() {
   app.innerHTML = `
     <div class="app-shell">
       <aside class="sidebar" id="sidebar">
-        <a class="brand brand-jaya-wijaya" href="#" data-page="dashboard" title="Jaya Wijaya — Sistem Manufaktur & Operasional">
+        <a class="brand brand-jaya-wijaya" href="#" data-page="dashboard" title="Jaya Wijaya — Produksi • Distribusi • Grosir">
           <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya Wooden Cleaning Tools" class="sidebar-logo-img" />
           <div class="sidebar-brand-text">
             <span class="sidebar-brand-title">JAYA WIJAYA</span>
-            <span class="sidebar-brand-sub">WOODEN CLEANING TOOLS</span>
+            <span class="sidebar-brand-sub">PRODUKSI • DISTRIBUSI • GROSIR</span>
           </div>
         </a>
         <div class="workspace-label">RUANG KERJA</div>
@@ -929,7 +930,7 @@ function viewEmployeeAttendanceModal(employeeId, month) {
 
 function buildReceiptRawText({
   shopName = 'JAYA WIJAYA',
-  shopSub = 'PRODUKSI & TRADING',
+  shopSub = 'PRODUKSI • DISTRIBUSI • GROSIR',
   title = 'NOTA PENJUALAN',
   receiptNumber = '',
   date = '',
@@ -1340,7 +1341,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
 
     const rawText = buildReceiptRawText({
       shopName: 'JAYA WIJAYA',
-      shopSub: 'PRODUKSI & TRADING',
+      shopSub: 'PRODUKSI • DISTRIBUSI • GROSIR',
       title: receiptTitle,
       receiptNumber,
       date: formatDate(rec.occurred_on),
@@ -1384,7 +1385,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
           
           <div class="receipt-header">
             <div class="receipt-shop-name">JAYA WIJAYA</div>
-            <div class="receipt-shop-sub">OPERASIONAL & INDUSTRI PRODUKSI</div>
+            <div class="receipt-shop-sub">PRODUKSI • DISTRIBUSI • GROSIR</div>
             <div class="receipt-title">${escapeHtml(receiptTitle)}</div>
             <div class="receipt-divider-double"></div>
           </div>
@@ -1580,7 +1581,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
 
     const rawText = buildReceiptRawText({
       shopName: 'JAYA WIJAYA',
-      shopSub: 'PRODUKSI & TRADING',
+      shopSub: 'PRODUKSI • DISTRIBUSI • GROSIR',
       title: receiptTitle,
       receiptNumber,
       date: formatDate(rec.occurred_on),
@@ -1617,7 +1618,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
           
           <div class="receipt-header">
             <div class="receipt-shop-name">JAYA WIJAYA</div>
-            <div class="receipt-shop-sub">OPERASIONAL & INDUSTRI PRODUKSI</div>
+            <div class="receipt-shop-sub">PRODUKSI • DISTRIBUSI • GROSIR</div>
             <div class="receipt-title">${escapeHtml(receiptTitle)}</div>
             <div class="receipt-divider-double"></div>
           </div>
@@ -4166,6 +4167,8 @@ function downloadPayrollReport(month) {
   const rows = [
     ['REKAPITULASI GAJI & ABSENSI KARYAWAN BULANAN'],
     ['Nama Perusahaan', 'Jaya Wijaya'],
+    ['Bidang Usaha', 'PRODUKSI • DISTRIBUSI • GROSIR'],
+    ['Slogan', 'Produksi Berkualitas, Harga Bersahabat, Mitra Terpercaya.'],
     ['Periode Bulan', selectedMonth],
     ['Tanggal Cetak / Unduh', formatDate(localDate)],
     ['Total Karyawan Aktif', `${activeEmployees.length} orang`],
@@ -4391,6 +4394,8 @@ function downloadReport(month) {
   const rows = [
     ['RINGKASAN LAPORAN KEUANGAN & OPERASIONAL BULANAN'],
     ['Nama Perusahaan', 'Jaya Wijaya'],
+    ['Bidang Usaha', 'PRODUKSI • DISTRIBUSI • GROSIR'],
+    ['Slogan', 'Produksi Berkualitas, Harga Bersahabat, Mitra Terpercaya.'],
     ['Periode Bulan', selectedMonth],
     ['Tanggal Unduh / Ekspor', formatDate(localDate)],
     [],
