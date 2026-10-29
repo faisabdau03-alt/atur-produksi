@@ -1,12 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import * as XLSX from 'xlsx';
 import './styles.css';
 
 const app = document.querySelector('#app');
-const config = {
-  url: import.meta.env.VITE_SUPABASE_URL,
-  key: import.meta.env.VITE_SUPABASE_ANON_KEY,
-};
 function getAuthHeaders(includeContentType = true) {
   const token = localStorage.getItem('jw_session_token') || '';
   const headers = {};
@@ -180,15 +175,8 @@ const mysqlClient = {
   },
 };
 
-const supabaseInstance = config.url && config.key ? createClient(config.url, config.key) : null;
-const supabase = new Proxy({}, {
-  get(target, prop) {
-    if (state.isMysql || !supabaseInstance) {
-      return mysqlClient[prop];
-    }
-    return supabaseInstance[prop];
-  },
-});
+const db = mysqlClient;
+const supabase = db; // Kompatibilitas panggilan database internal
 
 async function checkMysqlStatus() {
   try {
@@ -4797,41 +4785,13 @@ async function enterWorkspace(user) {
 }
 
 function subscribeToWorkspace() {
-  if (state.isMysql) {
-    window.clearInterval(refreshTimer);
-    refreshTimer = window.setInterval(async () => {
-      try {
-        await refreshData();
-        renderPage();
-      } catch (_) {}
-    }, 10000);
-    return;
-  }
-  if (!supabaseInstance) return;
-  if (workspaceChannel) supabase.removeChannel(workspaceChannel);
-  workspaceChannel = supabase.channel(`workspace:${state.user.id}`);
-  for (const table of ['products', 'inventory_movements', 'cash_transactions', 'employees', 'payroll_records']) {
-    workspaceChannel.on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table,
-    }, () => {
-      window.clearTimeout(refreshTimer);
-      refreshTimer = window.setTimeout(async () => {
-        try {
-          await refreshData();
-          renderShell();
-        } catch (error) {
-          showError(`Pembaruan data gagal: ${error.message}`);
-        }
-      }, 250);
-    });
-  }
-  workspaceChannel.subscribe((status) => {
-    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-      showError('Pembaruan langsung terputus. Muat ulang halaman untuk mengambil data terbaru.');
-    }
-  });
+  window.clearInterval(refreshTimer);
+  refreshTimer = window.setInterval(async () => {
+    try {
+      await refreshData();
+      renderPage();
+    } catch (_) {}
+  }, 8000);
 }
 
 async function handleSignOut() {
