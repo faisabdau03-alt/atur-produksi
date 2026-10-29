@@ -8,6 +8,7 @@ import { formatMoney, formatQuantity, formatDate, monthRecords, monthEnd, ATTEND
 import { movementTable, emptyState } from '../../components/Table.js';
 import { calculateMonthlySalary } from '../payroll/salaryCalc.js';
 import { payMonthlySalaryModal } from '../payroll/AttendanceModal.js';
+import { Icons } from '../../components/Icons.js';
 
 export function csvCell(value) {
   let cell = String(value ?? '');
@@ -765,8 +766,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
-                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px;">
-                  💳 Lunasi
+                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px; display:inline-flex; align-items:center; gap:4px;">
+                  ${Icons.cash('icon-svg', 11)} Lunasi
                 </button>
               </div>
             </div>` : ''}
@@ -787,7 +788,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           </div>
         </div>
         <details class="nota-audit-details">
-          <summary>📊 Rincian Akuntansi & Pembukuan Kas</summary>
+          <summary style="display:inline-flex; align-items:center; gap:6px;">${Icons.reports('icon-svg', 13)} Rincian Akuntansi & Pembukuan Kas</summary>
           <div class="nota-audit-content">
             <div class="slip-row"><span>Kategori Pos:</span> <strong>${escapeHtml(rec.category)}</strong></div>
             <div class="slip-row"><span>Klasifikasi Akuntansi:</span> <strong>${financialRole}</strong></div>
@@ -799,13 +800,13 @@ export function openReportDetailModal(type, id, month = currentMonth) {
         <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
         ${remainingAmount > 0 ? `
         <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
-          <span>💰</span> Lunasi ${isIncome ? 'Piutang' : 'Utang'} (${formatMoney(remainingAmount)})
+          <span>${Icons.cash('icon-svg', 13)}</span> Lunasi ${isIncome ? 'Piutang' : 'Utang'} (${formatMoney(remainingAmount)})
         </button>` : ''}
         <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
-          <span>📋</span> Salin Teks Struk
+          <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
         </button>
         <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
-          <span>🖨️</span> Cetak Nota (Bluetooth)
+          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota (Bluetooth)
         </button>
       </div>
     `);
@@ -981,8 +982,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
-                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px;">
-                  💳 Lunasi
+                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px; display:inline-flex; align-items:center; gap:4px;">
+                  ${Icons.cash('icon-svg', 11)} Lunasi
                 </button>
               </div>
             </div>` : ''}
@@ -1003,7 +1004,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           </div>
         </div>
         <details class="nota-audit-details">
-          <summary>📦 Rincian Operasional & Mutasi Stok</summary>
+          <summary style="display:inline-flex; align-items:center; gap:6px;">${Icons.inventory('icon-svg', 13)} Rincian Operasional & Mutasi Stok</summary>
           <div class="nota-audit-content">
             <div class="slip-row"><span>Kode SKU:</span> <strong>${escapeHtml(prod?.sku || '—')}</strong></div>
             <div class="slip-row"><span>Arah Stok:</span> <strong>${isIn ? 'Masuk (+)' : 'Keluar (−)'}</strong></div>
@@ -1015,13 +1016,13 @@ export function openReportDetailModal(type, id, month = currentMonth) {
         <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
         ${remainingAmount > 0 ? `
         <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
-          <span>💰</span> Lunasi ${isIn ? 'Utang' : 'Piutang'} (${formatMoney(remainingAmount)})
+          <span>${Icons.cash('icon-svg', 13)}</span> Lunasi ${isIn ? 'Utang' : 'Piutang'} (${formatMoney(remainingAmount)})
         </button>` : ''}
         <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
-          <span>📋</span> Salin Teks Struk
+          <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
         </button>
         <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
-          <span>🖨️</span> Cetak Nota (Bluetooth)
+          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota (Bluetooth)
         </button>
       </div>
     `);
@@ -1419,8 +1420,8 @@ export function openStatDetailModal(statType) {
 
         <div class="dialog-actions">
           <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
-          <button type="button" class="button button-outline" data-action="add-production" style="color:#187554;"><span>🏭</span> Hasil Produksi</button>
-          <button type="button" class="button button-outline" data-action="add-inventory"><span>＋</span> Catat Pergerakan</button>
+          <button type="button" class="button button-outline" data-action="add-production" style="display:inline-flex; align-items:center; gap:5px; color:#187554;"><span>${Icons.factory('icon-svg', 13)}</span> Hasil Produksi</button>
+          <button type="button" class="button button-outline" data-action="add-inventory" style="display:inline-flex; align-items:center; gap:5px;"><span>${Icons.plus('icon-svg', 13)}</span> Catat Pergerakan</button>
           <button type="button" class="button button-primary" data-page="inventory" data-action="close-dialog">Buka Menu Persediaan →</button>
         </div>
       </div>

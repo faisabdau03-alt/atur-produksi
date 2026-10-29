@@ -5,6 +5,7 @@ import { runMutation } from '../../utils/mutation.js';
 import { formatMoney, formatQuantity, localDate } from '../../utils/formatters.js';
 import { stockFor, state as appState } from '../../store/state.js';
 import { db } from '../../api/db.js';
+import { Icons } from '../../components/Icons.js';
 
 export function openInventoryModal(state, initialType = 'in_production', initialProductId = null, onSaved = null) {
   if (!state.products.length) {
@@ -24,10 +25,10 @@ export function openInventoryModal(state, initialType = 'in_production', initial
     <form id="inventory-form" class="form-stack">
       <label>Jenis pergerakan
         <select name="movement_type" id="inv-movement-type" required>
-          <option value="in_production" ${initialType === 'in_production' ? 'selected' : ''}>🏭 Barang Masuk: Hasil Produksi Sendiri (Barang Jadi)</option>
-          <option value="in_purchase" ${initialType === 'in_purchase' ? 'selected' : ''}>🛒 Barang Masuk: Belanja / Beli dari Supplier (Bahan Baku / Kulakan)</option>
-          <option value="out_sale" ${initialType === 'out_sale' ? 'selected' : ''}>🚚 Barang Keluar: Penjualan ke Pelanggan (Pesanan Kirim)</option>
-          <option value="out_usage" ${initialType === 'out_usage' ? 'selected' : ''}>📦 Barang Keluar: Pemakaian Internal / Reject (Rusak)</option>
+          <option value="in_production" ${initialType === 'in_production' ? 'selected' : ''}>Barang Masuk: Hasil Produksi Sendiri (Barang Jadi)</option>
+          <option value="in_purchase" ${initialType === 'in_purchase' ? 'selected' : ''}>Barang Masuk: Belanja / Beli dari Supplier (Bahan Baku / Kulakan)</option>
+          <option value="out_sale" ${initialType === 'out_sale' ? 'selected' : ''}>Barang Keluar: Penjualan ke Pelanggan (Pesanan Kirim)</option>
+          <option value="out_usage" ${initialType === 'out_usage' ? 'selected' : ''}>Barang Keluar: Pemakaian Internal / Reject (Rusak)</option>
         </select>
       </label>
 
@@ -45,7 +46,7 @@ export function openInventoryModal(state, initialType = 'in_production', initial
       <!-- Info Box Khusus Hasil Produksi -->
       <div class="formula-note" id="inv-prod-info" style="margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #edf7f0; border-left: 4px solid #187554; color: #187554;">
         <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
-          <span>🏭</span> Produksi Pabrik Sendiri
+          <span>${Icons.factory('icon-svg', 14)}</span> Produksi Pabrik Sendiri
         </div>
         <div style="font-size: 11px; line-height: 1.5; color: #205c3d;">
           Stok fisik barang jadi akan <strong>bertambah</strong> tanpa memotong kas belanja perusahaan. Biaya bahan baku dan gaji pekerja pabrik telah dicatat terpisah pada buku kas dan absensi harian.
@@ -55,7 +56,7 @@ export function openInventoryModal(state, initialType = 'in_production', initial
       <!-- Info Box Pemakaian Internal / Reject -->
       <div class="formula-note" id="inv-usage-info" style="display: none; margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #fff8e1; border-left: 4px solid #fbc02d; color: #7f6000;">
         <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
-          <span>📦</span> Pemakaian Internal / Reject (Rusak)
+          <span>${Icons.box('icon-svg', 14)}</span> Pemakaian Internal / Reject (Rusak)
         </div>
         <div style="font-size: 11px; line-height: 1.5; color: #6d4c00;">
           Stok fisik akan <strong>berkurang</strong> karena digunakan untuk keperluan internal pabrik, sampel, atau afkir (rusak). Transaksi keuangan tidak terpengaruh.
@@ -83,9 +84,9 @@ export function openInventoryModal(state, initialType = 'in_production', initial
             <div class="form-row">
               <label>Status / Metode Pembayaran
                 <select name="payment_status" id="inv-payment-status">
-                  <option value="paid">✓ Lunas Langsung (Dibayar 100%)</option>
-                  <option value="dp">⏳ Bayar Uang Muka / DP Dulu</option>
-                  <option value="unpaid">📋 Belum Dibayar (Tempo / Piutang Penuh)</option>
+                  <option value="paid">Lunas Langsung (Dibayar 100%)</option>
+                  <option value="dp">Bayar Uang Muka / DP Dulu</option>
+                  <option value="unpaid">Belum Dibayar (Tempo / Piutang Penuh)</option>
                 </select>
               </label>
               <label id="inv-paid-amount-wrap" style="display: none;">
@@ -97,8 +98,8 @@ export function openInventoryModal(state, initialType = 'in_production', initial
             </div>
           </div>
 
-          <div id="inv-cash-desc" style="font-size: 10px; color: #3a6850; margin-top: 6px; line-height: 1.5;">
-            💡 Dicatat otomatis ke buku kas.
+          <div id="inv-cash-desc" style="font-size: 11px; color: #3a6850; margin-top: 6px; line-height: 1.5; display: flex; align-items: center; gap: 5px;">
+            ${Icons.info('icon-svg', 13)} Dicatat otomatis ke buku kas.
           </div>
         </div>
       </div>
@@ -159,8 +160,8 @@ export function openInventoryModal(state, initialType = 'in_production', initial
       paymentSummary.style.background = '#edf7f0';
       paymentSummary.style.color = '#187554';
       paymentSummary.style.border = '1px solid #c2e7cc';
-      paymentSummary.innerHTML = `✓ <strong>Lunas Langsung (100%)</strong>: Uang kas ${isSale ? 'masuk' : 'keluar'} penuh sebesar <strong>${formatMoney(total)}</strong>.`;
-      cashDesc.innerHTML = `💡 Otomatis dicatat sebagai <strong>${isSale ? 'Kas Masuk (Penjualan Produk)' : 'Kas Keluar (Belanja Barang)'}</strong> sebesar <strong>${formatMoney(total)}</strong>.`;
+      paymentSummary.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${Icons.check('icon-svg', 13)} <strong>Lunas Langsung (100%)</strong></span>: Uang kas ${isSale ? 'masuk' : 'keluar'} penuh sebesar <strong>${formatMoney(total)}</strong>.`;
+      cashDesc.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${Icons.info('icon-svg', 12)} Otomatis dicatat sebagai <strong>${isSale ? 'Kas Masuk (Penjualan Produk)' : 'Kas Keluar (Belanja Barang)'}</strong> sebesar <strong>${formatMoney(total)}</strong>.</span>`;
     } else if (status === 'dp') {
       paidAmountWrap.style.display = 'block';
       if (!paidAmountInput.value && total > 0) {
@@ -174,11 +175,11 @@ export function openInventoryModal(state, initialType = 'in_production', initial
       paymentSummary.style.color = '#855900';
       paymentSummary.style.border = '1px solid #ffe082';
       paymentSummary.innerHTML = `
-        <div style="font-weight: 700; margin-bottom: 3px;">⏳ Pembayaran Uang Muka (DP)</div>
+        <div style="font-weight: 700; margin-bottom: 3px; display:inline-flex; align-items:center; gap:4px;">${Icons.clock('icon-svg', 13)} Pembayaran Uang Muka (DP)</div><br />
         • ${isSale ? 'Uang DP Diterima di Kas' : 'Uang DP Dibayar dari Kas'}: <strong>${formatMoney(paid)}</strong><br />
         • Sisa ${isSale ? 'Tagihan (Piutang Pelanggan)' : 'Utang Supplier'}: <strong style="color: #c93b2b;">${formatMoney(remaining)}</strong> (${remaining <= 0 ? 'Lunas' : 'Belum Dilunasi'})
       `;
-      cashDesc.innerHTML = `💡 Hanya uang DP sebesar <strong>${formatMoney(paid)}</strong> yang dibukukan ke kas. Sisa ${formatMoney(remaining)} dicatat sebagai catatan ${isSale ? 'piutang' : 'utang'}.`;
+      cashDesc.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${Icons.info('icon-svg', 12)} Hanya uang DP sebesar <strong>${formatMoney(paid)}</strong> yang dibukukan ke kas. Sisa ${formatMoney(remaining)} dicatat sebagai catatan ${isSale ? 'piutang' : 'utang'}.</span>`;
     } else if (status === 'unpaid') {
       paidAmountWrap.style.display = 'none';
       paidAmountInput.value = '0';
@@ -187,11 +188,11 @@ export function openInventoryModal(state, initialType = 'in_production', initial
       paymentSummary.style.color = '#9c4d00';
       paymentSummary.style.border = '1px solid #fcd6b5';
       paymentSummary.innerHTML = `
-        <div style="font-weight: 700; margin-bottom: 3px;">📋 ${isSale ? 'Penjualan Tempo / Piutang 100%' : 'Beli Tempo / Utang 100%'}</div>
+        <div style="font-weight: 700; margin-bottom: 3px; display:inline-flex; align-items:center; gap:4px;">${Icons.clipboard('icon-svg', 13)} ${isSale ? 'Penjualan Tempo / Piutang 100%' : 'Beli Tempo / Utang 100%'}</div><br />
         Barang fisik ${isSale ? 'keluar dikirim ke pembeli' : 'masuk diterima dari supplier'}. <strong>Tidak ada uang kas yang ${isSale ? 'masuk' : 'keluar'} saat ini (Rp 0)</strong>.<br />
         Total ${isSale ? 'piutang yang akan ditagih' : 'utang yang harus dibayar'}: <strong>${formatMoney(total)}</strong>.
       `;
-      cashDesc.innerHTML = `💡 Saldo kas saat ini <strong>TIDAK terpengaruh (Rp 0)</strong> karena transaksi tempo/kredit.`;
+      cashDesc.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${Icons.info('icon-svg', 12)} Saldo kas saat ini <strong>TIDAK terpengaruh (Rp 0)</strong> karena transaksi tempo/kredit.</span>`;
     }
   }
 

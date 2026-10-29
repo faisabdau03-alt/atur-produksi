@@ -2,56 +2,91 @@ import { state, localDate } from '../../store/state.js';
 import { heading } from '../../components/Header.js';
 import { escapeHtml } from '../../utils/sanitize.js';
 import { formatDate } from '../../utils/formatters.js';
+import { Icons } from '../../components/Icons.js';
 
 export function renderUsers() {
   const users = state.systemUsers || [];
+
+  const actions = `
+    <button class="button button-primary" data-action="add-user">
+      ${Icons.plus('icon-svg', 15)}
+      <span>Tambah Pengguna</span>
+    </button>
+  `;
+
   return `
     ${heading(
-      'MANAJEMEN PENGGUNA',
-      'Kelola Akun & Hak Akses Sistem',
-      'Kelola akun administrator, mandor gudang, dan operator lini produksi Jaya Wijaya.',
-      `<button class="button button-primary" data-action="add-user"><span>+ Tambah Pengguna</span></button>`
+      'HAK AKSES SISTEM',
+      'Kelola Akun Pengguna',
+      'Kelola akun login administrator, mandor gudang, dan operator lini produksi Jaya Wijaya.',
+      actions
     )}
-    <div class="card" style="margin-top:16px;">
-      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e5e7eb; padding-bottom:12px; margin-bottom:14px;">
+
+    <section class="content-card">
+      <div class="card-heading">
         <div>
-          <h3 style="margin:0 0 4px; font-size:16px; font-weight:700; color:#1f2937;">Daftar Akun Terdaftar (${users.length})</h3>
-          <p class="muted" style="margin:0; font-size:13px;">Pengguna dapat masuk ke portal menggunakan Username/ID dan kata sandi yang ditentukan.</p>
+          <h2>Daftar Akun Pengguna <span class="count-badge">${users.length}</span></h2>
+          <p>Otentikasi aman menggunakan username/ID dan password terenkripsi bcrypt</p>
         </div>
       </div>
-      <div class="table-responsive">
-        <table class="table" style="width:100%; text-align:left; border-collapse:collapse;">
+
+      <div class="table-wrap">
+        <table>
           <thead>
-            <tr style="border-bottom:1.5px solid #e5e7eb; color:#4b5563; font-size:12px; text-transform:uppercase;">
-              <th style="padding:10px 12px;">ID / Username</th>
-              <th style="padding:10px 12px;">Nama Lengkap</th>
-              <th style="padding:10px 12px;">Email</th>
-              <th style="padding:10px 12px;">Peran (Role)</th>
-              <th style="padding:10px 12px;">Terdaftar Sejak</th>
-              <th style="padding:10px 12px; text-align:right;">Aksi</th>
+            <tr>
+              <th>ID / Username</th>
+              <th>Nama Lengkap</th>
+              <th>Email</th>
+              <th>Peran (Role)</th>
+              <th>Terdaftar Sejak</th>
+              <th class="align-right">Aksi</th>
             </tr>
           </thead>
           <tbody>
-            ${users.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:32px; color:#6b7280;">Memuat atau belum ada pengguna tambahan.</td></tr>` : users.map((u) => `
-              <tr style="border-bottom:1px solid #f3f4f6;">
-                <td style="padding:12px;"><code>${escapeHtml(u.username)}</code></td>
-                <td style="padding:12px; font-weight:600; color:#111827;">${escapeHtml(u.full_name)}</td>
-                <td style="padding:12px; color:#6b7280;">${escapeHtml(u.email || '-')}</td>
-                <td style="padding:12px;">
-                  <span class="status-pill" style="${u.role === 'admin' ? 'background:#dcfce7; color:#166534;' : (u.role === 'kasir' ? 'background:#e0f2fe; color:#0369a1;' : 'background:#fef3c7; color:#92400e;')} font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
-                    ${u.role === 'admin' ? 'Administrator' : (u.role === 'kasir' ? 'Kasir' : 'Operator')}
-                  </span>
-                </td>
-                <td style="padding:12px; color:#6b7280; font-size:13px;">${formatDate(u.created_at ? u.created_at.slice(0, 10) : localDate)}</td>
-                <td style="padding:12px; text-align:right;">
-                  <button class="button button-quiet button-sm" data-action="edit-user" data-id="${u.id}" style="padding:4px 8px; font-size:12px;">Edit</button>
-                  ${u.id !== state.user?.id ? `<button class="button button-danger button-sm" data-action="delete-user" data-id="${u.id}" style="padding:4px 8px; font-size:12px; margin-left:6px; color:#dc2626; border-color:#fecaca;">Hapus</button>` : `<span style="color:#9ca3af; font-size:11px; margin-left:8px;">(Akun Anda)</span>`}
+            ${users.length === 0 ? `
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
+                  Memuat data pengguna...
                 </td>
               </tr>
-            `).join('')}
+            ` : users.map((u) => {
+              const isAdmin = u.role === 'admin';
+              const isKasir = u.role === 'kasir';
+              const pillClass = isAdmin ? 'status-active' : (isKasir ? 'status-permit' : 'status-half_day');
+              const roleLabel = isAdmin ? 'Administrator' : (isKasir ? 'Kasir Keuangan' : 'Operator / Mandor');
+
+              return `
+                <tr>
+                  <td><code>${escapeHtml(u.username)}</code></td>
+                  <td class="detail-cell"><strong>${escapeHtml(u.full_name)}</strong></td>
+                  <td>${escapeHtml(u.email || '—')}</td>
+                  <td>
+                    <span class="status-pill ${pillClass}">
+                      ${isAdmin ? Icons.shield('icon-svg', 12) : Icons.user('icon-svg', 12)}
+                      <span>${roleLabel}</span>
+                    </span>
+                  </td>
+                  <td class="date-cell">${formatDate(u.created_at ? u.created_at.slice(0, 10) : localDate)}</td>
+                  <td class="align-right">
+                    <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                      <button class="icon-button" data-action="edit-user" data-id="${u.id}" title="Edit pengguna">
+                        ${Icons.edit('icon-svg', 14)}
+                      </button>
+                      ${u.id !== state.user?.id ? `
+                        <button class="icon-button danger-icon" data-action="delete-user" data-id="${u.id}" title="Hapus pengguna">
+                          ${Icons.trash('icon-svg', 14)}
+                        </button>
+                      ` : `
+                        <span class="sub-meta" style="margin-left: 6px;">(Akun Anda)</span>
+                      `}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
           </tbody>
         </table>
       </div>
-    </div>
+    </section>
   `;
 }

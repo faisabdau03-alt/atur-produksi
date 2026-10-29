@@ -7,6 +7,7 @@ import { escapeHtml } from '../../utils/sanitize.js';
 import { formatMoney, formatQuantity, formatDate, ATTENDANCE_LABELS } from '../../utils/formatters.js';
 import { calculateMonthlySalary } from './salaryCalc.js';
 import { emptyState } from '../../components/Table.js';
+import { Icons } from '../../components/Icons.js';
 
 export function employeeForm(employee = null) {
   openDialog(employee ? 'Ubah data karyawan' : 'Tambah karyawan baru', `<form id="employee-form" class="form-stack">
@@ -95,10 +96,10 @@ export function attendanceForm(record = null, defaultEmpId = null, defaultDate =
       </div>
 
       ${state.products.length && !record ? `
-      <div id="att-sync-box" style="display: ${initialQty > 0 ? 'block' : 'none'}; margin: 3px 0 6px; padding: 10px 12px; background: #edf7f0; border: 1px solid #c2e7cc; border-radius: 8px;">
-        <label class="checkbox-label" style="font-weight: 600; color: #187554; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 6px;">
+      <div id="att-sync-box" style="display: ${initialQty > 0 ? 'block' : 'none'}; margin: 3px 0 6px; padding: 10px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;">
+        <label class="checkbox-label" style="font-weight: 600; color: #166534; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 6px;">
           <input type="checkbox" name="sync_to_stock" id="att-sync-stock" />
-          <span>🏭 Masukkan hasil produksi ini langsung ke stok persediaan</span>
+          <span style="display: inline-flex; align-items: center; gap: 6px;">${Icons.factory('icon-svg', 15)} Masukkan hasil produksi ini langsung ke stok persediaan</span>
         </label>
         <div id="att-sync-prod-wrap" style="display: none; margin-top: 6px;">
           <label style="font-size: 11px; color: #285e43;">Pilih produk yang dihasilkan:
@@ -338,20 +339,22 @@ export function payMonthlySalaryModal(employeeId, month) {
       </div>
     </div>
     ${!calc.isPaid ? `
-      <p class="muted" style="margin: 12px 0 16px; font-size: 11px;">
-        💡 Mengonfirmasi pembayaran ini akan menandai status gaji pekerja menjadi <strong>Lunas</strong> dan otomatis mencatat transaksi <strong>Kas Keluar (Gaji & Upah Karyawan)</strong> sebesar <strong>${formatMoney(calc.totalSalary)}</strong>.
-      </p>
+      <div class="formula-note" style="margin: 12px 0 16px;">
+        Mengonfirmasi pembayaran ini akan menandai status gaji pekerja menjadi <strong>Lunas</strong> dan otomatis mencatat transaksi <strong>Kas Keluar (Gaji & Upah Karyawan)</strong> sebesar <strong>${formatMoney(calc.totalSalary)}</strong>.
+      </div>
       <div class="dialog-actions">
         <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
         <button type="button" class="button button-primary" data-action="confirm-pay-monthly" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-          Konfirmasi & Bayar Gaji (Potong Kas)
+          ${Icons.cash('icon-svg', 14)}
+          <span>Konfirmasi & Bayar Gaji (Potong Kas)</span>
         </button>
       </div>
     ` : `
       <div class="dialog-actions" style="margin-top: 16px;">
         <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
         <button type="button" class="button button-outline" data-action="view-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-          Lihat Rincian Absensi 📋
+          ${Icons.clipboard('icon-svg', 14)}
+          <span>Lihat Rincian Absensi</span>
         </button>
       </div>
     `}
@@ -367,12 +370,12 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
   const tableHtml = rows.length ? `
     <div class="table-wrap" style="max-height: 280px; overflow-y: auto;">
       <table><thead><tr>
-        <th>TANGGAL</th>
-        <th>KEHADIRAN</th>
-        <th>JAM LEMBUR</th>
-        <th>PRODUKSI</th>
-        <th>ESTIMASI UPAH</th>
-        <th>CATATAN</th>
+        <th>Tanggal</th>
+        <th>Kehadiran</th>
+        <th>Jam Lembur</th>
+        <th>Produksi</th>
+        <th>Estimasi Upah</th>
+        <th>Catatan</th>
       </tr></thead><tbody>
         ${rows.map((r) => {
           const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status, class: 'status-present' };
@@ -381,10 +384,10 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
           return `<tr>
             <td class="date-cell">${formatDate(r.work_date || r.period)}</td>
             <td><span class="status-pill ${att.class}">${att.label}</span></td>
-            <td>${otHours > 0 ? `<span class="status-ot">⚡ ${formatQuantity(otHours)} jam</span> <span class="sub-meta">@ ${formatMoney(recOtRate)}</span>` : '<span class="sub-meta">—</span>'}</td>
+            <td>${otHours > 0 ? `<span class="status-ot" style="display:inline-flex; align-items:center; gap:2px;">${Icons.zap('icon-svg', 12)} ${formatQuantity(otHours)} jam</span> <span class="sub-meta">@ ${formatMoney(recOtRate)}</span>` : '<span class="sub-meta">—</span>'}</td>
             <td>${formatQuantity(r.production_quantity)} unit</td>
-            <td>${formatMoney(r.total_amount)}</td>
-            <td class="detail-cell" style="font-weight: normal; font-size: 9px; color: #88938d;">${escapeHtml(r.notes || '—')}</td>
+            <td class="amount-cell"><strong>${formatMoney(r.total_amount)}</strong></td>
+            <td class="detail-cell" style="font-size: 11px; color: var(--text-muted);">${escapeHtml(r.notes || '—')}</td>
           </tr>`;
         }).join('')}
       </tbody></table>
@@ -393,34 +396,39 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
 
   openDialog(`Rincian Kehadiran — ${escapeHtml(employee.full_name)} (${escapeHtml(month)})`, `
     <div style="margin-bottom: 14px;">
-      <div class="att-summary-pills">
-        <span class="att-pill-mini status-present">${calc.present}x Hadir</span>
-        <span class="att-pill-mini status-half_day">${calc.halfDay}x ½ Hari</span>
-        <span class="att-pill-mini status-permit">${calc.permit}x Izin</span>
-        <span class="att-pill-mini status-sick">${calc.sick}x Sakit</span>
-        <span class="att-pill-mini status-absent">${calc.absent}x Alpa</span>
-        ${calc.totalOvertimeHours > 0 ? `<span class="att-pill-mini status-ot" style="background:#fdf3e7; color:#b86e1e;">⚡ ${formatQuantity(calc.totalOvertimeHours)} Jam Lembur</span>` : ''}
-        <span style="font-size: 11px; margin-left: 6px; color: #37473f; font-weight: 600;">Total: ${calc.effectiveDays} hari kerja efektif</span>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+        <span class="status-pill status-present">${calc.present}x Hadir</span>
+        <span class="status-pill status-half_day">${calc.halfDay}x ½ Hari</span>
+        <span class="status-pill status-permit">${calc.permit}x Izin</span>
+        <span class="status-pill status-sick">${calc.sick}x Sakit</span>
+        <span class="status-pill status-absent">${calc.absent}x Alpa</span>
+        ${calc.totalOvertimeHours > 0 ? `<span class="status-pill" style="background:#fffbeb; color:#b45309; border:1px solid #fde68a;">${Icons.zap('icon-svg', 12)} ${formatQuantity(calc.totalOvertimeHours)} Jam Lembur</span>` : ''}
+        <span style="font-size: 11px; margin-left: 6px; color: var(--text-secondary); font-weight: 600;">Total: ${calc.effectiveDays} hari kerja efektif</span>
       </div>
     </div>
     ${tableHtml}
     <div class="slip-box" style="margin-top: 14px;">
-      <div class="slip-row"><span>Akumulasi Upah Pokok:</span><strong>${formatMoney(calc.baseSalary)}</strong></div>
-      <div class="slip-row"><span>Akumulasi Upah Lembur (${formatQuantity(calc.totalOvertimeHours)} jam):</span><strong style="color: #b86e1e;">${formatMoney(calc.overtimeAmount)}</strong></div>
-      <div class="slip-row"><span>Akumulasi Insentif (${formatQuantity(calc.totalProduction)} unit):</span><strong>${formatMoney(calc.incentiveAmount)}</strong></div>
-      <div class="slip-row"><span>Total Gaji Periode Ini:</span><strong>${formatMoney(calc.totalSalary)}</strong></div>
+      <div class="slip-row"><span>Akumulasi Upah Pokok:</span><strong class="amount-cell">${formatMoney(calc.baseSalary)}</strong></div>
+      <div class="slip-row"><span>Akumulasi Upah Lembur (${formatQuantity(calc.totalOvertimeHours)} jam):</span><strong class="amount-cell" style="color: var(--warning);">${formatMoney(calc.overtimeAmount)}</strong></div>
+      <div class="slip-row"><span>Akumulasi Insentif (${formatQuantity(calc.totalProduction)} unit):</span><strong class="amount-cell">${formatMoney(calc.incentiveAmount)}</strong></div>
+      <div class="slip-row"><span>Total Gaji Periode Ini:</span><strong class="amount-cell" style="font-size: 13px;">${formatMoney(calc.totalSalary)}</strong></div>
     </div>
     <div class="dialog-actions">
       <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
       <button type="button" class="button button-outline" data-action="download-single-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}" style="margin-right: auto; display: inline-flex; align-items: center; gap: 6px;">
-        <span>📥</span> Unduh Absensi Pekerja Ini
+        ${Icons.download('icon-svg', 14)}
+        <span>Unduh Absensi CSV</span>
       </button>
       ${!calc.isPaid ? `
         <button type="button" class="button button-primary" data-action="pay-monthly-salary" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-          Bayar Gaji Akhir Bulan
+          ${Icons.cash('icon-svg', 14)}
+          <span>Bayar Gaji Akhir Bulan</span>
         </button>
       ` : `
-        <span class="status-pill status-paid">Sudah Dibayar ✓</span>
+        <span class="status-pill status-paid">
+          ${Icons.check('icon-svg', 12)}
+          <span>Sudah Dibayar</span>
+        </span>
       `}
     </div>
   `);

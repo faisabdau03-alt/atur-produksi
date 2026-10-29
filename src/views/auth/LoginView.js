@@ -1,4 +1,5 @@
 import { escapeHtml } from '../../utils/sanitize.js';
+import { Icons } from '../../components/Icons.js';
 
 export function renderAuthBrandHeader() {
   return `
@@ -84,7 +85,7 @@ export function renderLoginCard(message = '', state = {}) {
 
       <div style="margin-top:20px; padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; font-size:12px; color:#475569; display:flex; flex-direction:column; gap:4px;">
         <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#1e293b;">
-          <span>🔒</span> <span>Akses Otorisasi Resmi Jaya Wijaya</span>
+          <span>${Icons.shield('icon-svg', 13)}</span> <span>Akses Otorisasi Resmi Jaya Wijaya</span>
         </div>
         <div>
           Kredensial Default Admin: Username <code>admin</code> | Password <code>admin123</code>

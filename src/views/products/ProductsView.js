@@ -2,50 +2,104 @@ import { heading, statCard } from '../../components/Header.js';
 import { emptyState } from '../../components/Table.js';
 import { formatMoney, formatQuantity, quantityFormat, monthRecords, currentMonth } from '../../utils/formatters.js';
 import { escapeHtml } from '../../utils/sanitize.js';
-import { stockFor } from '../../store/state.js';
+import { stockFor, state as appState } from '../../store/state.js';
+import { Icons } from '../../components/Icons.js';
 
-export function renderProducts(state) {
-  const action = `
-    <div style="display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;">
-      <button class="button button-primary" data-action="add-inventory"><span>＋</span> Catat pergerakan</button>
-      <button class="button button-outline" data-action="add-production" style="color:#187554;"><span>🏭</span> Hasil produksi</button>
-      <button class="button button-outline" data-action="add-product"><span>＋</span> Tambah produk</button>
-    </div>
+export function renderProducts(state = appState) {
+  const actions = `
+    <button class="button button-outline" data-action="add-production">
+      ${Icons.factory('icon-svg', 15)}
+      <span>Hasil Produksi</span>
+    </button>
+    <button class="button button-outline" data-action="add-inventory">
+      ${Icons.inventory('icon-svg', 15)}
+      <span>Catat Stok</span>
+    </button>
+    <button class="button button-primary" data-action="add-product">
+      ${Icons.plus('icon-svg', 15)}
+      <span>Tambah Produk</span>
+    </button>
   `;
+
   const rows = [...state.products].sort((a, b) => a.name.localeCompare(b.name));
   const inStockCount = rows.filter((p) => stockFor(p.id) > 0).length;
   const outOfStockCount = rows.filter((p) => stockFor(p.id) <= 0).length;
 
-  return `${heading('KATALOG', 'Daftar produk', 'Atur nama produk, catat pergerakan barang, dan pantau ketersediaan stok.', action)}
-    <section class="stats-grid compact-stats">
-      ${statCard('Total jenis produk', quantityFormat.format(rows.length), 'produk terdaftar di sistem', '◇', 'icon-blue')}
-      ${statCard('Stok tersedia', quantityFormat.format(inStockCount), 'produk dengan stok di atas nol', '▦', 'icon-green')}
-      ${statCard('Stok kosong / habis', quantityFormat.format(outOfStockCount), 'perlu restock / produksi', '⚠', 'icon-orange')}
-      ${statCard('Pergerakan bulan ini', quantityFormat.format(monthRecords(state.inventory, currentMonth).length), 'transaksi masuk & keluar', '↗', 'icon-purple')}
+  return `
+    ${heading('KATALOG MASTER', 'Katalog Produk & Harga', 'Kelola spesifikasi produk, harga modal, harga jual, dan status ketersediaan barang.', actions)}
+
+    <section class="stats-grid">
+      ${statCard('Total Ragam Produk', `${quantityFormat.format(rows.length)} SKU`, 'Katalog produk terdaftar', Icons.products('icon-svg', 18), 'icon-blue')}
+      ${statCard('Stok Fisik Tersedia', `${quantityFormat.format(inStockCount)} Produk`, 'Stok di atas 0 unit', Icons.box('icon-svg', 18), 'icon-green')}
+      ${statCard('Stok Habis / Kritis', `${quantityFormat.format(outOfStockCount)} Produk`, 'Perlu antrean produksi', Icons.alertCircle('icon-svg', 18), 'icon-orange')}
+      ${statCard('Mutasi Bulan Ini', `${quantityFormat.format(monthRecords(state.inventory, currentMonth).length)} Kali`, 'Aktivitas masuk & keluar', Icons.trendingUp('icon-svg', 18), 'icon-purple')}
     </section>
+
     <section class="content-card">
-      <div class="card-heading"><div><h2>Semua produk <span class="count-badge">${rows.length}</span></h2><p>Data produk dan stok persediaan yang saling tersinkronisasi secara realtime</p></div></div>
-      ${rows.length ? `<div class="table-wrap"><table><thead><tr><th>NAMA PRODUK</th><th>SKU</th><th>HARGA BELI</th><th>HARGA JUAL</th><th>STOK TERSEDIA</th><th>UNIT</th><th class="align-right">AKSI</th></tr></thead><tbody>
-        ${rows.map((product) => `<tr>
-          <td class="detail-cell">
-            <strong>${escapeHtml(product.name)}</strong>
-          </td>
-          <td>${escapeHtml(product.sku || '—')}</td>
-          <td>${formatMoney(product.purchase_price || 0)}</td>
-          <td>${formatMoney(product.selling_price || 0)}</td>
-          <td class="${stockFor(product.id) < 0 ? 'negative-stock' : ''}">
-            <strong style="font-size: 13px;">${formatQuantity(stockFor(product.id))}</strong>
-          </td>
-          <td>${escapeHtml(product.unit)}</td>
-          <td class="align-right action-cell">
-            <div style="display:inline-flex; align-items:center; justify-content:flex-end; gap:4px;">
-              <button class="button button-small button-outline" data-action="product-movement" data-id="${escapeHtml(product.id)}" title="Catat pergerakan stok untuk ${escapeHtml(product.name)}" style="font-size:11px; padding:3px 8px;">
-                <span>±</span> Pergerakan
-              </button>
-              <button class="icon-button" data-action="edit-product" data-id="${escapeHtml(product.id)}" aria-label="Ubah ${escapeHtml(product.name)}" title="Ubah produk">✎</button>
-              <button class="icon-button danger-icon" data-action="delete-product" data-id="${escapeHtml(product.id)}" aria-label="Hapus ${escapeHtml(product.name)}" title="Hapus produk">×</button>
-            </div>
-          </td>
-        </tr>`).join('')}
-      </tbody></table></div>` : emptyState('Mulai dari produk pertama', 'Tambahkan nama produk untuk mulai mencatat stok.')}</section>`;
+      <div class="card-heading">
+        <div>
+          <h2>Daftar Produk <span class="count-badge">${rows.length} SKU</span></h2>
+          <p>Data spesifikasi harga dan posisi stok yang tersinkronisasi otomatis dengan gudang</p>
+        </div>
+      </div>
+
+      ${rows.length ? `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nama Produk</th>
+                <th>Kode SKU</th>
+                <th>Harga Modal (HPP)</th>
+                <th>Harga Jual (Grosir)</th>
+                <th>Stok Fisik</th>
+                <th>Satuan</th>
+                <th class="align-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((product) => {
+                const stock = stockFor(product.id);
+                const isNegative = stock < 0;
+                const isZero = stock === 0;
+
+                return `
+                  <tr>
+                    <td class="detail-cell">
+                      <strong>${escapeHtml(product.name)}</strong>
+                    </td>
+                    <td><code>${escapeHtml(product.sku || '—')}</code></td>
+                    <td class="amount-cell">${formatMoney(product.purchase_price || 0)}</td>
+                    <td class="amount-cell" style="font-weight: 600; color: var(--success);">${formatMoney(product.selling_price || 0)}</td>
+                    <td class="qty-cell">
+                      <strong style="color: ${isNegative || isZero ? 'var(--danger)' : 'var(--text-primary)'};">
+                        ${formatQuantity(stock)}
+                      </strong>
+                      ${isZero ? `<span class="status-pill status-inactive" style="margin-left: 4px; font-size: 10px;">Habis</span>` : ''}
+                      ${isNegative ? `<span class="status-pill status-inactive" style="margin-left: 4px; font-size: 10px;">Defisit</span>` : ''}
+                    </td>
+                    <td><span class="count-badge">${escapeHtml(product.unit)}</span></td>
+                    <td class="align-right">
+                      <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <button class="button button-small button-outline" data-action="product-movement" data-id="${escapeHtml(product.id)}" title="Input pergerakan stok untuk produk ini">
+                          ${Icons.pallet('icon-svg', 13)}
+                          <span>Mutasi</span>
+                        </button>
+                        <button class="icon-button" data-action="edit-product" data-id="${escapeHtml(product.id)}" aria-label="Ubah" title="Ubah data produk">
+                          ${Icons.edit('icon-svg', 14)}
+                        </button>
+                        <button class="icon-button danger-icon" data-action="delete-product" data-id="${escapeHtml(product.id)}" aria-label="Hapus" title="Hapus produk">
+                          ${Icons.trash('icon-svg', 14)}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : emptyState('Belum Ada Katalog Produk', 'Tambahkan produk pertama untuk mulai mencatat stok dan pergerakan gudang.')}
+    </section>
+  `;
 }

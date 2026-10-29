@@ -1,21 +1,45 @@
 import { heading, statCard } from '../../components/Header.js';
 import { emptyState, movementTable } from '../../components/Table.js';
 import { quantityFormat, monthRecords, currentMonth } from '../../utils/formatters.js';
-import { stockFor } from '../../store/state.js';
+import { stockFor, state as appState } from '../../store/state.js';
+import { Icons } from '../../components/Icons.js';
 
-export function renderInventory(state) {
+export function renderInventory(state = appState) {
   const products = [...state.products].sort((a, b) => a.name.localeCompare(b.name));
-  return `${heading('OPERASIONAL', 'Persediaan barang', 'Catat setiap barang masuk dan keluar agar stok tetap terpantau.', `
-    <div style="display:inline-flex; gap:8px; flex-wrap:wrap; align-items:center;">
-      <button class="button button-primary" data-action="add-production" style="background:#187554;"><span>🏭</span> Tambah hasil produksi</button>
-      <button class="button button-outline" data-action="add-inventory"><span>＋</span> Catat pergerakan</button>
-    </div>`)}
-    <section class="stats-grid compact-stats">
-      ${statCard('Jenis produk tersedia', quantityFormat.format(products.filter((product) => stockFor(product.id) > 0).length), 'produk dengan stok di atas nol', '◇', 'icon-blue')}
-      ${statCard('Pergerakan bulan ini', quantityFormat.format(monthRecords(state.inventory, currentMonth).length), 'barang masuk dan keluar', '▦', 'icon-orange')}
+  const inStockCount = products.filter((p) => stockFor(p.id) > 0).length;
+  const monthInv = monthRecords(state.inventory, currentMonth);
+
+  const actions = `
+    <button class="button button-outline" data-action="add-production">
+      ${Icons.factory('icon-svg', 15)}
+      <span>Hasil Produksi</span>
+    </button>
+    <button class="button button-primary" data-action="add-inventory">
+      ${Icons.plus('icon-svg', 15)}
+      <span>Catat Pergerakan</span>
+    </button>
+  `;
+
+  return `
+    ${heading('GUDANG & LOGISTIK', 'Persediaan Stok Barang', 'Kelola penerimaan stok barang jadi dari lini produksi serta pengiriman ke pelanggan.', actions)}
+
+    <section class="stats-grid">
+      ${statCard('Produk Siap Kirim', `${quantityFormat.format(inStockCount)} Jenis`, 'Stok fisik aman di gudang', Icons.box('icon-svg', 18), 'icon-green')}
+      ${statCard('Mutasi Bulan Ini', `${quantityFormat.format(monthInv.length)} Mutasi`, 'Barang masuk & keluar', Icons.inventory('icon-svg', 18), 'icon-orange')}
+      ${statCard('Total Master SKU', `${quantityFormat.format(products.length)} SKU`, 'Katalog produk terdaftar', Icons.products('icon-svg', 18), 'icon-blue')}
     </section>
+
     <section class="content-card">
-      <div class="card-heading"><div><h2>Riwayat pergerakan</h2><p>Catatan stok terbaru</p></div></div>
-      ${state.inventory.length ? movementTable(state.inventory.filter((row) => row.product_id), state.inventory.length) : emptyState('Belum ada pergerakan', 'Catat barang masuk untuk mulai mengelola persediaan.')}
-    </section>`;
+      <div class="card-heading">
+        <div>
+          <h2>Riwayat Pergerakan Barang <span class="count-badge">${state.inventory.length}</span></h2>
+          <p>Catatan penerimaan produksi, belanja bahan, dan pengiriman order</p>
+        </div>
+      </div>
+      ${state.inventory.length 
+        ? movementTable(state.inventory.filter((row) => row.product_id), state.inventory.length) 
+        : emptyState('Belum Ada Pergerakan Barang', 'Catat hasil produksi atau pembelian barang untuk mulai mengelola persediaan.')
+      }
+    </section>
+  `;
 }
