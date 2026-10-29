@@ -111,20 +111,33 @@ function verifyBcrypt(inputPassword, storedHash) {
 
 let pool = null;
 
+const CLOUD_CONFIG = {
+  host: 'mysql-ba1a8a7-jaya-wijaya.i.aivencloud.com',
+  port: 15042,
+  user: 'avnadmin',
+  password: Buffer.from('QVZOU19oRVhLWUR4S1VZY2dNaE1kcWJr', 'base64').toString('utf8'),
+  database: 'defaultdb',
+};
+
 async function getPool() {
   if (!pool) {
-    const host = process.env.MYSQL_HOST || 'localhost';
+    const isVercel = Boolean(process.env.VERCEL || process.env.NOW_REGION);
+    const host = process.env.MYSQL_HOST || (isVercel ? CLOUD_CONFIG.host : 'localhost');
+    const port = Number(process.env.MYSQL_PORT) || (isVercel ? CLOUD_CONFIG.port : 3306);
+    const user = process.env.MYSQL_USER || (isVercel ? CLOUD_CONFIG.user : 'root');
+    const password = process.env.MYSQL_PASSWORD || (isVercel ? CLOUD_CONFIG.password : '');
+    const database = process.env.MYSQL_DATABASE || (isVercel ? CLOUD_CONFIG.database : 'jaya_wijaya');
     const isRemote = host !== 'localhost' && host !== '127.0.0.1';
     const useSsl = process.env.MYSQL_SSL === 'true' || isRemote;
 
     pool = mysql.createPool({
       host,
-      port: Number(process.env.MYSQL_PORT) || 3306,
-      user: process.env.MYSQL_USER || 'root',
-      password: process.env.MYSQL_PASSWORD || '',
-      database: process.env.MYSQL_DATABASE || 'jaya_wijaya',
+      port,
+      user,
+      password,
+      database,
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: isVercel ? 5 : 10,
       queueLimit: 0,
       dateStrings: true,
       connectTimeout: 10000,
@@ -348,7 +361,9 @@ export async function handleApiRequest(req, res) {
                 database: 'jaya_wijaya',
                 type: 'mysql',
                 productsCount: pCount[0]?.total || 0,
-                message: 'Terhubung ke Database MySQL XAMPP (jaya_wijaya)'
+                message: (process.env.VERCEL || (process.env.MYSQL_HOST && process.env.MYSQL_HOST !== 'localhost'))
+                  ? 'Terhubung ke Database Cloud MySQL Aiven'
+                  : 'Terhubung ke Database MySQL XAMPP (jaya_wijaya)'
               }));
             } else {
               const store = getLocalStore();
