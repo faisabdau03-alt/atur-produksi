@@ -1259,6 +1259,7 @@ function openReportDetailModal(type, id, month = currentMonth) {
     let paymentStatusClass = 'lunas';
     let isDP = false;
     let remainingAmount = 0;
+    let paidAmount = Number(rec.amount) || 0;
 
     if (desc.includes('Lunas') && !desc.includes('Sisa Tagihan') && !desc.includes('Sisa Piutang') && !desc.includes('Sisa Utang')) {
       paymentStatusText = 'Lunas';
@@ -1279,7 +1280,6 @@ function openReportDetailModal(type, id, month = currentMonth) {
       paymentStatusClass = 'tempo';
     }
 
-    const paidAmount = Number(rec.amount) || 0;
     const totalAmount = isDP ? (paidAmount + remainingAmount) : paidAmount;
 
     // Parse Item & Qty
