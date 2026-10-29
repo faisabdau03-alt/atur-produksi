@@ -62,25 +62,6 @@ function renderShell() {
     <div id="toast" class="toast"></div>
   `;
 
-  // Attach sidebar mobile toggle
-  const mobileToggle = document.querySelector('#mobile-menu-toggle');
-  const sidebar = document.querySelector('#app-sidebar');
-  if (mobileToggle && sidebar) {
-    mobileToggle.addEventListener('click', () => {
-      sidebar.classList.toggle('is-open');
-    });
-  }
-
-  // Sidebar navigation click
-  sidebar?.addEventListener('click', (event) => {
-    const navItem = event.target.closest('[data-page]');
-    if (navItem) {
-      event.preventDefault();
-      state.page = navItem.dataset.page;
-      renderShell();
-    }
-  });
-
   renderPage();
 }
 
@@ -106,9 +87,89 @@ function renderPage() {
   const content = document.querySelector('#page-content');
   if (!content) return;
 
-  content.innerHTML = render();
-  content.onclick = handlePageAction;
-  content.onchange = (event) => {
+  try {
+    content.innerHTML = render();
+  } catch (err) {
+    console.error(`Error rendering page "${state.page}":`, err);
+    content.innerHTML = `
+      <div class="box box-danger" style="margin: 20px;">
+        <div class="box-header">
+          <h3 class="box-title">${Icons.alertCircle('icon-svg', 18)} Terjadi Kendala Saat Menampilkan Halaman ${escapeHtml(label)}</h3>
+        </div>
+        <div class="box-body">
+          <p style="color: #dd4b39; font-weight: 600;">${escapeHtml(err.message || String(err))}</p>
+          <p style="color: #666; font-size: 12.5px;">Sistem telah mencatat kendala ini. Silakan coba buka halaman kembali atau kembali ke ringkasan.</p>
+          <button type="button" class="btn btn-primary btn-sm" data-page="dashboard" style="margin-top: 8px;">
+            ${Icons.dashboard('icon-svg', 13)} Kembali ke Dashboard
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+function setupGlobalEvents() {
+  const app = document.querySelector('#app');
+  if (!app || app.dataset.globalEventsAttached) return;
+  app.dataset.globalEventsAttached = 'true';
+
+  app.addEventListener('click', async (event) => {
+    // 1. Signout (Topbar button, Sidebar menu, modal button)
+    const signoutBtn = event.target.closest('[data-action="signout"]');
+    if (signoutBtn) {
+      event.preventDefault();
+      await handleSignOut();
+      return;
+    }
+
+    // 2. Mobile toggle
+    const mobileToggle = event.target.closest('#mobile-menu-toggle');
+    if (mobileToggle) {
+      event.preventDefault();
+      document.querySelector('#app-sidebar')?.classList.toggle('is-open');
+      return;
+    }
+
+    // 3. Page routing via [data-page] (Sidebar, Topbar logo, Breadcrumb, Footer)
+    const navItem = event.target.closest('[data-page]');
+    if (navItem) {
+      event.preventDefault();
+      const targetPage = navItem.dataset.page;
+      if (targetPage) {
+        state.page = targetPage;
+        document.querySelector('#app-sidebar')?.classList.remove('is-open');
+        renderShell();
+      }
+      return;
+    }
+
+    // 4. Other actions
+    const button = event.target.closest('[data-action]');
+    if (button) {
+      handlePageAction(event);
+      return;
+    }
+  });
+
+  // Table search live filter
+  app.addEventListener('input', (event) => {
+    if (event.target.matches('.table-filter-search input, input[id^="search-"]')) {
+      const q = event.target.value.toLowerCase().trim();
+      const box = event.target.closest('.box') || event.target.closest('.content-wrapper') || document;
+      const table = box.querySelector('table.table');
+      if (table) {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach((row) => {
+          if (row.classList.contains('empty-row')) return;
+          const text = row.textContent.toLowerCase();
+          row.style.display = !q || text.includes(q) ? '' : 'none';
+        });
+      }
+    }
+  });
+
+  // Date / Month picker changes
+  app.addEventListener('change', (event) => {
     if (event.target.id === 'report-month') {
       state.selectedReportMonth = event.target.value || currentMonth;
       renderPage();
@@ -119,18 +180,10 @@ function renderPage() {
       state.selectedPayrollMonth = event.target.value || currentMonth;
       renderPage();
     }
-  };
+  });
 }
 
 async function handlePageAction(event) {
-  const navigation = event.target.closest('[data-page]');
-  if (navigation && !navigation.closest('nav')) {
-    event.preventDefault();
-    state.page = navigation.dataset.page;
-    renderShell();
-    return;
-  }
-
   const button = event.target.closest('[data-action]');
   if (!button) return;
 
@@ -461,6 +514,7 @@ window.addEventListener('app:rerender', () => {
 });
 
 async function start() {
+  setupGlobalEvents();
   await checkMysqlStatus();
 
   const { data, error } = await db.auth.getSession();

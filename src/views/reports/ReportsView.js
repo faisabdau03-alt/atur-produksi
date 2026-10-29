@@ -213,7 +213,7 @@ export function renderReports(month = currentMonth) {
     ];
   }
 
-  filteredItems.sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
+  filteredItems.sort((a, b) => String(b?.occurred_on || '').localeCompare(String(a?.occurred_on || '')));
 
   const headingHtml = heading(
     'ANALISIS & KEUANGAN',
@@ -473,69 +473,69 @@ export function renderReports(month = currentMonth) {
         ${statCard('Pengeluaran Kas Operasional', formatMoney(totalOut), `${expenseRecords.length} transaksi kas keluar`, Icons.arrowOut('icon-svg', 18), 'icon-orange', { filter: 'expenses', hint: 'Buka rincian Pengeluaran' })}
       </section>
 
-      <section class="content-card">
-        <div class="card-heading">
-          <div>
-            <h2>Laporan Laba Rugi (Income Statement)</h2>
-            <p>Rincian pendapatan omzet, beban pokok penjualan (HPP), biaya operasional, upah karyawan, dan laba bersih</p>
-          </div>
-          <span class="count-badge" style="background: ${netProfit >= 0 ? 'var(--success-bg)' : 'var(--danger-bg)'}; color: ${netProfit >= 0 ? 'var(--success)' : 'var(--danger)'}; font-weight: 700;">
-            ${netProfit >= 0 ? 'Surplus (Profit)' : 'Defisit (Rugi)'}
-          </span>
-        </div>
-
-        <div class="income-statement-grid">
-          <div class="statement-box">
-            <div class="statement-heading">
-              <span>A. Perhitungan Laba Kotor</span>
-              <span>Margin ${grossMargin}%</span>
-            </div>
-            <div class="statement-item">
-              <span>(+) Pendapatan Penjualan Produk (Omzet)</span>
-              <strong style="color: var(--success);">+${formatMoney(totalIn)}</strong>
-            </div>
-            <div class="statement-item">
-              <span>(−) Beban Pokok Penjualan (HPP Bahan Baku)</span>
-              <strong style="color: var(--danger);">−${formatMoney(totalCogs)}</strong>
-            </div>
-            <div class="statement-item subtotal">
-              <span>Subtotal Laba Kotor</span>
-              <strong>${formatMoney(grossProfit)}</strong>
-            </div>
-          </div>
-
-          <div class="statement-box">
-            <div class="statement-heading">
-              <span>B. Beban Usaha & Laba Bersih</span>
-              <span>Margin ${netMargin}%</span>
-            </div>
-            <div class="statement-item">
-              <span>Laba Kotor (dari bagian A)</span>
-              <strong>${formatMoney(grossProfit)}</strong>
-            </div>
-            <div class="statement-item">
-              <span>(−) Beban Upah Pokok Karyawan</span>
-              <span>−${formatMoney(totalPayrollBase)}</span>
-            </div>
-            <div class="statement-item">
-              <span>(−) Beban Lembur & Insentif Produksi</span>
-              <span style="color: var(--warning);">−${formatMoney(totalPayrollOvertime + totalPayrollIncentive)}</span>
-            </div>
-            <div class="statement-item">
-              <span>(−) Beban Operasional Lainnya</span>
-              <span>−${formatMoney(operationalCash)}</span>
-            </div>
-            <div class="statement-item subtotal">
-              <span>Total Seluruh Beban Usaha</span>
-              <strong style="color: var(--danger);">−${formatMoney(totalOperatingExpense)}</strong>
-            </div>
-            <div class="statement-item profit-highlight">
-              <span>Laba Bersih Operasional:</span>
-              <strong style="font-size: 14px; color: ${netProfit >= 0 ? 'var(--success)' : 'var(--danger)'};">${formatMoney(netProfit)}</strong>
-            </div>
+      <div class="box box-primary">
+        <div class="box-header">
+          <h3 class="box-title">${Icons.receipt('icon-svg', 18)} Laporan Laba Rugi (Income Statement)</h3>
+          <div class="box-tools">
+            <span class="label ${netProfit >= 0 ? 'label-success' : 'label-danger'}" style="font-size: 11.5px; padding: 4px 8px;">
+              ${netProfit >= 0 ? 'Surplus (Profit)' : 'Defisit (Rugi)'}
+            </span>
           </div>
         </div>
-      </section>
+        <div class="box-body">
+          <div class="income-statement-grid">
+            <div class="statement-box">
+              <div class="statement-heading">
+                <span>A. Perhitungan Laba Kotor</span>
+                <span>Margin ${grossMargin}%</span>
+              </div>
+              <div class="statement-item">
+                <span>(+) Pendapatan Penjualan Produk (Omzet)</span>
+                <strong style="color: #00a65a;">+${formatMoney(totalIn)}</strong>
+              </div>
+              <div class="statement-item">
+                <span>(−) Beban Pokok Penjualan (HPP Bahan Baku)</span>
+                <strong style="color: #dd4b39;">−${formatMoney(totalCogs)}</strong>
+              </div>
+              <div class="statement-item subtotal">
+                <span>Subtotal Laba Kotor</span>
+                <strong>${formatMoney(grossProfit)}</strong>
+              </div>
+            </div>
+
+            <div class="statement-box">
+              <div class="statement-heading">
+                <span>B. Beban Usaha & Laba Bersih</span>
+                <span>Margin ${netMargin}%</span>
+              </div>
+              <div class="statement-item">
+                <span>Laba Kotor (dari bagian A)</span>
+                <strong>${formatMoney(grossProfit)}</strong>
+              </div>
+              <div class="statement-item">
+                <span>(−) Beban Upah Pokok Karyawan</span>
+                <span>−${formatMoney(totalPayrollBase)}</span>
+              </div>
+              <div class="statement-item">
+                <span>(−) Beban Lembur & Insentif Produksi</span>
+                <span style="color: #f39c12;">−${formatMoney(totalPayrollOvertime + totalPayrollIncentive)}</span>
+              </div>
+              <div class="statement-item">
+                <span>(−) Beban Operasional Lainnya</span>
+                <span>−${formatMoney(operationalCash)}</span>
+              </div>
+              <div class="statement-item subtotal">
+                <span>Total Seluruh Beban Usaha</span>
+                <strong style="color: #dd4b39;">−${formatMoney(totalOperatingExpense)}</strong>
+              </div>
+              <div class="statement-item profit-highlight">
+                <span>Laba Bersih Operasional:</span>
+                <strong style="font-size: 14px; color: ${netProfit >= 0 ? '#00a65a' : '#dd4b39'};">${formatMoney(netProfit)}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
   }
 

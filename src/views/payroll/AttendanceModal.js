@@ -365,7 +365,7 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
   const employee = state.employees.find((e) => e.id === employeeId);
   if (!employee) return;
   const calc = calculateMonthlySalary(employee, month);
-  const rows = [...calc.records].sort((a, b) => (a.work_date || a.period).localeCompare(b.work_date || b.period));
+  const rows = [...calc.records].sort((a, b) => String(a?.work_date || a?.period || '').localeCompare(String(b?.work_date || b?.period || '')));
 
   const tableHtml = rows.length ? `
     <div class="table-wrap" style="max-height: 280px; overflow-y: auto;">

@@ -9,9 +9,9 @@ export function renderDashboard(state = appState) {
   const balance = cashBalance(state.cash);
   const netMonthCash = cashBalance(monthCash);
   const latest = [
-    ...state.inventory.map((row) => ({ ...row, type: 'inventory' })),
-    ...state.cash.map((row) => ({ ...row, type: 'cash' })),
-  ].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on));
+    ...(state.inventory || []).map((row) => ({ ...row, type: 'inventory' })),
+    ...(state.cash || []).map((row) => ({ ...row, type: 'cash' })),
+  ].sort((a, b) => String(b?.occurred_on || '').localeCompare(String(a?.occurred_on || '')));
   const inStock = state.products.filter((product) => stockFor(product.id) > 0).length;
 
   return `

@@ -66,7 +66,7 @@ export function tableFooter(total = 0, current = 0) {
 }
 
 export function movementTable(records, limit = records.length) {
-  const rows = [...records].sort((a, b) => b.occurred_on.localeCompare(a.occurred_on)).slice(0, limit);
+  const rows = [...records].sort((a, b) => String(b?.occurred_on || '').localeCompare(String(a?.occurred_on || ''))).slice(0, limit);
   if (!rows.length) return emptyState('Belum ada catatan', 'Transaksi yang dicatat akan muncul di sini.');
 
   return `

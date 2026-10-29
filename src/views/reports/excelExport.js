@@ -356,7 +356,7 @@ export function downloadPayrollReport(month) {
   const pendingCount = monthlyCalcs.filter((item) => !item.calc.isPaid).length;
 
   const attendanceRecords = monthRecords(state.payroll, selectedMonth, 'work_date')
-    .sort((a, b) => (a.work_date || a.period).localeCompare(b.work_date || b.period));
+    .sort((a, b) => String(a?.work_date || a?.period || '').localeCompare(String(b?.work_date || b?.period || '')));
 
   const rows = [
     ['REKAPITULASI GAJI & ABSENSI KARYAWAN BULANAN'],
@@ -493,7 +493,7 @@ export function downloadSingleEmployeeAttendance(employeeId, month) {
   const employee = state.employees.find((e) => e.id === employeeId);
   if (!employee) return;
   const calc = calculateMonthlySalary(employee, month);
-  const records = [...calc.records].sort((a, b) => (a.work_date || a.period).localeCompare(b.work_date || b.period));
+  const records = [...calc.records].sort((a, b) => String(a?.work_date || a?.period || '').localeCompare(String(b?.work_date || b?.period || '')));
 
   const rows = [
     ['RINCIAN ABSENSI & ESTIMASI UPAH KARYAWAN'],

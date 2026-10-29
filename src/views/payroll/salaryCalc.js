@@ -1,5 +1,8 @@
-export function calculateMonthlySalary(employee, month, state) {
-  const records = (state.payroll || []).filter(
+import { state as appState } from '../../store/state.js';
+
+export function calculateMonthlySalary(employee, month, state = appState) {
+  const currentState = state || appState;
+  const records = (currentState?.payroll || []).filter(
     (r) => r.employee_id === employee.id && (r.work_date || r.period)?.slice(0, 7) === month
   );
   const present = records.filter((r) => r.attendance_status === 'present').length;
@@ -29,7 +32,7 @@ export function calculateMonthlySalary(employee, month, state) {
   const incentiveAmount = Math.round(totalProduction * incentiveRate);
   const totalSalary = baseSalary + overtimeAmount + incentiveAmount;
 
-  const payout = (state.payouts || []).find((p) => p.employee_id === employee.id && p.period === month);
+  const payout = (currentState?.payouts || []).find((p) => p.employee_id === employee.id && p.period === month);
 
   return {
     employee,

@@ -1207,3 +1207,230 @@ dialog#app-dialog::backdrop {
     grid-template-columns: 1fr;
   }
 }
+
+/* ==========================================================================
+   REPORTS & FINANCIAL WIDGETS (AdminLTE 2)
+   ========================================================================== */
+
+.income-statement-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 15px;
+}
+.statement-box {
+  background: #fafafa;
+  border: 1px solid #e5e5e5;
+  border-radius: 3px;
+  padding: 14px;
+}
+.statement-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 700;
+  font-size: 13.5px;
+  color: #333333;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #3c8dbc;
+}
+.statement-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+  font-size: 13px;
+  color: #555555;
+  border-bottom: 1px dashed #e8e8e8;
+}
+.statement-item.subtotal {
+  font-weight: 700;
+  color: #222222;
+  border-top: 1px solid #cccccc;
+  border-bottom: 1px solid #cccccc;
+  margin: 6px 0;
+  padding: 8px 0;
+}
+.statement-item.profit-highlight {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 3px;
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-weight: 700;
+}
+
+.equation-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #d2d6de;
+  border-radius: 3px;
+  padding: 12px 16px;
+  margin-bottom: 15px;
+  flex-wrap: wrap;
+}
+.equation-segment {
+  display: flex;
+  flex-direction: column;
+}
+.equation-segment .label {
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #777777;
+  font-weight: 600;
+}
+.equation-segment .value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333333;
+}
+.equation-segment.is-result {
+  background: #ecf0f5;
+  padding: 6px 12px;
+  border-radius: 3px;
+}
+.equation-op {
+  font-size: 20px;
+  font-weight: 700;
+  color: #888888;
+}
+
+.report-group-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  background: #ffffff;
+  border: 1px solid #d2d6de;
+  border-left: 4px solid #3c8dbc;
+  border-radius: 3px;
+  padding: 12px 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.report-group-title h2 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #333333;
+}
+.report-group-title p {
+  margin: 0;
+  font-size: 12px;
+  color: #777777;
+}
+.report-group-tag {
+  background: #ecf0f5;
+  color: #3c8dbc;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.report-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.kpi-strip-item {
+  background: #ffffff;
+  border: 1px solid #d2d6de;
+  border-radius: 3px;
+  padding: 12px;
+}
+.kpi-label {
+  font-size: 11.5px;
+  color: #777777;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.kpi-val {
+  font-size: 18px;
+  font-weight: 700;
+  color: #333333;
+  margin: 4px 0;
+}
+.kpi-sub {
+  font-size: 11px;
+  color: #888888;
+}
+
+.category-breakdown-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 15px;
+}
+.category-breakdown-card {
+  background: #ffffff;
+  border: 1px solid #d2d6de;
+  border-radius: 3px;
+  padding: 12px 14px;
+}
+.cat-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.cat-name {
+  font-weight: 600;
+  font-size: 12.5px;
+  color: #333333;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.cat-share {
+  font-size: 11px;
+  font-weight: 700;
+  color: #3c8dbc;
+  background: #ecf0f5;
+  padding: 2px 6px;
+  border-radius: 8px;
+}
+.cat-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #dd4b39;
+  margin-bottom: 4px;
+}
+.cat-desc {
+  font-size: 11px;
+  color: #777777;
+  margin-bottom: 8px;
+}
+.cat-bar-wrap {
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.cat-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.label {
+  display: inline;
+  padding: .2em .6em .3em;
+  font-size: 75%;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-align: center;
+  white-space: nowrap;
+  vertical-align: baseline;
+  border-radius: .25em;
+}
+.label-success { background-color: #00a65a; }
+.label-danger { background-color: #dd4b39; }
+.label-warning { background-color: #f39c12; }
+.label-info { background-color: #00c0ef; }
+.label-primary { background-color: #3c8dbc; }
