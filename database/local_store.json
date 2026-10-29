@@ -1,0 +1,147 @@
+{
+  "products": [
+    {
+      "id": "prod-001",
+      "name": "Sapu Rayung Premium Gagang Kayu Mahoni",
+      "sku": "JW-SR-01",
+      "unit": "pcs",
+      "purchase_price": 11500,
+      "selling_price": 18500
+    },
+    {
+      "id": "prod-002",
+      "name": "Sapu Ijuk Super Tebal Gagang Kayu Halus",
+      "sku": "JW-SI-02",
+      "unit": "pcs",
+      "purchase_price": 13500,
+      "selling_price": 21500
+    },
+    {
+      "id": "prod-003",
+      "name": "Gagang Kayu Bubut Halus 120cm (Bahan Baku)",
+      "sku": "JW-GK-03",
+      "unit": "batang",
+      "purchase_price": 4000,
+      "selling_price": 7000
+    },
+    {
+      "id": "prod-004",
+      "name": "Sapu Lidi Taman Gagang Kayu Panjang",
+      "sku": "JW-SL-04",
+      "unit": "pcs",
+      "purchase_price": 9000,
+      "selling_price": 15000
+    },
+    {
+      "id": "prod-005",
+      "name": "Pel Strip Katun Gagang Kayu Kokoh",
+      "sku": "JW-PL-05",
+      "unit": "pcs",
+      "purchase_price": 16500,
+      "selling_price": 26000
+    },
+    {
+      "id": "prod-006",
+      "name": "Pengki Serokan Sampah Gagang Kayu",
+      "sku": "JW-PK-06",
+      "unit": "pcs",
+      "purchase_price": 10500,
+      "selling_price": 17000
+    }
+  ],
+  "inventory": [
+    {
+      "id": "inv-001",
+      "product_id": "prod-001",
+      "direction": "in",
+      "quantity": 1200,
+      "occurred_on": "2026-10-29",
+      "notes": "Hasil perakitan sapu rayung batch #101",
+      "created_by": "usr-002",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    },
+    {
+      "id": "inv-002",
+      "product_id": "prod-001",
+      "direction": "out",
+      "quantity": 400,
+      "occurred_on": "2026-10-29",
+      "notes": "Pengiriman pesanan grosir Toko Berkah",
+      "created_by": "usr-002",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    },
+    {
+      "id": "inv-003",
+      "product_id": "prod-002",
+      "direction": "in",
+      "quantity": 800,
+      "occurred_on": "2026-10-29",
+      "notes": "Selesai produksi sapu ijuk super",
+      "created_by": "usr-002",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    }
+  ],
+  "cash": [
+    {
+      "id": "cash-001",
+      "direction": "in",
+      "amount": 14500000,
+      "category": "Penjualan",
+      "description": "Pelunasan faktur pesanan grosir INV-JW-2026-081",
+      "occurred_on": "2026-10-29",
+      "created_by": "usr-001",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    },
+    {
+      "id": "cash-002",
+      "direction": "out",
+      "amount": 5200000,
+      "category": "Bahan Baku",
+      "description": "Pengadaan kayu mahoni & serat rayung",
+      "occurred_on": "2026-10-29",
+      "created_by": "usr-001",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    },
+    {
+      "id": "cash-003",
+      "direction": "in",
+      "amount": 9200000,
+      "category": "Penjualan",
+      "description": "Pesanan kulakan sapu rayung & pel lantai",
+      "occurred_on": "2026-10-29",
+      "created_by": "usr-001",
+      "created_at": "2026-10-29T13:08:20.280Z"
+    }
+  ],
+  "employees": [
+    {
+      "id": "emp-001",
+      "full_name": "Bambang Sutrisno",
+      "position": "Operator Mesin Bubut & Pembentukan Kayu",
+      "daily_salary": 135000,
+      "overtime_rate": 22000,
+      "incentive_per_unit": 150,
+      "is_active": 1
+    },
+    {
+      "id": "emp-002",
+      "full_name": "Siti Rahmawati",
+      "position": "Perakitan & Finishing Sapu Rayung",
+      "daily_salary": 120000,
+      "overtime_rate": 19000,
+      "incentive_per_unit": 120,
+      "is_active": 1
+    },
+    {
+      "id": "emp-003",
+      "full_name": "Agus Setiawan",
+      "position": "Quality Control & Packing Grosir",
+      "daily_salary": 110000,
+      "overtime_rate": 17000,
+      "incentive_per_unit": 100,
+      "is_active": 1
+    }
+  ],
+  "payroll": [],
+  "payouts": []
+}

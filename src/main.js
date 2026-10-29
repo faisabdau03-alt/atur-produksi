@@ -7,33 +7,71 @@ const config = {
   url: import.meta.env.VITE_SUPABASE_URL,
   key: import.meta.env.VITE_SUPABASE_ANON_KEY,
 };
+function getAuthHeaders(includeContentType = true) {
+  const token = localStorage.getItem('jw_session_token') || '';
+  const headers = {};
+  if (includeContentType) headers['Content-Type'] = 'application/json';
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  return headers;
+}
+
 const mysqlClient = {
   auth: {
     async getSession() {
+      const token = localStorage.getItem('jw_session_token');
+      if (!token) return { data: { session: null }, error: null };
       if (state.user) {
-        return { data: { session: { user: state.user } }, error: null };
+        return { data: { session: { user: state.user, access_token: token } }, error: null };
       }
+      try {
+        const res = await fetch('/api/auth/me', {
+          headers: getAuthHeaders(false),
+        }).then((r) => r.json());
+        if (res && res.ok && res.user) {
+          state.user = res.user;
+          state.isAdmin = res.user.role === 'admin';
+          state.isMysql = true;
+          return { data: { session: { user: res.user, access_token: token } }, error: null };
+        }
+      } catch (_) {}
+      localStorage.removeItem('jw_session_token');
       return { data: { session: null }, error: null };
     },
-    async signInWithPassword({ email }) {
-      const isOperator = (email || '').toLowerCase().includes('operator') || (email || '').toLowerCase().includes('mandor');
-      const user = {
-        id: isOperator ? 'usr-002' : 'usr-001',
-        email: isOperator ? 'mandor@jayawijaya.com' : 'admin@jayawijaya.com',
-        user_metadata: { role: isOperator ? 'operator' : 'admin', full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya' },
-        app_metadata: { role: isOperator ? 'operator' : 'admin' },
-        full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya',
-      };
-      state.user = user;
-      state.isAdmin = !isOperator;
-      state.isMysql = true;
-      state.isDemo = false;
-      return { data: { user }, error: null };
+    async signInWithPassword({ email, password }) {
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ identifier: email, password }),
+        }).then((r) => r.json());
+
+        if (!res || !res.ok) {
+          return { data: { user: null }, error: new Error(res?.error || 'ID Pengguna atau kata sandi tidak valid') };
+        }
+
+        localStorage.setItem('jw_session_token', res.token);
+        state.user = res.user;
+        state.isAdmin = res.user.role === 'admin';
+        state.isMysql = true;
+        state.isDemo = false;
+        return { data: { user: res.user, session: { access_token: res.token, user: res.user } }, error: null };
+      } catch (err) {
+        return { data: { user: null }, error: err };
+      }
     },
     async signOut() {
+      const token = localStorage.getItem('jw_session_token');
+      if (token) {
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: getAuthHeaders(false),
+          });
+        } catch (_) {}
+      }
+      localStorage.removeItem('jw_session_token');
       state.user = null;
       state.isAdmin = false;
-      state.isMysql = false;
       return { error: null };
     },
     onAuthStateChange() {
@@ -75,7 +113,7 @@ const mysqlClient = {
       },
       async then(resolve, reject) {
         try {
-          const res = await fetch('/api/' + endpoint).then((r) => r.json());
+          const res = await fetch('/api/' + endpoint, { headers: getAuthHeaders(false) }).then((r) => r.json());
           let items = res.data || [];
           for (const f of filters) {
             items = items.filter((x) => String(x[f.field]) === String(f.val));
@@ -99,7 +137,7 @@ const mysqlClient = {
         try {
           const res = await fetch('/api/' + endpoint, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getAuthHeaders(true),
             body: JSON.stringify(payload),
           }).then((r) => r.json());
           return { data: res.data || null, error: res.error ? new Error(res.error) : null };
@@ -113,7 +151,7 @@ const mysqlClient = {
             try {
               const res = await fetch('/api/' + endpoint + '?id=' + encodeURIComponent(val), {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers: getAuthHeaders(true),
                 body: JSON.stringify(payload),
               }).then((r) => r.json());
               return { data: res.data || null, error: res.error ? new Error(res.error) : null };
@@ -129,6 +167,7 @@ const mysqlClient = {
             try {
               const res = await fetch('/api/' + endpoint + '?id=' + encodeURIComponent(val), {
                 method: 'DELETE',
+                headers: getAuthHeaders(false),
               }).then((r) => r.json());
               return { data: res.data || null, error: res.error ? new Error(res.error) : null };
             } catch (err) {
@@ -154,7 +193,7 @@ const supabase = new Proxy({}, {
 async function checkMysqlStatus() {
   try {
     const res = await fetch('/api/status').then((r) => r.json());
-    if (res && res.ok && res.type === 'mysql') {
+    if (res && res.ok && res.isConnected) {
       state.mysqlAvailable = true;
       return true;
     }
@@ -192,6 +231,7 @@ const state = {
   employees: [],
   payroll: [],
   payouts: [],
+  systemUsers: [],
 };
 let workspaceChannel = null;
 let refreshTimer = null;
@@ -214,8 +254,7 @@ function formatAuthIdentifier(value) {
 
 function userDisplayId(user = state.user) {
   if (!user) return '';
-  const raw = user.user_metadata?.username || user.email || '';
-  return raw.includes('@') ? raw.split('@')[0] : raw;
+  return user.full_name || user.username || (user.email ? user.email.split('@')[0] : '') || 'Pengguna';
 }
 
 function escapeHtml(value) {
@@ -310,100 +349,46 @@ function renderAuthBrandHeader() {
     </div>`;
 }
 
-function renderSetupCard() {
-  return `
-    <section class="auth-card-centered">
-      ${renderAuthBrandHeader()}
-
-      <div class="auth-center-header">
-        <h1 class="auth-center-title">Ruang Kerja Jaya Wijaya</h1>
-        <p class="auth-center-desc">Sistem operasional manufaktur, inventaris gudang, kas keuangan, dan payroll terintegrasi.</p>
-      </div>
-
-      <!-- Status Koneksi Database MySQL -->
-      <div class="auth-status-compact is-connected" style="background:#f0fdf4; border-color:#86efac;">
-        <span class="status-pulse-dot dot-green"></span>
-        <div class="status-compact-text">
-          <strong style="color:#14532d;">Database MySQL XAMPP: Terhubung (jaya_wijaya)</strong>
-          <span style="color:#166534;">Server 127.0.0.1:3306 aktif. Data riil langsung disinkronkan dengan database lokal phpMyAdmin.</span>
-        </div>
-      </div>
-
-      <!-- Tombol Akses Utama -->
-      <div class="auth-demo-center-card" style="border: 1.5px solid #86efac; background: #ffffff;">
-        <div class="demo-center-header">
-          <div class="demo-center-icon-badge" style="background: #145a42; color: #ffffff;">
-            <span>⚡</span>
-          </div>
-          <div class="demo-center-info">
-            <div class="demo-center-title-row">
-              <h3 class="demo-center-title">Database MySQL: jaya_wijaya</h3>
-              <span class="demo-center-pill" style="background: #dcfce7; color: #166534;">★ TERKONEKSI XAMPP</span>
-            </div>
-            <p class="demo-center-desc">Bekerja langsung dengan data nyata di MySQL phpMyAdmin tanpa data dummy browser.</p>
-          </div>
-        </div>
-
-        <div class="demo-highlights-grid">
-          <div class="highlight-chip">🪵 6 Produk Sapu &amp; Kayu</div>
-          <div class="highlight-chip">📦 5 Mutasi Stok Riil</div>
-          <div class="highlight-chip">💰 4 Transaksi Kas Riil</div>
-          <div class="highlight-chip">👥 3 Data Karyawan Riil</div>
-        </div>
-
-        <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
-          <button type="button" class="btn-primary-forest-center" id="btn-enter-admin" style="background:#145a42;">
-            <span class="btn-bolt">⚡</span>
-            <span>Masuk sebagai Pimpinan / Admin</span>
-            <span class="btn-arrow" aria-hidden="true">→</span>
-          </button>
-          <button type="button" class="button button-quiet" id="btn-enter-operator" style="width:100%; justify-content:center; padding:10px; font-weight:600; border:1px solid #d1d5db; border-radius:8px;">
-            <span>Masuk sebagai Mandor Gudang / Operator</span>
-          </button>
-        </div>
-
-        <p class="demo-footer-note" style="color:#4b5563;">
-          🔒 Terhubung ke MySQL <code>127.0.0.1:3306/jaya_wijaya</code>. Seluruh penambahan data langsung masuk ke phpMyAdmin.
-        </p>
-      </div>
-    </section>`;
-}
-
 function renderLoginCard(message = '') {
+  const isMysql = state.mysqlAvailable;
   return `
     <section class="auth-card-centered">
       ${renderAuthBrandHeader()}
 
       <div class="auth-center-header">
-        <h1 class="auth-center-title">Masuk ke Ruang Kerja</h1>
-        <p class="auth-center-desc">Kelola lini produksi, inventaris kayu &amp; sapu, kas keuangan, dan tim kerja.</p>
+        <h1 class="auth-center-title">Portal Masuk Panel Admin</h1>
+        <p class="auth-center-desc">Sistem Manajemen Produksi, Inventaris Kayu, Kas Keuangan, dan Penggajian</p>
       </div>
 
-      <!-- Status Koneksi Database Supabase -->
-      <div class="auth-status-compact is-connected">
-        <span class="status-pulse-dot dot-green"></span>
+      <!-- Status Indikator Sistem Database -->
+      <div class="auth-status-compact ${isMysql ? 'is-connected' : ''}" style="${isMysql ? 'background:#f0fdf4; border:1.5px solid #86efac;' : 'background:#fefce8; border:1.5px solid #fde047;'}">
+        <span class="status-pulse-dot" style="${isMysql ? 'background:#16a34a;' : 'background:#ca8a04;'}"></span>
         <div class="status-compact-text">
-          <strong>Database Cloud: Terhubung &amp; Siap</strong>
-          <span>Koneksi Supabase aktif. Masuk menggunakan akun terdaftar perusahaan.</span>
+          <strong style="${isMysql ? 'color:#14532d;' : 'color:#854d0e;'}">
+            ${isMysql ? 'Server Database MySQL: Terhubung (jaya_wijaya)' : 'Server MySQL 127.0.0.1:3306 Offline'}
+          </strong>
+          <span style="${isMysql ? 'color:#166534;' : 'color:#a16207;'}">
+            ${isMysql ? 'Data transaksi riil langsung tersinkronisasi ke MySQL phpMyAdmin.' : 'Penyimpanan lokal aman aktif. Nyalakan MySQL di XAMPP Control Panel untuk koneksi penuh.'}
+          </span>
         </div>
       </div>
 
       <!-- Error Alert if any -->
       ${message ? `
-      <div class="auth-error-alert" role="alert">
+      <div class="auth-error-alert" role="alert" style="margin-bottom:16px;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
         <span>${escapeHtml(message)}</span>
       </div>` : ''}
 
-      <!-- Form Login -->
+      <!-- Form Login Resmi -->
       <form id="login-form" class="auth-form-center">
         <div class="form-group-center">
-          <label for="input-userId">ID Pengguna / Email</label>
+          <label for="input-userId">ID Pengguna / Username / Email</label>
           <div class="input-with-icon">
             <span class="input-icon">
               <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
             </span>
-            <input id="input-userId" name="userId" type="text" autocomplete="username" placeholder="Masukkan ID (contoh: admin)" required />
+            <input id="input-userId" name="userId" type="text" autocomplete="username" placeholder="Masukkan ID (contoh: admin)" required autofocus />
           </div>
         </div>
 
@@ -420,42 +405,42 @@ function renderLoginCard(message = '') {
           </div>
         </div>
 
-        <button class="btn-primary-forest-center" type="submit">
-          <span>Masuk ke Ruang Kerja</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin: 4px 0 14px; font-size: 13px; color: #4b5563;">
+          <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+            <input type="checkbox" id="remember-me" checked style="accent-color:#145a42; cursor:pointer;" />
+            <span>Ingat sesi masuk</span>
+          </label>
+          <span style="color:#6b7280; font-size:12px;">Port: 3306</span>
+        </div>
+
+        <button class="btn-primary-forest-center" type="submit" style="background:#145a42; font-weight:700;">
+          <span>Masuk ke Panel Kontrol</span>
           <span class="btn-arrow" aria-hidden="true">→</span>
         </button>
       </form>
 
-      <!-- Divider -->
-      <div class="auth-center-divider">
-        <span>ATAU COBA MODE DEMO INTERAKTIF</span>
+      <div style="margin-top:20px; padding:12px 14px; border-radius:10px; background:#f8fafc; border:1px solid #e2e8f0; font-size:12px; color:#475569; display:flex; flex-direction:column; gap:4px;">
+        <div style="display:flex; align-items:center; gap:6px; font-weight:700; color:#1e293b;">
+          <span>🔒</span> <span>Akses Otorisasi Resmi Jaya Wijaya</span>
+        </div>
+        <div>
+          Kredensial Default Admin: Username <code>admin</code> | Password <code>admin123</code>
+        </div>
+        <div style="color:#64748b;">
+          Kredensial Staf Mandor: Username <code>mandor</code> | Password <code>mandor123</code>
+        </div>
       </div>
-
-      <button type="button" class="btn-outline-demo-center" id="btn-enter-demo">
-        <span class="btn-bolt">⚡</span>
-        <span>Coba Mode Demo (Tanpa Database)</span>
-      </button>
-
-      <p class="auth-footnote-center">Akses akun dikelola oleh administrator Jaya Wijaya.</p>
     </section>`;
 }
 
-function renderAuthLayout({ mode = 'setup', message = '' }) {
+function renderAuthLayout({ mode = 'login', message = '' }) {
   return `
     <main class="auth-page">
-      ${mode === 'login' ? renderLoginCard(message) : renderSetupCard()}
+      ${renderLoginCard(message)}
     </main>`;
 }
 
 function bindAuthEvents() {
-  document.querySelectorAll('#btn-enter-admin, #btn-enter-demo').forEach((btn) => {
-    btn.onclick = () => enterMysqlWorkspace('admin');
-  });
-
-  document.querySelectorAll('#btn-enter-operator').forEach((btn) => {
-    btn.onclick = () => enterMysqlWorkspace('operator');
-  });
-
   const loginForm = document.querySelector('#login-form');
   if (loginForm) {
     loginForm.onsubmit = handleLogin;
@@ -536,13 +521,13 @@ function renderShell() {
           ${navItem('inventory', '▦', 'Persediaan')}
           ${navItem('cash', '↗', 'Keuangan')}
           ${navItem('products', '◇', 'Produk')}
-          ${state.isAdmin ? `<div class="nav-section-label">MANAJEMEN</div>${navItem('payroll', '◎', 'Absensi & gaji')}` : ''}
+          ${state.isAdmin ? `<div class="nav-section-label">MANAJEMEN</div>${navItem('payroll', '◎', 'Absensi & gaji')}${navItem('users', '👥', 'Kelola Pengguna')}` : ''}
           ${navItem('reports', '▤', 'Laporan')}
         </nav>
         <div class="sidebar-bottom">
-          <div class="sidebar-note" style="background: #f0fdf4; border-color: #86efac; margin-bottom: 8px;">
-            <span class="status-dot" style="background: #16a34a; box-shadow: 0 0 0 3px #dcfce7;"></span>
-            <span><strong>MySQL XAMPP (Live)</strong><br /><small style="color: #166534;">Database: jaya_wijaya</small></span>
+          <div class="sidebar-note" style="${state.mysqlAvailable ? 'background: #f0fdf4; border-color: #86efac;' : 'background: #fefce8; border-color: #fde047;'} margin-bottom: 8px;">
+            <span class="status-dot" style="${state.mysqlAvailable ? 'background: #16a34a; box-shadow: 0 0 0 3px #dcfce7;' : 'background: #ca8a04; box-shadow: 0 0 0 3px #fef08a;'}"></span>
+            <span><strong>${state.mysqlAvailable ? 'MySQL XAMPP (Live)' : 'Mode Server Lokal'}</strong><br /><small style="${state.mysqlAvailable ? 'color: #166534;' : 'color: #854d0e;'}">${state.mysqlAvailable ? 'Database: jaya_wijaya' : 'MySQL 3306 Offline'}</small></span>
           </div>
           <button class="profile-button" id="sign-out">
             <span class="avatar">${escapeHtml((userDisplayId() || 'A').slice(0, 1).toUpperCase())}</span>
@@ -554,7 +539,7 @@ function renderShell() {
       <div class="main-column">
         <header class="topbar">
           <button class="mobile-menu" id="menu-toggle" aria-label="Buka navigasi">☰</button>
-          <div class="breadcrumb"><span>Ruang kerja</span><span class="breadcrumb-separator">/</span><strong id="page-crumb">Ringkasan</strong><span class="status-pill status-present" style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 600; padding: 2px 8px; margin-left: 6px; border-radius: 999px;">MySQL: jaya_wijaya</span></div>
+          <div class="breadcrumb"><span>Ruang kerja</span><span class="breadcrumb-separator">/</span><strong id="page-crumb">Ringkasan</strong><span class="status-pill status-present" style="${state.mysqlAvailable ? 'background: #dcfce7; color: #166534;' : 'background: #fef3c7; color: #92400e;'} font-size: 11px; font-weight: 600; padding: 2px 8px; margin-left: 6px; border-radius: 999px;">${state.mysqlAvailable ? 'MySQL: jaya_wijaya' : 'Lokal Aman'}</span></div>
           <div class="topbar-right"><span class="today-label">${formatDate(localDate)}</span><span class="topbar-divider"></span><span class="topbar-avatar">${escapeHtml((userDisplayId() || 'A').slice(0, 1).toUpperCase())}</span></div>
         </header>
         <main class="page-content" id="page-content"></main>
@@ -3175,6 +3160,59 @@ function renderReports(month = currentMonth) {
     </section>`;
 }
 
+function renderUsers() {
+  const users = state.systemUsers || [];
+  return `
+    ${heading(
+      'MANAJEMEN PENGGUNA',
+      'Kelola Akun & Hak Akses Sistem',
+      'Kelola akun administrator, mandor gudang, dan operator lini produksi Jaya Wijaya.',
+      `<button class="button button-primary" data-action="add-user"><span>+ Tambah Pengguna</span></button>`
+    )}
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e5e7eb; padding-bottom:12px; margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0 0 4px; font-size:16px; font-weight:700; color:#1f2937;">Daftar Akun Terdaftar (${users.length})</h3>
+          <p class="muted" style="margin:0; font-size:13px;">Pengguna dapat masuk ke portal menggunakan Username/ID dan kata sandi yang ditentukan.</p>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table" style="width:100%; text-align:left; border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1.5px solid #e5e7eb; color:#4b5563; font-size:12px; text-transform:uppercase;">
+              <th style="padding:10px 12px;">ID / Username</th>
+              <th style="padding:10px 12px;">Nama Lengkap</th>
+              <th style="padding:10px 12px;">Email</th>
+              <th style="padding:10px 12px;">Peran (Role)</th>
+              <th style="padding:10px 12px;">Terdaftar Sejak</th>
+              <th style="padding:10px 12px; text-align:right;">Aksi</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${users.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding:32px; color:#6b7280;">Memuat atau belum ada pengguna tambahan.</td></tr>` : users.map((u) => `
+              <tr style="border-bottom:1px solid #f3f4f6;">
+                <td style="padding:12px;"><code>${escapeHtml(u.username)}</code></td>
+                <td style="padding:12px; font-weight:600; color:#111827;">${escapeHtml(u.full_name)}</td>
+                <td style="padding:12px; color:#6b7280;">${escapeHtml(u.email || '-')}</td>
+                <td style="padding:12px;">
+                  <span class="status-pill" style="${u.role === 'admin' ? 'background:#dcfce7; color:#166534;' : (u.role === 'kasir' ? 'background:#e0f2fe; color:#0369a1;' : 'background:#fef3c7; color:#92400e;')} font-size:11px; font-weight:700; padding:3px 10px; border-radius:999px;">
+                    ${u.role === 'admin' ? 'Administrator' : (u.role === 'kasir' ? 'Kasir' : 'Operator')}
+                  </span>
+                </td>
+                <td style="padding:12px; color:#6b7280; font-size:13px;">${formatDate(u.created_at ? u.created_at.slice(0, 10) : localDate)}</td>
+                <td style="padding:12px; text-align:right;">
+                  <button class="button button-quiet button-sm" data-action="edit-user" data-id="${u.id}" style="padding:4px 8px; font-size:12px;">Edit</button>
+                  ${u.id !== state.user?.id ? `<button class="button button-danger button-sm" data-action="delete-user" data-id="${u.id}" style="padding:4px 8px; font-size:12px; margin-left:6px; color:#dc2626; border-color:#fecaca;">Hapus</button>` : `<span style="color:#9ca3af; font-size:11px; margin-left:8px;">(Akun Anda)</span>`}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 function renderPage() {
   const pages = {
     dashboard: ['Ringkasan', renderDashboard],
@@ -3182,9 +3220,10 @@ function renderPage() {
     cash: ['Keuangan', renderCash],
     products: ['Produk', renderProducts],
     payroll: ['Absensi & gaji', renderPayroll],
+    users: ['Kelola Pengguna', renderUsers],
     reports: ['Laporan', () => renderReports(state.selectedReportMonth || currentMonth)],
   };
-  if (!pages[state.page] || (state.page === 'payroll' && !state.isAdmin)) state.page = 'dashboard';
+  if (!pages[state.page] || ((state.page === 'payroll' || state.page === 'users') && !state.isAdmin)) state.page = 'dashboard';
   const [label, render] = pages[state.page];
   document.querySelector('#page-crumb').textContent = label;
   const content = document.querySelector('#page-content');
@@ -3227,10 +3266,15 @@ async function refreshData() {
     state.employees = results[3].data || [];
     state.payroll = results[4].data || [];
     state.payouts = (results[5] && !results[5].error ? results[5].data : []) || [];
+    try {
+      const uRes = await fetch('/api/users', { headers: getAuthHeaders(false) }).then((r) => r.json());
+      if (uRes && uRes.ok) state.systemUsers = uRes.data || [];
+    } catch (_) {}
   } else {
     state.employees = [];
     state.payroll = [];
     state.payouts = [];
+    state.systemUsers = [];
   }
 }
 
@@ -3240,6 +3284,72 @@ function openDialog(title, body) {
   document.querySelector('#dialog-content').innerHTML = `
     <div class="dialog-heading"><div><p class="eyebrow">RUANG KERJA</p><h2>${title}</h2></div><button class="icon-button" data-action="close-dialog" aria-label="Tutup">×</button></div>${body}`;
   dialog.showModal();
+}
+
+function userForm(user = null) {
+  openDialog(user ? 'Ubah Pengguna Sistem' : 'Tambah Pengguna Baru', `
+    <form id="user-manage-form" class="form-stack">
+      <label>Username / ID Masuk
+        <input name="username" maxlength="50" value="${escapeHtml(user?.username || '')}" placeholder="Contoh: operator1" ${user ? 'readonly style="background:#f3f4f6;"' : 'required'} />
+      </label>
+      <label>Nama Lengkap
+        <input name="full_name" maxlength="100" value="${escapeHtml(user?.full_name || '')}" placeholder="Contoh: Ahmad Fauzi" required />
+      </label>
+      <label>Email Perusahaan <span class="optional">(opsional)</span>
+        <input name="email" type="email" maxlength="100" value="${escapeHtml(user?.email || '')}" placeholder="Contoh: ahmad@jayawijaya.com" />
+      </label>
+      <div class="form-row">
+        <label>Peran / Hak Akses
+          <select name="role">
+            <option value="operator" ${user?.role === 'operator' ? 'selected' : ''}>Operator Produksi</option>
+            <option value="admin" ${user?.role === 'admin' ? 'selected' : ''}>Administrator (Akses Penuh)</option>
+            <option value="kasir" ${user?.role === 'kasir' ? 'selected' : ''}>Kasir Keuangan</option>
+          </select>
+        </label>
+        <label>Kata Sandi ${user ? '<span class="optional">(kosongkan jika tetap)</span>' : ''}
+          <input name="password" type="password" minlength="5" placeholder="Minimal 5 karakter" ${user ? '' : 'required'} />
+        </label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
+        <button type="submit" class="button button-primary">${user ? 'Simpan Perubahan' : 'Buat Pengguna'}</button>
+      </div>
+    </form>`);
+
+  const form = document.querySelector('#user-manage-form');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      const payload = {
+        username: fd.get('username').trim(),
+        full_name: fd.get('full_name').trim(),
+        email: fd.get('email').trim() || undefined,
+        role: fd.get('role'),
+        password: fd.get('password') || undefined,
+      };
+      const token = localStorage.getItem('jw_session_token') || '';
+      try {
+        const url = user ? `/api/users?id=${encodeURIComponent(user.id)}` : '/api/users';
+        const method = user ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(payload),
+        }).then((r) => r.json());
+        if (res && res.error) {
+          showError(res.error);
+          return;
+        }
+        document.querySelector('#app-dialog').close();
+        notify(user ? 'Data pengguna berhasil diperbarui.' : 'Pengguna baru berhasil ditambahkan.');
+        await refreshData();
+        renderPage();
+      } catch (err) {
+        showError('Gagal menyimpan pengguna: ' + err.message);
+      }
+    });
+  }
 }
 
 function productForm(product = null) {
@@ -4407,6 +4517,31 @@ async function handlePageAction(event) {
       <button class="quick-action-card" data-action="add-inventory"><span class="quick-action-icon icon-blue">▦</span><strong>Pergerakan barang</strong><small>Beli dari supplier / kirim penjualan</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-cash"><span class="quick-action-icon icon-green">↗</span><strong>Transaksi kas</strong><small>Catat uang masuk atau keluar</small><span class="quick-action-arrow">→</span></button>
     </div>`);
+  } else if (action === 'add-user') {
+    userForm();
+  } else if (action === 'edit-user') {
+    userForm(state.systemUsers?.find((u) => u.id === id));
+  } else if (action === 'delete-user') {
+    const targetUser = state.systemUsers?.find((u) => u.id === id);
+    if (!targetUser || !window.confirm(`Hapus pengguna "${targetUser.username}" (${targetUser.full_name})?`)) return;
+    const token = localStorage.getItem('jw_session_token') || '';
+    (async () => {
+      try {
+        const res = await fetch(`/api/users?id=${encodeURIComponent(id)}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }).then((r) => r.json());
+        if (res && res.error) {
+          showError(res.error);
+          return;
+        }
+        notify('Pengguna berhasil dihapus.');
+        await refreshData();
+        renderPage();
+      } catch (err) {
+        showError('Gagal menghapus pengguna: ' + err.message);
+      }
+    })();
   } else if (action === 'add-product') {
     productForm();
   } else if (action === 'edit-product') {
@@ -4616,63 +4751,47 @@ async function handlePageAction(event) {
   }
 }
 
-async function enterMysqlWorkspace(role = 'admin') {
-  const isOperator = role === 'operator';
-  state.user = {
-    id: isOperator ? 'usr-002' : 'usr-001',
-    email: isOperator ? 'mandor@jayawijaya.com' : 'admin@jayawijaya.com',
-    user_metadata: { role, full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya' },
-    app_metadata: { role },
-    full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya',
-  };
-  state.isAdmin = !isOperator;
-  state.isMysql = true;
-  state.isDemo = false;
-  await refreshData();
-  state.page = 'dashboard';
-  renderShell();
-  notify('Terhubung ke Database MySQL XAMPP (jaya_wijaya)!');
-}
-
-async function enterDemoWorkspace(role = 'admin') {
-  await enterMysqlWorkspace(role);
-}
-
 async function handleLogin(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const identifier = (form.get('userId') || '').trim();
+  const password = form.get('password') || '';
 
-  if (identifier.toLowerCase() === 'demo' || !supabase) {
-    await enterDemoWorkspace();
+  if (!identifier || !password) {
+    renderLogin('Silakan masukkan ID Pengguna dan kata sandi.');
     return;
   }
 
   const button = event.currentTarget.querySelector('button[type="submit"]');
-  button.disabled = true;
-  button.textContent = 'Memeriksa akses…';
-  const email = formatAuthIdentifier(identifier);
+  if (button) {
+    button.disabled = true;
+    button.innerHTML = '<span>Memverifikasi akun…</span>';
+  }
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: form.get('password'),
+    email: identifier,
+    password,
   });
-  if (error) {
-    renderLogin('ID pengguna atau kata sandi tidak benar. Periksa kembali, lalu coba lagi.');
+
+  if (error || !data?.user) {
+    renderLogin(error?.message || 'ID pengguna atau kata sandi tidak benar. Periksa kembali.');
     return;
   }
+
   await enterWorkspace(data.user);
 }
 
 async function enterWorkspace(user) {
   state.user = user;
-  state.isAdmin = user.app_metadata?.role === 'admin';
+  state.isAdmin = user.role === 'admin' || user.app_metadata?.role === 'admin' || user.user_metadata?.role === 'admin';
   try {
     await refreshData();
     state.page = 'dashboard';
     renderShell();
     subscribeToWorkspace();
+    notify(`Selamat datang, ${userDisplayId(user)}!`);
   } catch (error) {
-    renderLogin(`Gagal memuat data ruang kerja: ${error.message}. Pastikan skema database dan kebijakan akses sudah dijalankan.`);
+    renderLogin(`Gagal memuat data ruang kerja: ${error.message}.`);
     await supabase.auth.signOut();
   }
 }
@@ -4718,6 +4837,7 @@ function subscribeToWorkspace() {
 async function handleSignOut() {
   window.clearInterval(refreshTimer);
   window.clearTimeout(refreshTimer);
+  await supabase.auth.signOut();
   state.user = null;
   state.isAdmin = false;
   state.page = 'dashboard';
@@ -4726,32 +4846,22 @@ async function handleSignOut() {
   state.cash = [];
   state.employees = [];
   state.payroll = [];
-  if (supabaseInstance) {
-    try { await supabaseInstance.auth.signOut(); } catch (_) {}
-  }
-  start();
+  state.payouts = [];
+  state.systemUsers = [];
+  notify('Anda telah berhasil keluar dari sistem.');
+  renderLogin();
 }
 
 async function start() {
-  const mysqlOk = await checkMysqlStatus();
-  if (mysqlOk) {
-    await enterMysqlWorkspace('admin');
-    return;
-  }
-  if (!supabaseInstance) {
-    configMessage();
-    return;
-  }
+  await checkMysqlStatus();
+
   const { data, error } = await supabase.auth.getSession();
-  if (error) {
-    renderLogin(`Gagal memeriksa sesi masuk: ${error.message}`);
+  if (!error && data?.session?.user) {
+    await enterWorkspace(data.session.user);
     return;
   }
-  if (data.session?.user) {
-    await enterWorkspace(data.session.user);
-  } else {
-    renderLogin();
-  }
+
+  renderLogin();
 }
 
 start();

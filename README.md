@@ -2,6 +2,20 @@
 
 Aplikasi web untuk mencatat persediaan, transaksi kas, karyawan, penggajian, dan laporan bulanan. Data disimpan bersama di Supabase sehingga dapat dibuka dari beberapa perangkat.
 
+## Akun & Kredensial Masuk (Otentikasi Bcrypt)
+
+Sistem menggunakan otentikasi login resmi tanpa mode bypass demo. Kredensial bawaan:
+- **Administrator (Pimpinan)**:
+  - Username / ID: `admin`
+  - Kata Sandi: `admin123`
+  - Hak Akses: Penuh (Ringkasan, Persediaan, Keuangan, Master Produk, Absensi & Penggajian, Kelola Akun Pengguna, Ekspor Laporan).
+- **Staf Mandor / Operator**:
+  - Username / ID: `mandor`
+  - Kata Sandi: `mandor123`
+  - Hak Akses: Operasional (Persediaan, Keuangan, Master Produk, Laporan).
+
+Kata sandi disimpan dalam bentuk hash aman menggunakan algoritma **Bcrypt**. Administrator dapat menambah, mengedit, atau menghapus akun pengguna melalui menu **Kelola Pengguna** di dalam panel admin.
+
 ## Menjalankan aplikasi
 
 1. Pasang Node.js versi 20.19+ atau 22.12+.

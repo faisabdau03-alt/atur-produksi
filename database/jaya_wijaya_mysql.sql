@@ -197,8 +197,8 @@ DELIMITER ;
 
 -- Akun Pengguna / Staf
 INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `full_name`, `role`) VALUES
-('usr-001', 'admin', 'admin@jayawijaya.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Pimpinan Jaya Wijaya', 'admin'),
-('usr-002', 'mandor', 'mandor@jayawijaya.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mandor Gudang Produksi', 'operator')
+('usr-001', 'admin', 'admin@jayawijaya.com', '$2b$10$z4qy9EDPiPMaFV/Z0URhPucUvcoKI9ZKD7varNiCDoq959aM3wTAW', 'Pimpinan Jaya Wijaya', 'admin'),
+('usr-002', 'mandor', 'mandor@jayawijaya.com', '$2b$10$z4qy9EDPiPMaFV/Z0URhPucUvcoKI9ZKD7varNiCDoq959aM3wTAW', 'Mandor Gudang Produksi', 'operator')
 ON DUPLICATE KEY UPDATE `full_name` = VALUES(`full_name`);
 
 -- Master Produk Sapu & Alat Kebersihan Kayu
