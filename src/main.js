@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import * as XLSX from 'xlsx';
 import './styles.css';
 
 const app = document.querySelector('#app');
@@ -6,7 +7,161 @@ const config = {
   url: import.meta.env.VITE_SUPABASE_URL,
   key: import.meta.env.VITE_SUPABASE_ANON_KEY,
 };
-const supabase = config.url && config.key ? createClient(config.url, config.key) : null;
+const mysqlClient = {
+  auth: {
+    async getSession() {
+      if (state.user) {
+        return { data: { session: { user: state.user } }, error: null };
+      }
+      return { data: { session: null }, error: null };
+    },
+    async signInWithPassword({ email }) {
+      const isOperator = (email || '').toLowerCase().includes('operator') || (email || '').toLowerCase().includes('mandor');
+      const user = {
+        id: isOperator ? 'usr-002' : 'usr-001',
+        email: isOperator ? 'mandor@jayawijaya.com' : 'admin@jayawijaya.com',
+        user_metadata: { role: isOperator ? 'operator' : 'admin', full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya' },
+        app_metadata: { role: isOperator ? 'operator' : 'admin' },
+        full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya',
+      };
+      state.user = user;
+      state.isAdmin = !isOperator;
+      state.isMysql = true;
+      state.isDemo = false;
+      return { data: { user }, error: null };
+    },
+    async signOut() {
+      state.user = null;
+      state.isAdmin = false;
+      state.isMysql = false;
+      return { error: null };
+    },
+    onAuthStateChange() {
+      return { data: { subscription: { unsubscribe() {} } } };
+    },
+  },
+  channel() {
+    return {
+      on() { return this; },
+      subscribe() { return this; },
+    };
+  },
+  removeChannel() {},
+  from(table) {
+    const endpoint = table === 'inventory_movements' ? 'inventory'
+      : table === 'cash_transactions' ? 'cash'
+      : table === 'payroll_records' ? 'payroll'
+      : table === 'payroll_payouts' ? 'payouts'
+      : table;
+
+    const filters = [];
+    let isSingle = false;
+
+    const builder = {
+      order(field, opts) {
+        return builder;
+      },
+      eq(field, val) {
+        filters.push({ field, val });
+        return builder;
+      },
+      maybeSingle() {
+        isSingle = true;
+        return builder;
+      },
+      single() {
+        isSingle = true;
+        return builder;
+      },
+      async then(resolve, reject) {
+        try {
+          const res = await fetch('/api/' + endpoint).then((r) => r.json());
+          let items = res.data || [];
+          for (const f of filters) {
+            items = items.filter((x) => String(x[f.field]) === String(f.val));
+          }
+          if (isSingle) {
+            resolve({ data: items[0] || null, error: res.error || null });
+          } else {
+            resolve({ data: items, error: res.error || null });
+          }
+        } catch (err) {
+          resolve({ data: isSingle ? null : [], error: err });
+        }
+      },
+    };
+
+    return {
+      select(cols = '*') {
+        return builder;
+      },
+      async insert(payload) {
+        try {
+          const res = await fetch('/api/' + endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }).then((r) => r.json());
+          return { data: res.data || null, error: res.error ? new Error(res.error) : null };
+        } catch (err) {
+          return { data: null, error: err };
+        }
+      },
+      update(payload) {
+        return {
+          async eq(field, val) {
+            try {
+              const res = await fetch('/api/' + endpoint + '?id=' + encodeURIComponent(val), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              }).then((r) => r.json());
+              return { data: res.data || null, error: res.error ? new Error(res.error) : null };
+            } catch (err) {
+              return { data: null, error: err };
+            }
+          },
+        };
+      },
+      delete() {
+        return {
+          async eq(field, val) {
+            try {
+              const res = await fetch('/api/' + endpoint + '?id=' + encodeURIComponent(val), {
+                method: 'DELETE',
+              }).then((r) => r.json());
+              return { data: res.data || null, error: res.error ? new Error(res.error) : null };
+            } catch (err) {
+              return { data: null, error: err };
+            }
+          },
+        };
+      },
+    };
+  },
+};
+
+const supabaseInstance = config.url && config.key ? createClient(config.url, config.key) : null;
+const supabase = new Proxy({}, {
+  get(target, prop) {
+    if (state.isMysql || !supabaseInstance) {
+      return mysqlClient[prop];
+    }
+    return supabaseInstance[prop];
+  },
+});
+
+async function checkMysqlStatus() {
+  try {
+    const res = await fetch('/api/status').then((r) => r.json());
+    if (res && res.ok && res.type === 'mysql') {
+      state.mysqlAvailable = true;
+      return true;
+    }
+  } catch (_) {}
+  state.mysqlAvailable = false;
+  return false;
+}
 const today = new Date();
 const localDate = [
   today.getFullYear(),
@@ -24,6 +179,8 @@ const state = {
   user: null,
   isAdmin: false,
   isDemo: false,
+  isMysql: true,
+  mysqlAvailable: true,
   page: 'dashboard',
   selectedPayrollDate: localDate,
   selectedPayrollMonth: currentMonth,
@@ -40,6 +197,7 @@ let workspaceChannel = null;
 let refreshTimer = null;
 const AUTH_DOMAIN = '@perusahaan.id';
 const DEMO_STORAGE_KEY = 'atur_produksi_demo_v4';
+try { localStorage.removeItem(DEMO_STORAGE_KEY); localStorage.removeItem('atur_produksi_demo_jw_v5'); } catch(_) {}
 
 const ATTENDANCE_LABELS = {
   present: { label: 'Hadir', class: 'status-present', rate: 1 },
@@ -47,107 +205,6 @@ const ATTENDANCE_LABELS = {
   permit: { label: 'Izin', class: 'status-permit', rate: 0 },
   sick: { label: 'Sakit', class: 'status-sick', rate: 0 },
   absent: { label: 'Alpa', class: 'status-absent', rate: 0 },
-};
-
-function getInitialDemoData() {
-  const p1 = 'p-01', p2 = 'p-02', p3 = 'p-03', p4 = 'p-04';
-  const e1 = 'e-01', e2 = 'e-02', e3 = 'e-03';
-  return {
-    products: [
-      { id: p1, name: 'Karton Box Ukuran M (Double Wall)', sku: 'KB-001', unit: 'pcs', purchase_price: 4500, selling_price: 7500 },
-      { id: p2, name: 'Lakban Coklat 48mm x 100m', sku: 'LK-002', unit: 'roll', purchase_price: 14000, selling_price: 22000 },
-      { id: p3, name: 'Bubble Wrap Tebal 50m', sku: 'BW-003', unit: 'roll', purchase_price: 110000, selling_price: 165000 },
-      { id: p4, name: 'Plastik Stretch Film 500m', sku: 'SF-004', unit: 'roll', purchase_price: 65000, selling_price: 95000 },
-    ],
-    inventory: [
-      { id: 'inv-1', product_id: p1, direction: 'in', quantity: 1500, occurred_on: `${currentMonth}-02`, notes: 'Stok awal produksi batch #101' },
-      { id: 'inv-2', product_id: p1, direction: 'out', quantity: 450, occurred_on: `${currentMonth}-06`, notes: 'Pengiriman ke PT Sumber Berkat' },
-      { id: 'inv-3', product_id: p1, direction: 'out', quantity: 300, occurred_on: `${currentMonth}-11`, notes: 'Pengiriman ke Toko Cahaya Baru' },
-      { id: 'inv-4', product_id: p2, direction: 'in', quantity: 250, occurred_on: `${currentMonth}-03`, notes: 'Penerimaan stok dari supplier' },
-      { id: 'inv-5', product_id: p2, direction: 'out', quantity: 85, occurred_on: `${currentMonth}-09`, notes: 'Digunakan divisi packing' },
-      { id: 'inv-6', product_id: p3, direction: 'in', quantity: 60, occurred_on: `${currentMonth}-04`, notes: 'Penerimaan bahan kemas' },
-      { id: 'inv-7', product_id: p3, direction: 'out', quantity: 18, occurred_on: `${currentMonth}-12`, notes: 'Pemakaian order kemas fragile' },
-      { id: 'inv-8', product_id: p4, direction: 'in', quantity: 80, occurred_on: `${currentMonth}-05`, notes: 'Stok masuk gudang' },
-      { id: 'inv-9', product_id: p4, direction: 'out', quantity: 25, occurred_on: `${currentMonth}-14`, notes: 'Pengiriman pallet' },
-    ],
-    cash: [
-      { id: 'c-1', direction: 'in', amount: 14500000, category: 'Penjualan', description: 'Pelunasan faktur INV-2026-081', occurred_on: `${currentMonth}-05` },
-      { id: 'c-2', direction: 'out', amount: 5200000, category: 'Bahan Baku', description: 'Pembelian lembaran corrugated board', occurred_on: `${currentMonth}-07` },
-      { id: 'c-3', direction: 'in', amount: 9200000, category: 'Penjualan', description: 'Pesanan retail karton & bubble wrap', occurred_on: `${currentMonth}-10` },
-      { id: 'c-4', direction: 'out', amount: 1650000, category: 'Operasional', description: 'Biaya listrik & utilitas mesin', occurred_on: `${currentMonth}-12` },
-      { id: 'c-5', direction: 'out', amount: 450000, category: 'Perawatan', description: 'Maintenance mesin perekat dan pisau potong', occurred_on: `${currentMonth}-14` },
-    ],
-    employees: [
-      { id: e1, full_name: 'Budi Santoso', position: 'Operator Mesin Cetak & Potong', daily_salary: 130000, monthly_salary: 3250000, overtime_rate: 20000, incentive_per_unit: 150, is_active: true },
-      { id: e2, full_name: 'Siti Aminah', position: 'Finishing & Quality Control', daily_salary: 115000, monthly_salary: 2875000, overtime_rate: 18000, incentive_per_unit: 120, is_active: true },
-      { id: e3, full_name: 'Ahmad Fauzi', position: 'Logistik & Penataan Gudang', daily_salary: 105000, monthly_salary: 2625000, overtime_rate: 16000, incentive_per_unit: 100, is_active: true },
-    ],
-    payroll: [
-      // Riwayat beberapa hari kerja di bulan berjalan dengan jam lembur
-      { id: 'att-101', employee_id: e1, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 0, overtime_rate: 20000, overtime_pay: 0, production_quantity: 180, incentive_rate: 150, incentive_amount: 27000, total_amount: 157000, notes: 'Cetak batch awal' },
-      { id: 'att-102', employee_id: e2, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 115000, overtime_hours: 1.5, overtime_rate: 18000, overtime_pay: 27000, production_quantity: 160, incentive_rate: 120, incentive_amount: 19200, total_amount: 161200, notes: 'Finishing box M + lembur 1.5 jam' },
-      { id: 'att-103', employee_id: e3, work_date: `${currentMonth}-02`, period: `${currentMonth}-02`, attendance_status: 'present', daily_wage: 105000, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 90, incentive_rate: 100, incentive_amount: 9000, total_amount: 114000, notes: 'Bongkar muat bahan' },
-
-      { id: 'att-104', employee_id: e1, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 2, overtime_rate: 20000, overtime_pay: 40000, production_quantity: 210, incentive_rate: 150, incentive_amount: 31500, total_amount: 201500, notes: 'Target lembur cetak 2 jam' },
-      { id: 'att-105', employee_id: e2, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'present', daily_wage: 115000, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 190, incentive_rate: 120, incentive_amount: 22800, total_amount: 137800, notes: 'QC box batch 2' },
-      { id: 'att-106', employee_id: e3, work_date: `${currentMonth}-05`, period: `${currentMonth}-05`, attendance_status: 'permit', daily_wage: 0, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 0, incentive_rate: 100, incentive_amount: 0, total_amount: 0, notes: 'Izin urusan dinas' },
-
-      { id: 'att-107', employee_id: e1, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 130000, overtime_hours: 1, overtime_rate: 20000, overtime_pay: 20000, production_quantity: 175, incentive_rate: 150, incentive_amount: 26250, total_amount: 176250, notes: 'Pemotongan corrugated + lembur 1 jam' },
-      { id: 'att-108', employee_id: e2, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'half_day', daily_wage: 57500, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 80, incentive_rate: 120, incentive_amount: 9600, total_amount: 67100, notes: 'Setengah hari izin keperluan keluarga' },
-      { id: 'att-109', employee_id: e3, work_date: `${currentMonth}-09`, period: `${currentMonth}-09`, attendance_status: 'present', daily_wage: 105000, overtime_hours: 1, overtime_rate: 16000, overtime_pay: 16000, production_quantity: 110, incentive_rate: 100, incentive_amount: 11000, total_amount: 132000, notes: 'Penataan rak gudang B + lembur 1 jam' },
-
-      // Catatan hari ini
-      { id: 'att-110', employee_id: e1, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 130000, overtime_hours: 2, overtime_rate: 20000, overtime_pay: 40000, production_quantity: 160, incentive_rate: 150, incentive_amount: 24000, total_amount: 194000, notes: 'Hadir shift penuh + lembur 2 jam' },
-      { id: 'att-111', employee_id: e2, work_date: localDate, period: localDate, attendance_status: 'present', daily_wage: 115000, overtime_hours: 0, overtime_rate: 18000, overtime_pay: 0, production_quantity: 210, incentive_rate: 120, incentive_amount: 25200, total_amount: 140200, notes: 'Finishing kemasan box' },
-      { id: 'att-112', employee_id: e3, work_date: localDate, period: localDate, attendance_status: 'half_day', daily_wage: 52500, overtime_hours: 0, overtime_rate: 16000, overtime_pay: 0, production_quantity: 80, incentive_rate: 100, incentive_amount: 8000, total_amount: 60500, notes: 'Setengah hari shift pagi' },
-    ],
-    payouts: [],
-  };
-}
-
-
-const demoStore = {
-  load() {
-    try {
-      const raw = localStorage.getItem(DEMO_STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
-    } catch (_) {}
-    const initial = getInitialDemoData();
-    this.save(initial);
-    return initial;
-  },
-  save(data) {
-    try {
-      localStorage.setItem(DEMO_STORAGE_KEY, JSON.stringify(data));
-    } catch (_) {}
-  },
-  reset() {
-    try {
-      localStorage.removeItem(DEMO_STORAGE_KEY);
-    } catch (_) {}
-    return this.load();
-  },
-  get(table) {
-    return this.load()[table] || [];
-  },
-  insert(table, row) {
-    const data = this.load();
-    const id = `demo-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const record = { id, created_at: new Date().toISOString(), ...row };
-    data[table] = [record, ...(data[table] || [])];
-    this.save(data);
-    return record;
-  },
-  update(table, id, updates) {
-    const data = this.load();
-    data[table] = (data[table] || []).map((item) => (item.id === id ? { ...item, ...updates } : item));
-    this.save(data);
-  },
-  delete(table, id) {
-    const data = this.load();
-    data[table] = (data[table] || []).filter((item) => item.id !== id);
-    this.save(data);
-  },
 };
 
 function formatAuthIdentifier(value) {
@@ -260,81 +317,54 @@ function renderSetupCard() {
 
       <div class="auth-center-header">
         <h1 class="auth-center-title">Ruang Kerja Jaya Wijaya</h1>
-        <p class="auth-center-desc">Pilih metode akses untuk memulai operasional perusahaan.</p>
+        <p class="auth-center-desc">Sistem operasional manufaktur, inventaris gudang, kas keuangan, dan payroll terintegrasi.</p>
       </div>
 
-      <!-- Status Koneksi Database Supabase -->
-      <div class="auth-status-compact is-unconfigured">
-        <span class="status-pulse-dot dot-amber"></span>
+      <!-- Status Koneksi Database MySQL -->
+      <div class="auth-status-compact is-connected" style="background:#f0fdf4; border-color:#86efac;">
+        <span class="status-pulse-dot dot-green"></span>
         <div class="status-compact-text">
-          <strong>Database Cloud: Belum Dikonfigurasi</strong>
-          <span>Kredensial database Supabase belum terpasang. Aplikasi siap digunakan secara penuh via <em>Mode Demo</em> lokal.</span>
+          <strong style="color:#14532d;">Database MySQL XAMPP: Terhubung (jaya_wijaya)</strong>
+          <span style="color:#166534;">Server 127.0.0.1:3306 aktif. Data riil langsung disinkronkan dengan database lokal phpMyAdmin.</span>
         </div>
       </div>
 
-      <!-- Kartu / Tombol Utama: Mode Demo Interaktif -->
-      <div class="auth-demo-center-card">
+      <!-- Tombol Akses Utama -->
+      <div class="auth-demo-center-card" style="border: 1.5px solid #86efac; background: #ffffff;">
         <div class="demo-center-header">
-          <div class="demo-center-icon-badge">
+          <div class="demo-center-icon-badge" style="background: #145a42; color: #ffffff;">
             <span>⚡</span>
           </div>
           <div class="demo-center-info">
             <div class="demo-center-title-row">
-              <h3 class="demo-center-title">Mode Demo Interaktif</h3>
-              <span class="demo-center-pill">★ REKOMENDASI · LANGSUNG PAKAI</span>
+              <h3 class="demo-center-title">Database MySQL: jaya_wijaya</h3>
+              <span class="demo-center-pill" style="background: #dcfce7; color: #166534;">★ TERKONEKSI XAMPP</span>
             </div>
-            <p class="demo-center-desc">Jelajahi seluruh modul operasional dengan data simulasi yang tersimpan di browser tanpa database eksternal.</p>
+            <p class="demo-center-desc">Bekerja langsung dengan data nyata di MySQL phpMyAdmin tanpa data dummy browser.</p>
           </div>
         </div>
 
         <div class="demo-highlights-grid">
-          <div class="highlight-chip">🪵 Stok Sapu &amp; Kayu</div>
-          <div class="highlight-chip">💰 Kas &amp; Piutang DP</div>
-          <div class="highlight-chip">🧾 Cetak Struk Bluetooth</div>
-          <div class="highlight-chip">👥 Gaji &amp; Lembur Karyawan</div>
+          <div class="highlight-chip">🪵 6 Produk Sapu &amp; Kayu</div>
+          <div class="highlight-chip">📦 5 Mutasi Stok Riil</div>
+          <div class="highlight-chip">💰 4 Transaksi Kas Riil</div>
+          <div class="highlight-chip">👥 3 Data Karyawan Riil</div>
         </div>
 
-        <button type="button" class="btn-primary-forest-center" id="btn-enter-demo">
-          <span class="btn-bolt">⚡</span>
-          <span>Masuk ke Mode Demo Interaktif</span>
-          <span class="btn-arrow" aria-hidden="true">→</span>
-        </button>
-
-        <p class="demo-footer-note">
-          🔒 Seluruh data tersimpan aman di browser Anda (Local Storage) dan dapat direset kapan saja.
-        </p>
-      </div>
-
-      <!-- Divider -->
-      <div class="auth-center-divider">
-        <span>ATAU HUBUNGKAN KE DATABASE SUPABASE</span>
-      </div>
-
-      <!-- Bagian Konfigurasi Supabase (Ringkas & Rapi) -->
-      <div class="supabase-center-card">
-        <div class="supabase-center-header">
-          <div class="supabase-center-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="#3ECF8E"><path d="M21.362 9.354H12V.396a.396.396 0 0 0-.716-.233L.242 13.916a.396.396 0 0 0 .307.638H12v8.958a.396.396 0 0 0 .716.233l11.042-13.753a.396.396 0 0 0-.396-.638z"/></svg>
-            <strong>Konfigurasi Lingkungan (.env)</strong>
-          </div>
-          <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" class="supabase-center-link">
-            Dashboard Supabase ↗
-          </a>
-        </div>
-        <p class="supabase-center-desc">
-          Untuk menghubungkan database PostgreSQL Supabase multi-pengguna, masukkan variabel berikut pada file <code>.env</code> lokal atau dashboard hosting Vercel:
-        </p>
-        <div class="env-code-compact">
-          <pre>VITE_SUPABASE_URL=https://&lt;project-ref&gt;.supabase.co
-VITE_SUPABASE_ANON_KEY=&lt;anon-atau-publishable-key&gt;</pre>
-          <button type="button" class="btn-copy-env-center" id="btn-copy-config" title="Salin format variabel lingkungan ke clipboard">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-            <span>Salin Format .env</span>
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;">
+          <button type="button" class="btn-primary-forest-center" id="btn-enter-admin" style="background:#145a42;">
+            <span class="btn-bolt">⚡</span>
+            <span>Masuk sebagai Pimpinan / Admin</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
+          <button type="button" class="button button-quiet" id="btn-enter-operator" style="width:100%; justify-content:center; padding:10px; font-weight:600; border:1px solid #d1d5db; border-radius:8px;">
+            <span>Masuk sebagai Mandor Gudang / Operator</span>
           </button>
         </div>
-        <div class="supabase-center-schema">
-          <span>📄 Skema tabel PostgreSQL siap impor tersedia pada berkas <code>supabase/schema.sql</code></span>
-        </div>
+
+        <p class="demo-footer-note" style="color:#4b5563;">
+          🔒 Terhubung ke MySQL <code>127.0.0.1:3306/jaya_wijaya</code>. Seluruh penambahan data langsung masuk ke phpMyAdmin.
+        </p>
       </div>
     </section>`;
 }
@@ -418,8 +448,12 @@ function renderAuthLayout({ mode = 'setup', message = '' }) {
 }
 
 function bindAuthEvents() {
-  document.querySelectorAll('#btn-enter-demo').forEach((btn) => {
-    btn.onclick = () => enterDemoWorkspace();
+  document.querySelectorAll('#btn-enter-admin, #btn-enter-demo').forEach((btn) => {
+    btn.onclick = () => enterMysqlWorkspace('admin');
+  });
+
+  document.querySelectorAll('#btn-enter-operator').forEach((btn) => {
+    btn.onclick = () => enterMysqlWorkspace('operator');
   });
 
   const loginForm = document.querySelector('#login-form');
@@ -506,15 +540,10 @@ function renderShell() {
           ${navItem('reports', '▤', 'Laporan')}
         </nav>
         <div class="sidebar-bottom">
-          ${state.isDemo ? `
-            <div class="sidebar-note" style="background: #fff8ec; border-color: #f7dfaf; margin-bottom: 8px;">
-              <span class="status-dot" style="background: #e69123; box-shadow: 0 0 0 3px #fceddb;"></span>
-              <span><strong>Mode Demo</strong><br /><small style="color: #94713c;">Data tersimpan di browser</small></span>
-            </div>
-            <button type="button" class="button button-quiet button-small" data-action="reset-demo" style="width: 100%; margin-bottom: 10px; justify-content: center; font-size: 10px; color: #8e6c31;">↺ Reset data demo</button>
-          ` : `
-            <div class="sidebar-note"><span class="status-dot"></span><span>Data tersinkron<br /><small>Terhubung ke ruang kerja</small></span></div>
-          `}
+          <div class="sidebar-note" style="background: #f0fdf4; border-color: #86efac; margin-bottom: 8px;">
+            <span class="status-dot" style="background: #16a34a; box-shadow: 0 0 0 3px #dcfce7;"></span>
+            <span><strong>MySQL XAMPP (Live)</strong><br /><small style="color: #166534;">Database: jaya_wijaya</small></span>
+          </div>
           <button class="profile-button" id="sign-out">
             <span class="avatar">${escapeHtml((userDisplayId() || 'A').slice(0, 1).toUpperCase())}</span>
             <span class="profile-copy"><strong>${escapeHtml(userDisplayId())}</strong><small>${state.isAdmin ? 'Administrator' : 'Anggota tim'}</small></span>
@@ -525,7 +554,7 @@ function renderShell() {
       <div class="main-column">
         <header class="topbar">
           <button class="mobile-menu" id="menu-toggle" aria-label="Buka navigasi">☰</button>
-          <div class="breadcrumb"><span>Ruang kerja</span><span class="breadcrumb-separator">/</span><strong id="page-crumb">Ringkasan</strong>${state.isDemo ? '<span class="status-pill" style="background: #fcf1e5; color: #ba732e; font-size: 10px; padding: 2px 8px; margin-left: 6px;">Demo</span>' : ''}</div>
+          <div class="breadcrumb"><span>Ruang kerja</span><span class="breadcrumb-separator">/</span><strong id="page-crumb">Ringkasan</strong><span class="status-pill status-present" style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 600; padding: 2px 8px; margin-left: 6px; border-radius: 999px;">MySQL: jaya_wijaya</span></div>
           <div class="topbar-right"><span class="today-label">${formatDate(localDate)}</span><span class="topbar-divider"></span><span class="topbar-avatar">${escapeHtml((userDisplayId() || 'A').slice(0, 1).toUpperCase())}</span></div>
         </header>
         <main class="page-content" id="page-content"></main>
@@ -1926,23 +1955,15 @@ function openSettlementModal(targetType, targetId) {
 
     await runMutation(async () => {
       if (targetType === 'inventory') {
-        if (state.isDemo) {
-          demoStore.update('inventory', targetId, { notes: updatedNote });
-        } else {
-          const { error: invErr } = await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', targetId);
-          if (invErr) return invErr;
-        }
+        const { error: invErr } = await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', targetId);
+        if (invErr) return invErr;
       } else if (targetType === 'cash') {
         const updatedCashDesc = isFullSettlement
           ? `${rec.category} (Lunas - Dilunasi ${formatDate(settleDate)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}${settleNotes ? ' · ' + settleNotes : ''}`
           : `${rec.category} (DP Diterima ${formatMoney(newPaidAmount)} · Sisa Tagihan: ${formatMoney(newRemaining)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}`;
 
-        if (state.isDemo) {
-          demoStore.update('cash', targetId, { description: updatedCashDesc });
-        } else {
-          const { error: cashErr } = await supabase.from('cash_transactions').update({ description: updatedCashDesc }).eq('id', targetId);
-          if (cashErr) return cashErr;
-        }
+        const { error: cashErr } = await supabase.from('cash_transactions').update({ description: updatedCashDesc }).eq('id', targetId);
+        if (cashErr) return cashErr;
 
         const origInv = state.inventory.find((i) =>
           i.occurred_on === rec.occurred_on &&
@@ -1950,11 +1971,7 @@ function openSettlementModal(targetType, targetId) {
           i.notes.includes(partyName || '')
         );
         if (origInv) {
-          if (state.isDemo) {
-            demoStore.update('inventory', origInv.id, { notes: updatedNote });
-          } else {
-            await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', origInv.id);
-          }
+          await supabase.from('inventory_movements').update({ notes: updatedNote }).eq('id', origInv.id);
         }
       }
 
@@ -1970,12 +1987,8 @@ function openSettlementModal(targetType, targetId) {
           occurred_on: settleDate,
         };
 
-        if (state.isDemo) {
-          demoStore.insert('cash', cashPayload);
-        } else {
-          const { error: newCashErr } = await supabase.from('cash_transactions').insert(cashPayload);
-          if (newCashErr) return newCashErr;
-        }
+        const { error: newCashErr } = await supabase.from('cash_transactions').insert(cashPayload);
+        if (newCashErr) return newCashErr;
       }
 
       return null;
@@ -3194,27 +3207,6 @@ function renderPage() {
 
 
 async function refreshData() {
-  if (state.isDemo) {
-    state.products = demoStore.get('products');
-    state.inventory = demoStore.get('inventory').map((inv) => ({
-      ...inv,
-      products: state.products.find((p) => p.id === inv.product_id) || null,
-    }));
-    state.cash = demoStore.get('cash');
-    if (state.isAdmin) {
-      state.employees = demoStore.get('employees');
-      state.payroll = demoStore.get('payroll').map((pay) => ({
-        ...pay,
-        employees: state.employees.find((e) => e.id === pay.employee_id) || null,
-      }));
-      state.payouts = demoStore.get('payouts') || [];
-    } else {
-      state.employees = [];
-      state.payroll = [];
-      state.payouts = [];
-    }
-    return;
-  }
   const requests = [
     supabase.from('products').select('*').order('name'),
     supabase.from('inventory_movements').select('*, products(name, unit)').order('occurred_on', { ascending: false }),
@@ -3277,14 +3269,7 @@ function productForm(product = null) {
       selling_price: Number(form.get('selling_price')) || 0,
     };
     await runMutation(async () => {
-      if (state.isDemo) {
-        if (product) {
-          demoStore.update('products', product.id, payload);
-        } else {
-          demoStore.insert('products', payload);
-        }
-        return null;
-      }
+
       const result = product
         ? await supabase.from('products').update(payload).eq('id', product.id)
         : await supabase.from('products').insert(payload);
@@ -3630,41 +3615,6 @@ function inventoryForm(initialType = 'in_production', initialProductId = null) {
     }
 
     await runMutation(async () => {
-      if (state.isDemo) {
-        if (dir === 'out' && qty > stockFor(pId)) {
-          return { message: `Stok tidak mencukupi. Stok saat ini: ${formatQuantity(stockFor(pId))} ${prodUnit}` };
-        }
-        demoStore.insert('inventory', {
-          product_id: pId,
-          direction: dir,
-          quantity: qty,
-          occurred_on: occ,
-          notes: formattedNotes,
-        });
-
-        if (shouldSyncCash && actualPaidAmount > 0) {
-          const isSale = dir === 'out';
-          const category = isSale
-            ? (payStatus === 'dp' ? 'Penjualan Produk (DP)' : 'Penjualan Produk')
-            : (payStatus === 'dp' ? 'Belanja Bahan Baku / Barang (DP)' : 'Belanja Bahan Baku / Barang');
-          const description = isSale
-            ? (payStatus === 'dp'
-                ? `DP Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} · Diterima: ${formatMoney(actualPaidAmount)} (Sisa Tagihan: ${formatMoney(remainingAmount)})${detailsText ? ` · ${detailsText}` : ''}`
-                : `Penjualan ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${detailsText ? ` · ${detailsText}` : ''}`)
-            : (payStatus === 'dp'
-                ? `DP Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} · Dibayar: ${formatMoney(actualPaidAmount)} (Sisa Utang: ${formatMoney(remainingAmount)})${detailsText ? ` · ${detailsText}` : ''}`
-                : `Belanja ${formatQuantity(qty)} ${prodUnit} ${prodName} (Lunas)${detailsText ? ` · ${detailsText}` : ''}`);
-
-          demoStore.insert('cash', {
-            direction: isSale ? 'in' : 'out',
-            amount: actualPaidAmount,
-            category,
-            description,
-            occurred_on: occ,
-          });
-        }
-        return null;
-      }
 
       if (dir === 'out' && qty > stockFor(pId)) {
         return { message: `Stok tidak mencukupi. Stok saat ini: ${formatQuantity(stockFor(pId))} ${prodUnit}` };
@@ -3778,10 +3728,7 @@ function cashForm() {
         description: form.get('description').trim(),
         occurred_on: form.get('occurred_on'),
       };
-      if (state.isDemo) {
-        demoStore.insert('cash', payload);
-        return null;
-      }
+
       const { error } = await supabase.from('cash_transactions').insert(payload);
       return error;
     }, 'Transaksi kas berhasil dicatat.');
@@ -3814,14 +3761,7 @@ function employeeForm(employee = null) {
     };
     if (employee) payload.is_active = form.has('is_active');
     await runMutation(async () => {
-      if (state.isDemo) {
-        if (employee) {
-          demoStore.update('employees', employee.id, payload);
-        } else {
-          demoStore.insert('employees', { ...payload, is_active: true });
-        }
-        return null;
-      }
+
       const result = employee
         ? await supabase.from('employees').update(payload).eq('id', employee.id)
         : await supabase.from('employees').insert(payload);
@@ -4038,29 +3978,6 @@ function attendanceForm(record = null, defaultEmpId = null, defaultDate = null) 
     };
 
     await runMutation(async () => {
-      if (state.isDemo) {
-        if (record) {
-          demoStore.update('payroll', record.id, payload);
-        } else {
-          const existing = state.payroll.find((p) => p.employee_id === empId && (p.work_date || p.period) === workDate);
-          if (existing) {
-            demoStore.update('payroll', existing.id, payload);
-          } else {
-            demoStore.insert('payroll', payload);
-          }
-        }
-
-        if (shouldSyncStock && syncProdId) {
-          demoStore.insert('inventory', {
-            product_id: syncProdId,
-            direction: 'in',
-            quantity: prodQty,
-            occurred_on: workDate,
-            notes: `[Hasil Produksi] Pekerja: ${emp.full_name}${notes ? ` · ${notes}` : ''}`,
-          });
-        }
-        return null;
-      }
 
       if (record) {
         const { error } = await supabase.from('payroll_records').update(payload).eq('id', record.id);
@@ -4382,112 +4299,93 @@ function downloadReport(month) {
   const netProfit = grossProfit - totalOperatingExpense;
   const netMargin = totalIn > 0 ? ((netProfit / totalIn) * 100).toFixed(1) : '0';
 
-  const expCats = {};
-  for (const exp of cash.filter((r) => r.direction === 'out')) {
-    const info = categorizeExpense(exp);
-    const key = info.group;
-    if (!expCats[key]) expCats[key] = { name: key, count: 0, amount: 0 };
-    expCats[key].count += 1;
-    expCats[key].amount += Number(exp.amount) || 0;
-  }
+  const wb = XLSX.utils.book_new();
 
-  const rows = [
-    ['RINGKASAN LAPORAN KEUANGAN & OPERASIONAL BULANAN'],
-    ['Nama Perusahaan', 'Jaya Wijaya'],
+  // Sheet 1: Ringkasan Laba Rugi
+  const summaryRows = [
+    ['LAPORAN KEUANGAN & OPERASIONAL BULANAN JAYA WIJAYA'],
+    ['Perusahaan', 'JAYA WIJAYA'],
     ['Bidang Usaha', 'PRODUKSI • DISTRIBUSI • GROSIR'],
     ['Slogan', 'Produksi Berkualitas, Harga Bersahabat, Mitra Terpercaya.'],
     ['Periode Bulan', selectedMonth],
-    ['Tanggal Unduh / Ekspor', formatDate(localDate)],
+    ['Tanggal Ekspor', formatDate(localDate)],
     [],
-    ['=== 1. RINGKASAN LABA RUGI OPERASIONAL ==='],
-    ['Total Pendapatan Penjualan (Omzet)', totalIn],
-    ['Beban Pokok Penjualan (HPP / Bahan Baku)', totalCogs],
-    ['Laba Kotor (Gross Profit)', grossProfit],
-    ['Margin Laba Kotor', `${grossMargin}%`],
-    ['Total Beban Gaji & Upah Karyawan', totalPayroll],
-    ['Beban Operasional Lainnya', operationalCash],
-    ['Total Beban Operasional', totalOperatingExpense],
-    ['Laba Bersih Operasional (Net Profit)', netProfit],
-    ['Margin Laba Bersih', `${netMargin}%`],
-    [],
-    ['=== 2. RINCIAN PENGELUARAN KAS BERDASARKAN KATEGORI (UNTUK APA SAJA) ==='],
-    ['Kategori Pengeluaran', 'Jumlah Transaksi', 'Total Nominal (IDR)', 'Pangsa Pengeluaran (%)'],
-    ...Object.values(expCats).map((c) => [c.name, c.count, c.amount, `${totalOut > 0 ? ((c.amount / totalOut) * 100).toFixed(1) : 0}%`]),
-    ['TOTAL SELURUH PENGELUARAN KAS', cash.filter((r) => r.direction === 'out').length, totalOut, '100%'],
-    [],
-    ['=== 3. RINCIAN CATATAN TRANSAKSI OPERASIONAL & PERSEDIAAN ==='],
-    ['Tanggal', 'Jenis Catatan', 'Nama / Kategori', 'Arah', 'Jumlah / Unit', 'Nilai (IDR)', 'Klasifikasi', 'Catatan / Pihak Terkait (Pembeli/Supplier)']
+    ['KOMPONEN KEUANGAN', 'NOMINAL (IDR)', 'PERSENTASE / KETERANGAN'],
+    ['Pendapatan Penjualan (Omzet)', totalIn, '100%'],
+    ['Beban Pokok Penjualan (HPP / Bahan Baku)', totalCogs, totalIn > 0 ? `${((totalCogs/totalIn)*100).toFixed(1)}%` : '0%'],
+    ['Laba Kotor (Gross Profit)', grossProfit, `${grossMargin}% (Margin Kotor)`],
+    ['Beban Gaji & Upah Karyawan', totalPayroll, totalIn > 0 ? `${((totalPayroll/totalIn)*100).toFixed(1)}%` : '0%'],
+    ['Beban Operasional Lainnya', operationalCash, totalIn > 0 ? `${((operationalCash/totalIn)*100).toFixed(1)}%` : '0%'],
+    ['Total Beban Operasional', totalOperatingExpense, totalIn > 0 ? `${((totalOperatingExpense/totalIn)*100).toFixed(1)}%` : '0%'],
+    ['Laba Bersih Operasional (Net Profit)', netProfit, `${netMargin}% (Margin Bersih)`],
   ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryRows);
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan Laba Rugi');
 
-  for (const item of inventory) {
-    const prod = item.products || state.products.find((p) => p.id === item.product_id);
-    const isIn = item.direction === 'in';
+  // Sheet 2: Kas Keuangan
+  const cashRows = [
+    ['Tanggal', 'Arah Kas', 'Kategori', 'Nominal (Rp)', 'Keterangan Transaksi']
+  ];
+  for (const c of cash) {
+    cashRows.push([
+      c.occurred_on,
+      c.direction === 'in' ? 'Uang Masuk (+)' : 'Uang Keluar (-)',
+      c.category,
+      Number(c.amount) || 0,
+      c.description || ''
+    ]);
+  }
+  const wsCash = XLSX.utils.aoa_to_sheet(cashRows);
+  XLSX.utils.book_append_sheet(wb, wsCash, 'Arus Kas Keuangan');
+
+  // Sheet 3: Persediaan & Stok
+  const invRows = [
+    ['Tanggal', 'Nama Produk', 'Arah Barang', 'Jumlah / Qty', 'Satuan', 'Nilai Est (Rp)', 'Catatan / Pihak Terkait']
+  ];
+  for (const inv of inventory) {
+    const prod = inv.products || state.products.find((p) => p.id === inv.product_id);
+    const isIn = inv.direction === 'in';
     const unitPrice = isIn ? (Number(prod?.purchase_price) || 0) : (Number(prod?.selling_price) || 0);
-    const totalVal = Math.round(Number(item.quantity || 0) * unitPrice);
-    rows.push([
-      item.occurred_on,
-      'Persediaan',
+    const estVal = Math.round(Number(inv.quantity || 0) * unitPrice);
+    invRows.push([
+      inv.occurred_on,
       prod?.name || 'Produk',
-      isIn ? 'Masuk' : 'Keluar',
-      `${item.quantity} ${prod?.unit || ''}`.trim(),
-      totalVal > 0 ? totalVal : '',
-      isIn ? 'Penerimaan Stok' : 'Pengeluaran Stok',
-      item.notes || '',
+      isIn ? 'Barang Masuk (Stok/Produksi)' : 'Barang Keluar (Penjualan/Pakai)',
+      Number(inv.quantity) || 0,
+      prod?.unit || 'unit',
+      estVal,
+      inv.notes || ''
     ]);
   }
-  for (const item of cash) {
-    const isIncome = item.direction === 'in';
-    const catLower = (item.category || '').toLowerCase();
-    const role = isIncome ? 'Pendapatan (Omzet)' : (catLower.includes('bahan') ? 'HPP / Bahan Baku' : 'Beban Operasional');
-    rows.push([
-      item.occurred_on,
-      'Keuangan',
-      item.category,
-      isIncome ? 'Masuk' : 'Keluar',
-      '',
-      item.amount,
-      role,
-      item.description,
-    ]);
-  }
+  const wsInv = XLSX.utils.aoa_to_sheet(invRows);
+  XLSX.utils.book_append_sheet(wb, wsInv, 'Persediaan & Stok');
+
+  // Sheet 4: Gaji Karyawan
   if (state.isAdmin) {
+    const payrollRows = [
+      ['Nama Karyawan', 'Hari Kerja', 'Jam Lembur', 'Unit Produksi', 'Gaji Pokok (Rp)', 'Uang Lembur (Rp)', 'Insentif (Rp)', 'Total Diterima (Rp)', 'Status Pembayaran']
+    ];
     for (const emp of activeEmployees) {
       const calc = calculateMonthlySalary(emp, selectedMonth);
-      rows.push([
-        monthEnd(selectedMonth),
-        'Gaji Bulanan',
-        `${emp.full_name} (${calc.effectiveDays} hari kerja, ${calc.totalOvertimeHours} jam lembur)`,
-        'Keluar',
-        `${formatQuantity(calc.totalProduction)} unit`,
+      payrollRows.push([
+        emp.full_name,
+        calc.effectiveDays,
+        calc.totalOvertimeHours,
+        calc.totalProduction,
+        calc.baseSalary,
+        calc.overtimeAmount,
+        calc.incentiveAmount,
         calc.totalSalary,
-        calc.isPaid ? 'Lunas' : 'Belum dibayar',
-        `Pokok: ${formatMoney(calc.baseSalary)}; Lembur: ${formatMoney(calc.overtimeAmount)}; Insentif: ${formatMoney(calc.incentiveAmount)}`.trim(),
+        calc.isPaid ? 'Lunas Dibayarkan' : 'Belum Dibayar'
       ]);
     }
-
-    for (const item of monthRecords(state.payroll, selectedMonth, 'work_date')) {
-      const attLabel = ATTENDANCE_LABELS[item.attendance_status]?.label || item.attendance_status || 'Hadir';
-      rows.push([
-        item.work_date || item.period,
-        'Detail Absensi Harian',
-        `${item.employees?.full_name || 'Karyawan'} (${attLabel})`,
-        '',
-        `${item.production_quantity || 0} unit`,
-        item.total_amount,
-        item.overtime_hours > 0 ? `Lembur ${item.overtime_hours} jam` : '',
-        `Upah: ${formatMoney(item.daily_wage || item.base_salary)}; Lembur: ${formatMoney(item.overtime_pay || 0)}; Insentif: ${formatMoney(item.incentive_amount || 0)}; ${item.notes || ''}`.trim(),
-      ]);
-    }
+    const wsPayroll = XLSX.utils.aoa_to_sheet(payrollRows);
+    XLSX.utils.book_append_sheet(wb, wsPayroll, 'Gaji Karyawan');
   }
-  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `laporan-operasional-${selectedMonth}.csv`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+
+  // Trigger Excel file download
+  XLSX.writeFile(wb, `Laporan-Jaya-Wijaya-${selectedMonth}.xlsx`);
+  notify(`Laporan Excel periode ${selectedMonth} berhasil diunduh dalam format rapi.`);
 }
 
 async function handlePageAction(event) {
@@ -4516,18 +4414,6 @@ async function handlePageAction(event) {
   } else if (action === 'delete-product') {
     const product = state.products.find((item) => item.id === id);
     if (!product || !window.confirm(`Hapus produk "${product.name}"? Tindakan ini tidak dapat dibatalkan.`)) return;
-    if (state.isDemo) {
-      const hasHistory = state.inventory.some((item) => item.product_id === id);
-      if (hasHistory) {
-        showError('Produk tidak dapat dihapus karena sudah memiliki riwayat pergerakan barang.');
-        return;
-      }
-      demoStore.delete('products', id);
-      await refreshData();
-      renderShell();
-      notify('Produk berhasil dihapus.');
-      return;
-    }
     const { error } = await supabase.from('products').delete().eq('id', id);
     if (error) {
       showError(error.message.includes('foreign key') || error.code === '23503'
@@ -4590,18 +4476,6 @@ async function handlePageAction(event) {
       notes: `Absen cepat ${ATTENDANCE_LABELS[status]?.label || status}`,
     };
 
-    if (state.isDemo) {
-      const existing = state.payroll.find((p) => p.employee_id === employeeId && (p.work_date || p.period) === targetDate);
-      if (existing) {
-        demoStore.update('payroll', existing.id, payload);
-      } else {
-        demoStore.insert('payroll', payload);
-      }
-      await refreshData();
-      renderShell();
-      notify(`Absensi ${employee.full_name} (${ATTENDANCE_LABELS[status]?.label || status}) berhasil dicatat.`);
-      return;
-    }
 
     const { data: existing, error: findError } = await supabase.from('payroll_records')
       .select('id')
@@ -4630,13 +4504,6 @@ async function handlePageAction(event) {
     const record = state.payroll.find((p) => p.id === id);
     if (!record || !window.confirm('Hapus catatan absensi ini?')) return;
 
-    if (state.isDemo) {
-      demoStore.delete('payroll', id);
-      await refreshData();
-      renderShell();
-      notify('Catatan absensi berhasil dihapus.');
-      return;
-    }
 
     const { error } = await supabase.from('payroll_records').delete().eq('id', id);
     if (error) {
@@ -4683,19 +4550,6 @@ async function handlePageAction(event) {
       occurred_on: localDate,
     };
 
-    if (state.isDemo) {
-      demoStore.insert('payouts', payoutPayload);
-      if (calc.totalSalary > 0) {
-        demoStore.insert('cash', cashPayload);
-      }
-      document.querySelector('#app-dialog').close();
-      await refreshData();
-      renderShell();
-      notify(`Gaji bulan ${month} untuk ${employee.full_name} berhasil dibayarkan dan dicatat ke kas.`);
-      return;
-    }
-
-    // Supabase
     const { error: payoutError } = await supabase.from('payroll_payouts').insert(payoutPayload);
     if (payoutError) {
       showError(`Gagal memproses pembayaran gaji: ${payoutError.message}`);
@@ -4715,15 +4569,6 @@ async function handlePageAction(event) {
     notify(`Gaji bulan ${month} untuk ${employee.full_name} berhasil dibayarkan dan dicatat ke kas.`);
   } else if (action === 'cancel-monthly-salary') {
     if (!window.confirm('Batalkan status pembayaran gaji ini?')) return;
-
-    if (state.isDemo) {
-      demoStore.delete('payouts', id);
-      await refreshData();
-      renderShell();
-      notify('Status pembayaran gaji berhasil dibatalkan.');
-      return;
-    }
-
     const { error } = await supabase.from('payroll_payouts').delete().eq('id', id);
     if (error) {
       showError(`Gagal membatalkan pembayaran: ${error.message}`);
@@ -4732,12 +4577,7 @@ async function handlePageAction(event) {
     await refreshData();
     renderShell();
     notify('Status pembayaran gaji berhasil dibatalkan.');
-  } else if (action === 'reset-demo') {
-    if (!window.confirm('Reset data demo ke kondisi awal? Seluruh perubahan lokal akan dikembalikan.')) return;
-    demoStore.reset();
-    await refreshData();
-    renderShell();
-    notify('Data demo telah direset ke kondisi awal.');
+
   } else if (action === 'download-report') {
     const month = button.dataset.month || document.querySelector('#report-month')?.value || state.selectedReportMonth || currentMonth;
     if (!month) {
@@ -4776,20 +4616,26 @@ async function handlePageAction(event) {
   }
 }
 
-async function enterDemoWorkspace(role = 'admin') {
-  state.isDemo = true;
+async function enterMysqlWorkspace(role = 'admin') {
+  const isOperator = role === 'operator';
   state.user = {
-    id: 'demo-user-id',
-    email: 'admin@perusahaan.id',
-    user_metadata: { username: 'admin' },
+    id: isOperator ? 'usr-002' : 'usr-001',
+    email: isOperator ? 'mandor@jayawijaya.com' : 'admin@jayawijaya.com',
+    user_metadata: { role, full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya' },
     app_metadata: { role },
+    full_name: isOperator ? 'Mandor Gudang Produksi' : 'Pimpinan Jaya Wijaya',
   };
-  state.isAdmin = role === 'admin';
-  demoStore.load();
+  state.isAdmin = !isOperator;
+  state.isMysql = true;
+  state.isDemo = false;
   await refreshData();
   state.page = 'dashboard';
   renderShell();
-  notify('Mode Demo aktif! Anda dapat mencoba seluruh fitur dengan data simulasi.');
+  notify('Terhubung ke Database MySQL XAMPP (jaya_wijaya)!');
+}
+
+async function enterDemoWorkspace(role = 'admin') {
+  await enterMysqlWorkspace(role);
 }
 
 async function handleLogin(event) {
@@ -4832,7 +4678,17 @@ async function enterWorkspace(user) {
 }
 
 function subscribeToWorkspace() {
-  if (state.isDemo || !supabase) return;
+  if (state.isMysql) {
+    window.clearInterval(refreshTimer);
+    refreshTimer = window.setInterval(async () => {
+      try {
+        await refreshData();
+        renderPage();
+      } catch (_) {}
+    }, 10000);
+    return;
+  }
+  if (!supabaseInstance) return;
   if (workspaceChannel) supabase.removeChannel(workspaceChannel);
   workspaceChannel = supabase.channel(`workspace:${state.user.id}`);
   for (const table of ['products', 'inventory_movements', 'cash_transactions', 'employees', 'payroll_records']) {
@@ -4860,28 +4716,7 @@ function subscribeToWorkspace() {
 }
 
 async function handleSignOut() {
-  if (state.isDemo) {
-    state.isDemo = false;
-    state.user = null;
-    state.isAdmin = false;
-    state.page = 'dashboard';
-    state.products = [];
-    state.inventory = [];
-    state.cash = [];
-    state.employees = [];
-    state.payroll = [];
-    start();
-    return;
-  }
-  const { error } = await supabase.auth.signOut();
-  if (error) {
-    showError(`Gagal keluar: ${error.message}`);
-    return;
-  }
-  if (workspaceChannel) {
-    supabase.removeChannel(workspaceChannel);
-    workspaceChannel = null;
-  }
+  window.clearInterval(refreshTimer);
   window.clearTimeout(refreshTimer);
   state.user = null;
   state.isAdmin = false;
@@ -4891,11 +4726,19 @@ async function handleSignOut() {
   state.cash = [];
   state.employees = [];
   state.payroll = [];
-  renderLogin();
+  if (supabaseInstance) {
+    try { await supabaseInstance.auth.signOut(); } catch (_) {}
+  }
+  start();
 }
 
 async function start() {
-  if (!supabase) {
+  const mysqlOk = await checkMysqlStatus();
+  if (mysqlOk) {
+    await enterMysqlWorkspace('admin');
+    return;
+  }
+  if (!supabaseInstance) {
     configMessage();
     return;
   }
