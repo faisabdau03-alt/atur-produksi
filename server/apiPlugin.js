@@ -5,8 +5,9 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 const activeSessions = new Map();
-const USERS_FILE = path.resolve(process.cwd(), 'database/auth_users.json');
-const STORE_FILE = path.resolve(process.cwd(), 'database/local_store.json');
+const BASE_DATA_DIR = process.env.VERCEL ? '/tmp' : process.cwd();
+const USERS_FILE = path.resolve(BASE_DATA_DIR, 'database/auth_users.json');
+const STORE_FILE = path.resolve(BASE_DATA_DIR, 'database/local_store.json');
 
 function getLocalUsers() {
   try {
@@ -108,79 +109,234 @@ function verifyBcrypt(inputPassword, storedHash) {
   return false;
 }
 
-export function mysqlApiPlugin() {
-  let pool = null;
+let pool = null;
 
-  async function getPool() {
-    if (!pool) {
-      pool = mysql.createPool({
-        host: process.env.MYSQL_HOST || 'localhost',
-        port: Number(process.env.MYSQL_PORT) || 3306,
-        user: process.env.MYSQL_USER || 'root',
-        password: process.env.MYSQL_PASSWORD || '',
-        database: process.env.MYSQL_DATABASE || 'jaya_wijaya',
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0,
-        dateStrings: true,
-        connectTimeout: 2000,
-      });
+async function getPool() {
+  if (!pool) {
+    const host = process.env.MYSQL_HOST || 'localhost';
+    const isRemote = host !== 'localhost' && host !== '127.0.0.1';
+    const useSsl = process.env.MYSQL_SSL === 'true' || isRemote;
+
+    pool = mysql.createPool({
+      host,
+      port: Number(process.env.MYSQL_PORT) || 3306,
+      user: process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQL_PASSWORD || '',
+      database: process.env.MYSQL_DATABASE || 'jaya_wijaya',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0,
+      dateStrings: true,
+      connectTimeout: 10000,
+      ssl: useSsl ? { rejectUnauthorized: false } : undefined,
+    });
+  }
+  return pool;
+}
+
+async function testConnection() {
+  try {
+    const p = await getPool();
+    await p.query('SELECT 1');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+let schemaChecked = false;
+async function ensureSchema(db) {
+  if (schemaChecked || !db) return;
+  try {
+    const [tables] = await db.query("SHOW TABLES LIKE 'products'");
+    if (tables.length === 0) {
+      console.log('[Auto-Schema] Inisialisasi tabel database...');
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS users (
+          id VARCHAR(36) NOT NULL,
+          username VARCHAR(50) NOT NULL UNIQUE,
+          email VARCHAR(100) NOT NULL UNIQUE,
+          password_hash VARCHAR(255) NOT NULL,
+          full_name VARCHAR(100) NOT NULL,
+          role ENUM('admin', 'operator', 'kasir') NOT NULL DEFAULT 'operator',
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS products (
+          id VARCHAR(36) NOT NULL,
+          name VARCHAR(150) NOT NULL,
+          sku VARCHAR(50) DEFAULT NULL,
+          unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
+          purchase_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          selling_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uk_product_name (name)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS inventory_movements (
+          id VARCHAR(36) NOT NULL,
+          product_id VARCHAR(36) NOT NULL,
+          direction ENUM('in', 'out') NOT NULL,
+          quantity DECIMAL(14, 2) NOT NULL,
+          occurred_on DATE NOT NULL,
+          notes TEXT DEFAULT NULL,
+          created_by VARCHAR(36) DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_inv_product_date (product_id, occurred_on DESC),
+          CONSTRAINT fk_inv_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS cash_transactions (
+          id VARCHAR(36) NOT NULL,
+          direction ENUM('in', 'out') NOT NULL,
+          amount DECIMAL(16, 2) NOT NULL,
+          category VARCHAR(100) NOT NULL,
+          description TEXT DEFAULT NULL,
+          occurred_on DATE NOT NULL,
+          created_by VARCHAR(36) DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_cash_date (occurred_on DESC)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS employees (
+          id VARCHAR(36) NOT NULL,
+          full_name VARCHAR(100) NOT NULL,
+          position VARCHAR(100) NOT NULL DEFAULT 'Produksi',
+          daily_salary DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          monthly_salary DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          overtime_rate DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          incentive_per_unit DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS payroll_records (
+          id VARCHAR(36) NOT NULL,
+          employee_id VARCHAR(36) NOT NULL,
+          work_date DATE NOT NULL,
+          period DATE NOT NULL,
+          attendance_status ENUM('present', 'half_day', 'permit', 'sick', 'absent') NOT NULL DEFAULT 'present',
+          daily_wage DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          overtime_hours DECIMAL(6, 2) NOT NULL DEFAULT 0.00,
+          overtime_pay DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          base_salary DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          production_quantity DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          incentive_rate DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          incentive_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          total_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          status ENUM('pending', 'paid') NOT NULL DEFAULT 'pending',
+          paid_at DATETIME DEFAULT NULL,
+          notes TEXT DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uk_employee_work_date (employee_id, work_date),
+          CONSTRAINT fk_payroll_employee FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS payroll_payouts (
+          id VARCHAR(36) NOT NULL,
+          employee_id VARCHAR(36) NOT NULL,
+          period VARCHAR(7) NOT NULL,
+          effective_days DECIMAL(6, 2) NOT NULL DEFAULT 0.00,
+          present_days INT NOT NULL DEFAULT 0,
+          half_days INT NOT NULL DEFAULT 0,
+          overtime_hours DECIMAL(8, 2) NOT NULL DEFAULT 0.00,
+          overtime_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          production_quantity DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
+          incentive_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          base_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          total_amount DECIMAL(18, 2) NOT NULL DEFAULT 0.00,
+          status ENUM('pending', 'paid') NOT NULL DEFAULT 'paid',
+          paid_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          notes TEXT DEFAULT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          UNIQUE KEY uk_employee_period (employee_id, period),
+          CONSTRAINT fk_payout_employee FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE RESTRICT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+
+      await db.query(`
+        INSERT IGNORE INTO users (id, username, email, password_hash, full_name, role) VALUES
+        ('usr-001', 'admin', 'admin@jayawijaya.com', '$2b$10$z4qy9EDPiPMaFV/Z0URhPucUvcoKI9ZKD7varNiCDoq959aM3wTAW', 'Pimpinan Jaya Wijaya', 'admin'),
+        ('usr-002', 'mandor', 'mandor@jayawijaya.com', '$2b$10$z/MQ9R8XPEFG57m0yQCtHejGlodLXilW0uK8.Zi3oPs908TFhiIAS', 'Mandor Gudang Produksi', 'operator');
+      `);
+
+      await db.query(`
+        INSERT IGNORE INTO products (id, name, sku, unit, purchase_price, selling_price) VALUES
+        ('prod-001', 'Sapu Rayung Premium Gagang Kayu Mahoni', 'JW-SR-01', 'pcs', 11500.00, 18500.00),
+        ('prod-002', 'Sapu Ijuk Super Tebal Gagang Kayu Halus', 'JW-SI-02', 'pcs', 13500.00, 21500.00),
+        ('prod-003', 'Pel Lantai Katun Putih Gagang Ulir Kayu', 'JW-PL-03', 'pcs', 16000.00, 25000.00),
+        ('prod-004', 'Sikat Lantai Dorong Kayu Keras 40cm', 'JW-SK-04', 'pcs', 17500.00, 27000.00),
+        ('prod-005', 'Kemoceng Bulu Ayam Halus Gagang Kayu', 'JW-KC-05', 'pcs', 8500.00, 14000.00),
+        ('prod-006', 'Pengki Serokan Sampah Gagang Kayu', 'JW-PK-06', 'pcs', 10500.00, 17000.00);
+      `);
+
+      await db.query(`
+        INSERT IGNORE INTO employees (id, full_name, position, daily_salary, overtime_rate, incentive_per_unit, is_active) VALUES
+        ('emp-001', 'Bambang Sutrisno', 'Operator Mesin Bubut & Pembentukan Kayu', 135000.00, 22000.00, 150.00, 1),
+        ('emp-002', 'Siti Rahmawati', 'Perakitan & Finishing Sapu Rayung', 120000.00, 19000.00, 120.00, 1),
+        ('emp-003', 'Agus Setiawan', 'Quality Control & Packing Grosir', 110000.00, 17000.00, 100.00, 1);
+      `);
+      console.log('[Auto-Schema] Inisialisasi tabel dan data awal selesai!');
     }
-    return pool;
+    schemaChecked = true;
+  } catch (err) {
+    console.warn('[Auto-Schema] Notice:', err.message);
+  }
+}
+
+export async function handleApiRequest(req, res) {
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
   }
 
-  async function testConnection() {
-    try {
-      const p = await getPool();
-      await p.query('SELECT 1');
-      return true;
-    } catch (_) {
-      return false;
+  try {
+    const url = new URL(req.url, 'http://localhost');
+    const pathname = url.pathname.replace(/^\/api/, '') || '/';
+
+    let body = req.body || null;
+    if (!body && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      const buffers = [];
+      for await (const chunk of req) buffers.push(chunk);
+      const rawBody = Buffer.concat(buffers).toString();
+      if (rawBody) {
+        try { body = JSON.parse(rawBody); } catch (_) { body = {}; }
+      }
     }
-  }
 
-  return {
-    name: 'mysql-api-plugin',
-    configureServer(server) {
-      server.middlewares.use('/api', async (req, res) => {
-        res.setHeader('Content-Type', 'application/json');
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    const authHeader = req.headers['authorization'] || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+    const session = token ? activeSessions.get(token) : null;
 
-        if (req.method === 'OPTIONS') {
-          res.statusCode = 204;
-          res.end();
-          return;
-        }
-
-        try {
-          const url = new URL(req.url, 'http://localhost');
-          const pathname = url.pathname;
-
-          let body = null;
-          if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
-            const buffers = [];
-            for await (const chunk of req) buffers.push(chunk);
-            const rawBody = Buffer.concat(buffers).toString();
-            if (rawBody) {
-              try { body = JSON.parse(rawBody); } catch (_) { body = {}; }
-            }
-          }
-
-          const authHeader = req.headers['authorization'] || '';
-          const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-          const session = token ? activeSessions.get(token) : null;
-
-          const mysqlOk = await testConnection();
-          let db = null;
-          if (mysqlOk) {
-            try {
-              db = await getPool();
-            } catch (_) {
-              db = null;
-            }
-          }
+    const mysqlOk = await testConnection();
+    let db = null;
+    if (mysqlOk) {
+      try {
+        db = await getPool();
+        await ensureSchema(db);
+      } catch (_) {
+        db = null;
+      }
+    }
 
           // 1. Status Connection Check
           if (pathname === '/status' && req.method === 'GET') {
@@ -728,12 +884,18 @@ export function mysqlApiPlugin() {
 
           res.statusCode = 404;
           res.end(JSON.stringify({ error: 'Endpoint tidak ditemukan' }));
-        } catch (err) {
-          console.error('[API Server Error]', err);
-          res.statusCode = 500;
-          res.end(JSON.stringify({ error: err.message }));
-        }
-      });
+  } catch (err) {
+    console.error('[API Server Error]', err);
+    res.statusCode = 500;
+    res.end(JSON.stringify({ error: err.message }));
+  }
+}
+
+export function mysqlApiPlugin() {
+  return {
+    name: 'mysql-api-plugin',
+    configureServer(server) {
+      server.middlewares.use('/api', (req, res) => handleApiRequest(req, res));
     },
   };
 }
