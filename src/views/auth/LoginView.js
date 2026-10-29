@@ -29,7 +29,7 @@ export function renderLoginCard(message = '', state = {}) {
         <form id="login-form">
           <div class="form-group login-input-group">
             <span class="login-input-icon">${Icons.user('icon-svg', 16)}</span>
-            <input type="text" id="input-userId" name="userId" class="form-control" placeholder="Username (contoh: admin)" required autofocus />
+            <input type="text" id="input-userId" name="userId" class="form-control" placeholder="Username" required autofocus />
           </div>
 
           <div class="form-group login-input-group">
@@ -51,21 +51,6 @@ export function renderLoginCard(message = '', state = {}) {
             MASUK KE SISTEM →
           </button>
         </form>
-
-        <div class="login-quick-creds">
-          <div class="login-quick-creds-title">
-            ${Icons.shield('icon-svg', 13)}
-            <span>Pilihan Akun Cepat:</span>
-          </div>
-          <button type="button" class="login-quick-btn" data-user="admin" data-pw="admin123">
-            <strong style="color:#3c8dbc;">Admin (Pimpinan)</strong>
-            <code>admin / admin123</code>
-          </button>
-          <button type="button" class="login-quick-btn" data-user="mandor" data-pw="mandor123">
-            <strong style="color:#f39c12;">Mandor (Gudang)</strong>
-            <code>mandor / mandor123</code>
-          </button>
-        </div>
       </div>
     </div>
   `;
@@ -84,20 +69,6 @@ export function bindAuthEvents(handleLogin) {
   if (loginForm && handleLogin) {
     loginForm.onsubmit = handleLogin;
   }
-
-  // Quick fill handler
-  const quickButtons = document.querySelectorAll('.login-quick-btn');
-  quickButtons.forEach((btn) => {
-    btn.onclick = () => {
-      const userInput = document.querySelector('#input-userId');
-      const passInput = document.querySelector('#input-password');
-      if (userInput && passInput) {
-        userInput.value = btn.dataset.user || '';
-        passInput.value = btn.dataset.pw || '';
-        passInput.focus();
-      }
-    };
-  });
 
   const togglePwBtn = document.querySelector('#btn-toggle-password');
   if (togglePwBtn) {
