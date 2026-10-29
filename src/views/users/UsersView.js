@@ -2,91 +2,86 @@ import { state, localDate } from '../../store/state.js';
 import { heading } from '../../components/Header.js';
 import { escapeHtml } from '../../utils/sanitize.js';
 import { formatDate } from '../../utils/formatters.js';
+import { tableToolbar, tableFooter } from '../../components/Table.js';
 import { Icons } from '../../components/Icons.js';
 
 export function renderUsers() {
   const users = state.systemUsers || [];
 
-  const actions = `
-    <button class="button button-primary" data-action="add-user">
-      ${Icons.plus('icon-svg', 15)}
-      <span>Tambah Pengguna</span>
-    </button>
-  `;
-
   return `
-    ${heading(
-      'HAK AKSES SISTEM',
-      'Kelola Akun Pengguna',
-      'Kelola akun login administrator, mandor gudang, dan operator lini produksi Jaya Wijaya.',
-      actions
-    )}
+    ${heading('', 'Data Pengguna', 'Kelola otorisasi akun pengguna dan hak akses sistem')}
 
-    <section class="content-card">
-      <div class="card-heading">
-        <div>
-          <h2>Daftar Akun Pengguna <span class="count-badge">${users.length}</span></h2>
-          <p>Otentikasi aman menggunakan username/ID dan password terenkripsi bcrypt</p>
+    <div class="box box-primary">
+      <div class="box-header">
+        <h3 class="box-title">${Icons.users('icon-svg', 18)} Daftar Pengguna Sistem</h3>
+        <div class="box-tools">
+          <button type="button" class="btn btn-info btn-sm" data-action="add-user">
+            ${Icons.plus('icon-svg', 13)} Tambah Pengguna Baru
+          </button>
         </div>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>ID / Username</th>
-              <th>Nama Lengkap</th>
-              <th>Email</th>
-              <th>Peran (Role)</th>
-              <th>Terdaftar Sejak</th>
-              <th class="align-right">Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${users.length === 0 ? `
-              <tr>
-                <td colspan="6" style="text-align: center; padding: 32px; color: var(--text-muted);">
-                  Memuat data pengguna...
-                </td>
-              </tr>
-            ` : users.map((u) => {
-              const isAdmin = u.role === 'admin';
-              const isKasir = u.role === 'kasir';
-              const pillClass = isAdmin ? 'status-active' : (isKasir ? 'status-permit' : 'status-half_day');
-              const roleLabel = isAdmin ? 'Administrator' : (isKasir ? 'Kasir Keuangan' : 'Operator / Mandor');
+      <div class="box-body">
+        ${tableToolbar('search-users')}
 
-              return `
+        <div class="table-responsive">
+          <table class="table table-bordered table-hover table-striped">
+            <thead>
+              <tr>
+                <th style="width: 45px;" class="align-center">NO</th>
+                <th>USERNAME / ID</th>
+                <th>NAMA LENGKAP</th>
+                <th>ROLE / AKSES</th>
+                <th>TERDAFTAR</th>
+                <th style="width: 85px;" class="align-center">OPSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.length === 0 ? `
                 <tr>
-                  <td><code>${escapeHtml(u.username)}</code></td>
-                  <td class="detail-cell"><strong>${escapeHtml(u.full_name)}</strong></td>
-                  <td>${escapeHtml(u.email || '—')}</td>
-                  <td>
-                    <span class="status-pill ${pillClass}">
-                      ${isAdmin ? Icons.shield('icon-svg', 12) : Icons.user('icon-svg', 12)}
-                      <span>${roleLabel}</span>
-                    </span>
-                  </td>
-                  <td class="date-cell">${formatDate(u.created_at ? u.created_at.slice(0, 10) : localDate)}</td>
-                  <td class="align-right">
-                    <div style="display: inline-flex; align-items: center; justify-content: flex-end; gap: 4px;">
-                      <button class="icon-button" data-action="edit-user" data-id="${u.id}" title="Edit pengguna">
-                        ${Icons.edit('icon-svg', 14)}
-                      </button>
-                      ${u.id !== state.user?.id ? `
-                        <button class="icon-button danger-icon" data-action="delete-user" data-id="${u.id}" title="Hapus pengguna">
-                          ${Icons.trash('icon-svg', 14)}
-                        </button>
-                      ` : `
-                        <span class="sub-meta" style="margin-left: 6px;">(Akun Anda)</span>
-                      `}
-                    </div>
+                  <td colspan="6" class="align-center" style="padding: 24px; color: #777;">
+                    Memuat data pengguna...
                   </td>
                 </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
+              ` : users.map((u, idx) => {
+                const isAdmin = u.role === 'admin';
+                const roleClass = isAdmin ? 'status-paid' : 'status-pending';
+                const roleLabel = isAdmin ? 'ADMINISTRATOR' : 'MANDOR GUDANG';
+
+                return `
+                  <tr>
+                    <td class="align-center">${idx + 1}</td>
+                    <td><code>${escapeHtml(u.username)}</code></td>
+                    <td><strong>${escapeHtml(u.full_name)}</strong></td>
+                    <td>
+                      <span class="status-pill ${roleClass}">
+                        ${roleLabel}
+                      </span>
+                    </td>
+                    <td class="date-cell">${formatDate(u.created_at ? u.created_at.slice(0, 10) : localDate)}</td>
+                    <td class="align-center">
+                      <div class="btn-group-opsi">
+                        <button type="button" class="btn-opsi-edit" data-action="edit-user" data-id="${u.id}" title="Edit pengguna">
+                          ${Icons.wrench('icon-svg', 13)}
+                        </button>
+                        ${u.id !== state.user?.id ? `
+                          <button type="button" class="btn-opsi-delete" data-action="delete-user" data-id="${u.id}" title="Hapus pengguna">
+                            ${Icons.trash('icon-svg', 13)}
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </section>
+
+      <div class="box-footer">
+        ${tableFooter(users.length, users.length)}
+      </div>
+    </div>
   `;
 }

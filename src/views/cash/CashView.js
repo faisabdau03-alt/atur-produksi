@@ -1,5 +1,5 @@
 import { heading, statCard } from '../../components/Header.js';
-import { emptyState, movementTable } from '../../components/Table.js';
+import { emptyState, movementTable, tableToolbar, tableFooter } from '../../components/Table.js';
 import { formatMoney, quantityFormat, monthRecords, currentMonth } from '../../utils/formatters.js';
 import { cashBalance, state as appState } from '../../store/state.js';
 import { Icons } from '../../components/Icons.js';
@@ -10,38 +10,41 @@ export function renderCash(state = appState) {
   const totalOut = monthCash.filter((r) => r.direction === 'out').reduce((sum, r) => sum + Number(r.amount), 0);
   const balance = cashBalance(state.cash);
 
-  const actions = `
-    <button class="button button-outline" data-action="download-report" data-month="${currentMonth}" title="Unduh rekapitulasi keuangan bulan ini">
-      ${Icons.download('icon-svg', 15)}
-      <span>Unduh Laporan</span>
-    </button>
-    <button class="button button-primary" data-action="add-cash">
-      ${Icons.plus('icon-svg', 15)}
-      <span>Catat Kas</span>
-    </button>
-  `;
-
   return `
-    ${heading('BUKU KAS UMKM', 'Arus Kas Operasional', 'Catat setiap penerimaan omzet penjualan dan pengeluaran operasional pabrik secara transparan.', actions)}
+    ${heading('', 'Transaksi Kas', 'Pencatatan arus kas operasional pemasukan dan pengeluaran pabrik')}
 
-    <section class="stats-grid">
-      ${statCard('Saldo Kas Riil', formatMoney(balance), 'Posisi kas keseluruhan', Icons.cash('icon-svg', 18), 'icon-green')}
-      ${statCard('Pemasukan Bulan Ini', `+${formatMoney(totalIn)}`, 'Omzet & pelunasan piutang', Icons.trendingUp('icon-svg', 18), 'icon-blue')}
-      ${statCard('Pengeluaran Bulan Ini', `−${formatMoney(totalOut)}`, 'Belanja bahan & biaya operasional', Icons.trendingDown('icon-svg', 18), 'icon-orange')}
-      ${statCard('Total Transaksi', `${quantityFormat.format(monthCash.length)} Catatan`, 'Bulan berjalan', Icons.receipt('icon-svg', 18), 'icon-purple')}
-    </section>
+    <div class="stats-grid">
+      ${statCard('Saldo Kas Riil', formatMoney(balance), 'Posisi kas keseluruhan', Icons.cash('icon-svg', 28), 'green')}
+      ${statCard('Pemasukan Bulan Ini', `+${formatMoney(totalIn)}`, 'Omzet & pembayaran piutang', Icons.trendingUp('icon-svg', 28), 'blue')}
+      ${statCard('Pengeluaran Bulan Ini', `−${formatMoney(totalOut)}`, 'Belanja modal & beban pabrik', Icons.trendingDown('icon-svg', 28), 'red')}
+      ${statCard('Total Transaksi', `${quantityFormat.format(monthCash.length)} Catatan`, 'Bulan berjalan', Icons.receipt('icon-svg', 28), 'yellow')}
+    </div>
 
-    <section class="content-card">
-      <div class="card-heading">
-        <div>
-          <h2>Riwayat Arus Kas <span class="count-badge">${state.cash.length}</span></h2>
-          <p>Catatan transaksi pemasukan dan pengeluaran beserta rincian nota & audit kas</p>
+    <div class="box box-success">
+      <div class="box-header">
+        <h3 class="box-title">${Icons.cash('icon-svg', 18)} Buku Arus Kas Masuk & Keluar</h3>
+        <div class="box-tools">
+          <button type="button" class="btn btn-info btn-sm" data-action="add-cash">
+            ${Icons.plus('icon-svg', 13)} Tambah Transaksi Kas
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" data-action="download-report" data-month="${currentMonth}">
+            ${Icons.printer('icon-svg', 13)} PRINT
+          </button>
         </div>
       </div>
-      ${state.cash.length 
-        ? movementTable(state.cash, state.cash.length) 
-        : emptyState('Belum Ada Catatan Kas', 'Catat pemasukan atau pengeluaran untuk mulai mengelola pembukuan.')
-      }
-    </section>
+
+      <div class="box-body">
+        ${tableToolbar('search-cash')}
+
+        ${state.cash.length 
+          ? movementTable(state.cash, state.cash.length) 
+          : emptyState('Belum ada catatan kas', 'Catat pemasukan atau pengeluaran untuk mulai pembukuan.')
+        }
+      </div>
+
+      <div class="box-footer">
+        ${tableFooter(state.cash.length, state.cash.length)}
+      </div>
+    </div>
   `;
 }

@@ -2,11 +2,15 @@ export function openDialog(title, body) {
   const dialog = document.querySelector('#app-dialog');
   if (!dialog) return;
   document.querySelector('#dialog-content').innerHTML = `
-    <div class="dialog-heading">
-      <div><p class="eyebrow">RUANG KERJA</p><h2>${title}</h2></div>
-      <button class="icon-button" data-action="close-dialog" aria-label="Tutup">×</button>
+    <div class="modal-dialog-inner">
+      <div class="modal-dialog-header">
+        <h4 class="modal-dialog-title">${title}</h4>
+        <button type="button" class="modal-dialog-close" data-action="close-dialog" aria-label="Tutup">×</button>
+      </div>
+      <div class="modal-dialog-body">
+        ${body}
+      </div>
     </div>
-    ${body}
   `;
   dialog.showModal();
 }

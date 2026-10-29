@@ -15,69 +15,63 @@ export function renderDashboard(state = appState) {
   const inStock = state.products.filter((product) => stockFor(product.id) > 0).length;
 
   return `
-    ${heading(
-      'PUSAT KENDALI OPERASIONAL',
-      'Ringkasan Gudang & Finansial',
-      'Pantau mutasi stok, saldo kas operasional, dan aktivitas lini produksi hari ini.',
-      `
-      <button class="button button-outline" data-action="download-report" data-month="${currentMonth}" title="Unduh rekapitulasi data bulan ini">
-        ${Icons.download('icon-svg', 15)}
-        <span>Unduh Laporan</span>
-      </button>
-      <button class="button button-primary" data-action="quick-entry">
-        ${Icons.plus('icon-svg', 15)}
-        <span>Catat Transaksi</span>
-      </button>
-      `
-    )}
+    ${heading('', 'Dashboard', 'Ringkasan operasional pabrik dan inventaris gudang')}
 
-    <section class="stats-grid">
+    <!-- 4 Small Boxes (AdminLTE Style) -->
+    <div class="stats-grid">
       ${statCard(
-        'Saldo Kas Operasional',
+        'Saldo Kas Bersih',
         formatMoney(balance),
-        `${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))} arus bersih bulan ini`,
-        Icons.cash('icon-svg', 18),
-        'icon-green',
+        `${netMonthCash >= 0 ? '+' : '−'}${formatMoney(Math.abs(netMonthCash))} arus kas bulan ini`,
+        Icons.cash('icon-svg', 28),
+        'green',
         { action: 'open-stat-detail', stat: 'cash-balance', hint: 'Buka rincian nilai kas' }
       )}
       ${statCard(
         'Katalog Produk Aktif',
-        `${quantityFormat.format(state.products.length)} Jenis`,
+        `${quantityFormat.format(state.products.length)} SKU`,
         `${inStock} SKU memiliki stok fisik`,
-        Icons.products('icon-svg', 18),
-        'icon-blue',
+        Icons.products('icon-svg', 28),
+        'blue',
         { action: 'open-stat-detail', stat: 'products', hint: 'Buka daftar stok produk' }
       )}
       ${statCard(
         'Mutasi Stok Gudang',
-        `${quantityFormat.format(monthRecords(state.inventory, currentMonth).length)} Catatan`,
+        `${quantityFormat.format(monthRecords(state.inventory, currentMonth).length)} Mutasi`,
         'Penerimaan & pengiriman barang',
-        Icons.inventory('icon-svg', 18),
-        'icon-orange',
+        Icons.inventory('icon-svg', 28),
+        'yellow',
         { action: 'open-stat-detail', stat: 'inventory-movements', hint: 'Buka riwayat mutasi stok' }
       )}
       ${statCard(
         'Transaksi Pembukuan',
         `${quantityFormat.format(monthCash.length)} Transaksi`,
-        'Kas masuk & biaya operasional',
-        Icons.receipt('icon-svg', 18),
-        'icon-purple',
+        'Catatan uang kas masuk & keluar',
+        Icons.receipt('icon-svg', 28),
+        'red',
         { action: 'open-stat-detail', stat: 'cash-transactions', hint: 'Buka riwayat transaksi kas' }
       )}
-    </section>
+    </div>
 
-    <section class="content-card">
-      <div class="card-heading">
-        <div>
-          <h2>Aktivitas Terbaru</h2>
-          <p>Catatan real-time pergerakan barang gudang dan transaksi kas</p>
+    <!-- Aktivitas Terbaru Box -->
+    <div class="box box-primary">
+      <div class="box-header">
+        <h3 class="box-title">${Icons.dashboard('icon-svg', 18)} Riwayat Aktivitas Operasional Terbaru</h3>
+        <div class="box-tools">
+          <button type="button" class="btn btn-info btn-sm" data-action="quick-entry">
+            ${Icons.plus('icon-svg', 13)} Catat Transaksi Baru
+          </button>
+          <button type="button" class="btn btn-default btn-sm" data-page="reports">
+            Buka Laporan Lengkap →
+          </button>
         </div>
-        <button class="button button-quiet button-sm" data-page="reports">
-          <span>Buka Laporan Lengkap</span>
-          ${Icons.arrowRight('icon-svg', 14)}
-        </button>
       </div>
-      ${movementTable(latest, 7)}
-    </section>
+      <div class="box-body">
+        ${movementTable(latest, 8)}
+      </div>
+      <div class="box-footer">
+        <span style="font-size:12px; color:#888;">Menampilkan 8 aktivitas mutasi terakhir. Terhubung ke server MySQL MariaDB localhost.</span>
+      </div>
+    </div>
   `;
 }

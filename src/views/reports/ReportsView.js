@@ -232,33 +232,35 @@ export function renderReports(month = currentMonth) {
   );
 
   const tableRows = filteredItems.length ? `
-    <div class="table-wrap">
-      <table>
+    <div class="table-responsive">
+      <table class="table table-bordered table-hover table-striped">
         <thead>
           <tr>
-            <th>Tanggal</th>
-            <th>Pos / Kategori</th>
-            <th>${currentFilter === 'expenses' ? 'Keperluan Pengeluaran Dana' : 'Rincian Transaksi'}</th>
-            <th>Klasifikasi Akuntansi</th>
-            <th>Arah</th>
-            <th class="align-right">Nominal / Kuantitas</th>
-            <th class="align-right">Audit</th>
+            <th style="width: 45px;" class="align-center">NO</th>
+            <th>TANGGAL</th>
+            <th>POS / KATEGORI</th>
+            <th>${currentFilter === 'expenses' ? 'KEPERLUAN PENGELUARAN DANA' : 'RINCIAN TRANSAKSI'}</th>
+            <th>KLASIFIKASI</th>
+            <th>ARAH</th>
+            <th class="align-right">NOMINAL / UNIT</th>
+            <th style="width: 70px;" class="align-center">OPSI</th>
           </tr>
         </thead>
         <tbody>
-          ${filteredItems.map((item) => {
+          ${filteredItems.map((item, idx) => {
             if (item.itemType === 'payroll') {
               return `
                 <tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Klik untuk melihat slip gaji pekerja">
+                  <td class="align-center">${idx + 1}</td>
                   <td class="date-cell">${formatDate(item.occurred_on)}</td>
                   <td><strong>Gaji & Upah</strong></td>
-                  <td class="detail-cell">${escapeHtml(item.title)}<span class="sub-meta">${escapeHtml(item.detail)}</span></td>
-                  <td><span class="status-pill status-permit" style="font-size: 10px;">Beban Gaji</span></td>
-                  <td><span class="direction-pill pill-out">${Icons.arrowOut('icon-svg', 12)}<span>Keluar</span></span></td>
-                  <td class="align-right amount-cell" style="font-weight: 700; color: var(--danger);">−${formatMoney(item.amount)}</td>
-                  <td class="align-right">
-                    <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Pratinjau slip gaji">
-                      ${Icons.eye('icon-svg', 14)}
+                  <td>${escapeHtml(item.title)}<br /><small style="color:#777;">${escapeHtml(item.detail)}</small></td>
+                  <td><span class="status-pill status-pending" style="font-size: 10px;">Beban Gaji</span></td>
+                  <td><span class="direction-pill pill-out">Keluar</span></td>
+                  <td class="align-right amount-cell" style="font-weight: 700; color: #dd4b39;">−${formatMoney(item.amount)}</td>
+                  <td class="align-center">
+                    <button type="button" class="btn btn-info btn-xs" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Pratinjau slip gaji">
+                      ${Icons.eye('icon-svg', 11)} Slip
                     </button>
                   </td>
                 </tr>
@@ -273,32 +275,30 @@ export function renderReports(month = currentMonth) {
 
               let pillLabel = isIn ? 'Masuk' : 'Keluar';
               let statusLabel = `Stok ${isIn ? 'Masuk' : 'Keluar'}`;
-              let statusPillClass = isIn ? 'status-present' : 'status-inactive';
-              let dirIcon = isIn ? Icons.arrowIn('icon-svg', 12) : Icons.arrowOut('icon-svg', 12);
+              let statusPillClass = isIn ? 'status-paid' : 'status-danger';
 
               if (isProd) {
                 pillLabel = 'Produksi';
                 statusLabel = 'Hasil Produksi';
-                statusPillClass = 'status-active';
-                dirIcon = Icons.factory('icon-svg', 12);
+                statusPillClass = 'status-paid';
               } else if (isUsg) {
                 pillLabel = 'Pemakaian';
                 statusLabel = 'Pemakaian/Reject';
-                statusPillClass = 'status-half_day';
-                dirIcon = Icons.wrench('icon-svg', 12);
+                statusPillClass = 'status-pending';
               }
 
               return `
                 <tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Klik untuk melihat detail pergerakan barang">
+                  <td class="align-center">${idx + 1}</td>
                   <td class="date-cell">${formatDate(item.occurred_on)}</td>
                   <td><strong>Persediaan</strong></td>
-                  <td class="detail-cell">${escapeHtml(prod?.name || 'Produk')}${item.notes ? `<span class="sub-meta">${escapeHtml(item.notes)}</span>` : ''}</td>
+                  <td>${escapeHtml(prod?.name || 'Produk')}${item.notes ? `<br /><small style="color:#777;">${escapeHtml(item.notes)}</small>` : ''}</td>
                   <td><span class="status-pill ${statusPillClass}" style="font-size: 10px;">${statusLabel}</span></td>
-                  <td><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}">${dirIcon}<span>${pillLabel}</span></span></td>
+                  <td><span class="direction-pill ${isIn ? 'pill-in' : 'pill-out'}"><span>${pillLabel}</span></span></td>
                   <td class="align-right amount-cell" style="font-weight: 600;">${isIn ? '+' : '−'}${formatQuantity(item.quantity)} ${escapeHtml(prod?.unit || 'unit')}</td>
-                  <td class="align-right">
-                    <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Pratinjau mutasi barang">
-                      ${Icons.eye('icon-svg', 14)}
+                  <td class="align-center">
+                    <button type="button" class="btn btn-info btn-xs" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="inventory" title="Pratinjau mutasi barang">
+                      ${Icons.eye('icon-svg', 11)} Nota
                     </button>
                   </td>
                 </tr>
@@ -308,18 +308,19 @@ export function renderReports(month = currentMonth) {
             const isIncome = item.direction === 'in';
             return `
               <tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="cash" title="Klik untuk melihat detail transaksi kas">
+                <td class="align-center">${idx + 1}</td>
                 <td class="date-cell">${formatDate(item.occurred_on)}</td>
                 <td><strong>${escapeHtml(item.category)}</strong></td>
-                <td class="detail-cell">
+                <td>
                   <strong>${escapeHtml(item.description || item.category)}</strong>
-                  ${currentFilter === 'expenses' ? `<span class="sub-meta">${escapeHtml(item.financialCategory || 'Operasional Pabrik')}</span>` : ''}
+                  ${currentFilter === 'expenses' ? `<br /><small style="color:#777;">${escapeHtml(item.financialCategory || 'Operasional Pabrik')}</small>` : ''}
                 </td>
                 <td><span class="status-pill ${isIncome ? 'status-paid' : 'status-pending'}" style="font-size: 10px;">${escapeHtml(item.financialCategory || 'Kas')}</span></td>
-                <td><span class="direction-pill ${isIncome ? 'pill-in' : 'pill-out'}">${isIncome ? Icons.arrowIn('icon-svg', 12) : Icons.arrowOut('icon-svg', 12)}<span>${isIncome ? 'Masuk' : 'Keluar'}</span></span></td>
-                <td class="align-right amount-cell" style="font-weight: 700; color: ${isIncome ? 'var(--success)' : 'var(--danger)'};">${isIncome ? '+' : '−'}${formatMoney(item.amount)}</td>
-                <td class="align-right">
-                  <button type="button" class="icon-button" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="cash" title="Pratinjau nota transaksi">
-                    ${Icons.eye('icon-svg', 14)}
+                <td><span class="direction-pill ${isIncome ? 'pill-in' : 'pill-out'}"><span>${isIncome ? 'Masuk' : 'Keluar'}</span></span></td>
+                <td class="align-right amount-cell" style="font-weight: 700; color: ${isIncome ? '#00a65a' : '#dd4b39'};">${isIncome ? '+' : '−'}${formatMoney(item.amount)}</td>
+                <td class="align-center">
+                  <button type="button" class="btn btn-info btn-xs" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="cash" title="Pratinjau nota transaksi">
+                    ${Icons.eye('icon-svg', 11)} Nota
                   </button>
                 </td>
               </tr>
@@ -541,26 +542,35 @@ export function renderReports(month = currentMonth) {
   return `
     ${headingHtml}
 
-    <nav class="report-view-nav" aria-label="Kelompok Laporan">
+    <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap;">
       ${reportViewTabs.map((tab) => `
-        <button type="button" class="report-view-btn ${currentFilter === tab.key ? 'is-active' : ''}" data-action="filter-report" data-filter="${escapeHtml(tab.key)}">
+        <button type="button" class="btn ${currentFilter === tab.key ? 'btn-primary' : 'btn-default'} btn-sm" data-action="filter-report" data-filter="${escapeHtml(tab.key)}">
           ${tab.iconSvg}
           <span>${escapeHtml(tab.label)}</span>
-          <span class="report-view-badge">${escapeHtml(tab.badge)}</span>
+          <span class="badge" style="background:${currentFilter === tab.key ? '#ffffff' : '#3c8dbc'}; color:${currentFilter === tab.key ? '#3c8dbc' : '#ffffff'}; font-size:10px; margin-left:4px; padding:2px 6px; border-radius:10px;">${escapeHtml(tab.badge)}</span>
         </button>
       `).join('')}
-    </nav>
+    </div>
 
     ${specificGroupHtml}
 
-    <section class="content-card">
-      <div class="card-heading">
-        <div>
-          <h2>Pratinjau Data Catatan <span class="count-badge">${filteredItems.length} Catatan</span></h2>
-          <p>Klik tombol audit pada baris tabel untuk melihat bukti kuitansi atau nota transaksi</p>
+    <div class="box box-primary">
+      <div class="box-header">
+        <h3 class="box-title">${Icons.reports('icon-svg', 18)} Pratinjau Catatan Operasional (${selectedMonth})</h3>
+        <div class="box-tools">
+          <label style="font-size:12px; margin-right:4px;">Bulan:</label>
+          <input type="month" id="report-month" value="${escapeHtml(selectedMonth)}" style="height:30px; font-size:12px; padding:2px 8px; border:1px solid #ccc; border-radius:3px;" />
+          <button type="button" class="btn btn-success btn-sm" data-action="download-report" data-month="${escapeHtml(selectedMonth)}">
+            ${Icons.download('icon-svg', 13)} Unduh Excel / CSV
+          </button>
         </div>
       </div>
-      ${tableRows}
-    </section>
+      <div class="box-body">
+        ${tableRows}
+      </div>
+      <div class="box-footer">
+        <div>Showing 1 to ${filteredItems.length} of ${filteredItems.length} entries</div>
+      </div>
+    </div>
   `;
 }

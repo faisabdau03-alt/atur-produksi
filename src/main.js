@@ -43,11 +43,19 @@ function renderLogin(errorMsg = '') {
 function renderShell() {
   const app = document.querySelector('#app');
   app.innerHTML = `
-    <div class="app-layout">
+    <div class="wrapper">
+      ${renderTopbar(state)}
       ${renderSidebar(state)}
-      <div class="main-panel">
-        ${renderTopbar(state)}
-        <main class="content-area" id="page-content"></main>
+      <div class="content-wrapper">
+        <main class="content" id="page-content"></main>
+        <footer class="main-footer">
+          <div>
+            <strong>Copyright &copy; 2026 <a href="#" data-page="dashboard">Jaya Wijaya</a>.</strong> Sistem Informasi Inventaris & Produksi.
+          </div>
+          <div class="hidden-xs">
+            <b>Version</b> 2.4.0 (MySQL MariaDB)
+          </div>
+        </footer>
       </div>
     </div>
     <dialog id="app-dialog"><div id="dialog-content"></div></dialog>
