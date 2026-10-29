@@ -46,6 +46,7 @@ function renderShell() {
     <div class="wrapper">
       ${renderTopbar(state)}
       ${renderSidebar(state)}
+      <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
       <div class="content-wrapper">
         <main class="content" id="page-content"></main>
         <footer class="main-footer">
@@ -126,7 +127,19 @@ function setupGlobalEvents() {
     const mobileToggle = event.target.closest('#mobile-menu-toggle');
     if (mobileToggle) {
       event.preventDefault();
-      document.querySelector('#app-sidebar')?.classList.toggle('is-open');
+      const sidebar = document.querySelector('#app-sidebar');
+      const backdrop = document.querySelector('#sidebar-backdrop');
+      sidebar?.classList.toggle('is-open');
+      backdrop?.classList.toggle('is-active');
+      return;
+    }
+
+    // 2b. Mobile backdrop tap to close sidebar
+    const backdrop = event.target.closest('#sidebar-backdrop');
+    if (backdrop) {
+      event.preventDefault();
+      document.querySelector('#app-sidebar')?.classList.remove('is-open');
+      backdrop.classList.remove('is-active');
       return;
     }
 
@@ -138,6 +151,7 @@ function setupGlobalEvents() {
       if (targetPage) {
         state.page = targetPage;
         document.querySelector('#app-sidebar')?.classList.remove('is-open');
+        document.querySelector('#sidebar-backdrop')?.classList.remove('is-active');
         renderShell();
       }
       return;

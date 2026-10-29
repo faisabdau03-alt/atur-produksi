@@ -542,7 +542,7 @@ export function renderReports(month = currentMonth) {
   return `
     ${headingHtml}
 
-    <div style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap;">
+    <div class="report-tabs-bar" style="margin-bottom: 15px; display: flex; gap: 6px; flex-wrap: wrap;">
       ${reportViewTabs.map((tab) => `
         <button type="button" class="btn ${currentFilter === tab.key ? 'btn-primary' : 'btn-default'} btn-sm" data-action="filter-report" data-filter="${escapeHtml(tab.key)}">
           ${tab.iconSvg}
