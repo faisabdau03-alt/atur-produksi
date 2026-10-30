@@ -70,7 +70,7 @@ export function renderDashboard(state = appState) {
         ${movementTable(latest, 8)}
       </div>
       <div class="box-footer">
-        <span style="font-size:12px; color:#888;">Menampilkan 8 aktivitas mutasi terakhir. Terhubung ke server MySQL MariaDB localhost.</span>
+        <span style="font-size:12px; color:#888;">Menampilkan 8 aktivitas mutasi terbaru</span>
       </div>
     </div>
   `;

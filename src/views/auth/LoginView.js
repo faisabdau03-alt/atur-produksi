@@ -14,11 +14,11 @@ export function renderLoginCard(message = '', state = {}) {
         <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya" class="login-logo-img" />
         <p class="login-box-msg">Sistem Informasi Inventaris & Produksi Gudang</p>
 
-        <!-- Status Indikator Database -->
-        <div class="db-status-badge ${isMysql ? '' : 'offline'}" style="display:flex; justify-content:center; margin-bottom:15px; background:${isMysql ? '#e8f5e9' : '#ffebee'}; color:${isMysql ? '#2e7d32' : '#c62828'}; border:1px solid ${isMysql ? '#a5d6a7' : '#ef9a9a'}; padding:6px 10px;">
-          <span class="dot" style="background-color:${isMysql ? '#2e7d32' : '#c62828'};"></span>
-          <span>${isMysql ? 'Database MySQL 3306 Terhubung' : 'Server MySQL Offline'}</span>
-        </div>
+        ${!isMysql ? `
+        <div class="db-status-badge offline" style="display:flex; justify-content:center; margin-bottom:15px; background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:6px 10px; font-size:12px; border-radius:4px;">
+          <span class="dot" style="background-color:#856404;"></span>
+          <span>Mode Offline (Penyimpanan Lokal Aktif)</span>
+        </div>` : ''}
 
         ${message ? `
         <div style="background:#f2dede; border:1px solid #ebccd1; color:#a94442; padding:10px; border-radius:3px; margin-bottom:15px; font-size:12px; display:flex; align-items:center; gap:6px;">

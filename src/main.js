@@ -64,7 +64,7 @@ function renderShell() {
             <strong>Copyright &copy; 2026 <a href="#" data-page="dashboard">Jaya Wijaya</a>.</strong> Sistem Informasi Inventaris & Produksi.
           </div>
           <div class="hidden-xs">
-            <b>Version</b> 2.4.0 (MySQL MariaDB)
+            <b>Version</b> 2.4.0
           </div>
         </footer>
       </div>
