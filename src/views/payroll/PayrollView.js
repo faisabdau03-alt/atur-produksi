@@ -9,40 +9,98 @@ import { Icons } from '../../components/Icons.js';
 export function renderPayroll() {
   const selectedMonth = state.selectedPayrollMonth || currentMonth;
   const selectedDate = state.selectedPayrollDate || localDate;
-  const employees = [...state.employees].sort((a, b) => a.full_name.localeCompare(b.full_name));
+  const statusFilter = state.payrollStatusFilter || 'all';
+  const attFilter = state.attendanceFilter || 'all';
+
+  const employees = [...state.employees].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
   const activeEmployees = employees.filter((employee) => employee.is_active);
 
   // Perhitungan Bulanan Seluruh Karyawan Aktif
-  const monthlyCalcs = activeEmployees.map((emp) => ({
+  const allMonthlyCalcs = activeEmployees.map((emp) => ({
     employee: emp,
     calc: calculateMonthlySalary(emp, selectedMonth),
   }));
 
-  const totalMonthSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
-  const totalMonthOvertimeHours = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalOvertimeHours, 0);
-  const totalMonthOvertimePay = monthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
-  const pendingCount = monthlyCalcs.filter((item) => !item.calc.isPaid).length;
-  const paidCount = monthlyCalcs.filter((item) => item.calc.isPaid).length;
+  const totalMonthSalary = allMonthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
+  const totalMonthOvertimeHours = allMonthlyCalcs.reduce((sum, item) => sum + item.calc.totalOvertimeHours, 0);
+  const totalMonthOvertimePay = allMonthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
+  const pendingCount = allMonthlyCalcs.filter((item) => !item.calc.isPaid).length;
+  const paidCount = allMonthlyCalcs.filter((item) => item.calc.isPaid).length;
+
+  // Saring Rekapitulasi Gaji sesuai statusFilter
+  let monthlyCalcs = allMonthlyCalcs;
+  if (statusFilter === 'pending') {
+    monthlyCalcs = allMonthlyCalcs.filter((item) => !item.calc.isPaid);
+  } else if (statusFilter === 'paid') {
+    monthlyCalcs = allMonthlyCalcs.filter((item) => item.calc.isPaid);
+  }
 
   // Catatan Absensi Hari Ini
   const dateRecords = state.payroll.filter((r) => (r.work_date || r.period) === selectedDate);
   const presentTodayCount = dateRecords.filter((record) => record.attendance_status === 'present').length;
 
+  // Saring Absensi Harian sesuai attFilter
+  let displayEmployeesForAtt = activeEmployees;
+  if (attFilter === 'unattended') {
+    displayEmployeesForAtt = activeEmployees.filter((emp) => {
+      const rec = dateRecords.find((r) => r.employee_id === emp.id);
+      return !rec;
+    });
+  } else if (attFilter === 'present') {
+    displayEmployeesForAtt = activeEmployees.filter((emp) => {
+      const rec = dateRecords.find((r) => r.employee_id === emp.id);
+      return rec && rec.attendance_status === 'present';
+    });
+  }
+
   return `
     ${heading('', 'Penggajian & Absensi', 'Sistem absensi harian dan rekap upah bulanan pekerja pabrik')}
 
     <div class="stats-grid">
-      ${statCard('Karyawan Aktif', `${activeEmployees.length} Pekerja`, `${employees.length} terdaftar`, Icons.users('icon-svg', 28), 'blue')}
-      ${statCard(`Total Gaji (${selectedMonth})`, formatMoney(totalMonthSalary), `Pokok + lembur + bonus`, Icons.cash('icon-svg', 28), 'green')}
-      ${statCard('Akumulasi Lembur', `${formatQuantity(totalMonthOvertimeHours)} Jam`, `Total upah ${formatMoney(totalMonthOvertimePay)}`, Icons.zap('icon-svg', 28), 'yellow')}
-      ${statCard(`Kehadiran (${formatDate(selectedDate)})`, `${presentTodayCount} / ${activeEmployees.length} Hadir`, `${dateRecords.length} diabsen`, Icons.calendar('icon-svg', 28), 'purple')}
+      ${statCard(
+        'Karyawan Aktif',
+        `${activeEmployees.length} Pekerja`,
+        `${employees.length} terdaftar`,
+        Icons.users('icon-svg', 28),
+        'blue',
+        { action: 'scroll-to-box', target: 'box-employees', hint: 'Buka master data karyawan & tarif upah' }
+      )}
+      ${statCard(
+        `Total Gaji (${selectedMonth})`,
+        formatMoney(totalMonthSalary),
+        `Pokok + lembur + bonus`,
+        Icons.cash('icon-svg', 28),
+        'green',
+        { action: 'scroll-to-box', target: 'box-payroll-rekap', hint: 'Lihat rekapitulasi gaji karyawan bulan ini' }
+      )}
+      ${statCard(
+        'Akumulasi Lembur',
+        `${formatQuantity(totalMonthOvertimeHours)} Jam`,
+        `Total upah ${formatMoney(totalMonthOvertimePay)}`,
+        Icons.zap('icon-svg', 28),
+        'yellow',
+        { action: 'open-overtime-detail', hint: 'Buka rincian akumulasi jam lembur pekerja' }
+      )}
+      ${statCard(
+        `Kehadiran (${formatDate(selectedDate)})`,
+        `${presentTodayCount} / ${activeEmployees.length} Hadir`,
+        `${dateRecords.length} diabsen`,
+        Icons.calendar('icon-svg', 28),
+        'purple',
+        { action: 'scroll-to-box', target: 'box-attendance-daily', hint: 'Buka catatan absensi shift harian' }
+      )}
     </div>
 
     <!-- BOX 1: REKAPITULASI GAJI BULANAN -->
-    <div class="box box-primary">
+    <div class="box box-primary" id="box-payroll-rekap">
       <div class="box-header">
         <h3 class="box-title">${Icons.payroll('icon-svg', 18)} Rekapitulasi Gaji Karyawan (${selectedMonth})</h3>
         <div class="box-tools">
+          <div class="btn-group btn-group-xs" style="margin-right: 8px;">
+            <button type="button" class="btn ${statusFilter === 'all' ? 'btn-primary active' : 'btn-default'}" data-action="filter-payroll-status" data-status="all">Semua (${allMonthlyCalcs.length})</button>
+            <button type="button" class="btn ${statusFilter === 'pending' ? 'btn-warning active' : 'btn-default'}" data-action="filter-payroll-status" data-status="pending">Belum Bayar (${pendingCount})</button>
+            <button type="button" class="btn ${statusFilter === 'paid' ? 'btn-success active' : 'btn-default'}" data-action="filter-payroll-status" data-status="paid">Lunas (${paidCount})</button>
+          </div>
           <label style="font-size:12px; margin-right:4px;">Periode:</label>
           <input type="month" id="payroll-month-picker" value="${escapeHtml(selectedMonth)}" style="height:30px; font-size:12px; padding:2px 8px; border:1px solid #ccc; border-radius:3px;" />
           <button type="button" class="btn btn-success btn-sm" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}">
@@ -51,7 +109,19 @@ export function renderPayroll() {
         </div>
       </div>
       <div class="box-body">
-        ${activeEmployees.length ? `
+        ${statusFilter !== 'all' ? `
+          <div class="alert alert-info" style="margin-bottom: 12px; padding: 8px 14px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
+            <span>
+              🔍 Menyaring status gaji: <strong>${statusFilter === 'pending' ? 'Belum Dibayar' : 'Sudah Lunas'}</strong>
+              (${monthlyCalcs.length} dari ${allMonthlyCalcs.length} pekerja)
+            </span>
+            <button type="button" class="btn btn-default btn-xs" data-action="filter-payroll-status" data-status="all" style="font-weight: 600; background: #fff;">
+              ✕ Tampilkan Semua
+            </button>
+          </div>
+        ` : ''}
+
+        ${monthlyCalcs.length ? `
           <div class="table-responsive">
             <table class="table table-bordered table-hover table-striped">
               <thead>
@@ -106,7 +176,10 @@ export function renderPayroll() {
               </tbody>
             </table>
           </div>
-        ` : emptyState('Belum ada karyawan aktif', 'Tambahkan karyawan terlebih dahulu.')}
+        ` : (statusFilter !== 'all'
+              ? emptyState('Tidak ada pekerja dengan status ini', 'Klik tombol "Tampilkan Semua" di atas untuk melihat seluruh rekap.')
+              : emptyState('Belum ada karyawan aktif', 'Tambahkan karyawan terlebih dahulu.')
+            )}
       </div>
       <div class="box-footer">
         <span>Status Pembayaran: <strong>${paidCount} Lunas</strong> · <strong>${pendingCount} Belum Dibayar</strong></span>
@@ -114,10 +187,15 @@ export function renderPayroll() {
     </div>
 
     <!-- BOX 2: ABSENSI HARIAN SHIFT -->
-    <div class="box box-warning">
+    <div class="box box-warning" id="box-attendance-daily">
       <div class="box-header">
         <h3 class="box-title">${Icons.calendar('icon-svg', 18)} Absensi Shift Harian (${formatDate(selectedDate)})</h3>
         <div class="box-tools">
+          <div class="btn-group btn-group-xs" style="margin-right: 8px;">
+            <button type="button" class="btn ${attFilter === 'all' ? 'btn-warning active' : 'btn-default'}" data-action="filter-attendance" data-status="all">Semua</button>
+            <button type="button" class="btn ${attFilter === 'unattended' ? 'btn-danger active' : 'btn-default'}" data-action="filter-attendance" data-status="unattended">Belum Hadir (${activeEmployees.length - presentTodayCount})</button>
+            <button type="button" class="btn ${attFilter === 'present' ? 'btn-success active' : 'btn-default'}" data-action="filter-attendance" data-status="present">Hadir (${presentTodayCount})</button>
+          </div>
           <label style="font-size:12px; margin-right:4px;">Tanggal:</label>
           <input type="date" id="attendance-date-picker" value="${escapeHtml(selectedDate)}" style="height:30px; font-size:12px; padding:2px 8px; border:1px solid #ccc; border-radius:3px;" />
           <button type="button" class="btn btn-default btn-sm" data-action="set-date-today">Hari Ini</button>
@@ -127,7 +205,19 @@ export function renderPayroll() {
         </div>
       </div>
       <div class="box-body">
-        ${activeEmployees.length ? `
+        ${attFilter !== 'all' ? `
+          <div class="alert alert-info" style="margin-bottom: 12px; padding: 8px 14px; font-size: 12.5px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
+            <span>
+              🔍 Menyaring absensi: <strong>${attFilter === 'unattended' ? 'Pekerja Belum Hadir' : 'Pekerja Hadir'}</strong>
+              (${displayEmployeesForAtt.length} dari ${activeEmployees.length} pekerja)
+            </span>
+            <button type="button" class="btn btn-default btn-xs" data-action="filter-attendance" data-status="all" style="font-weight: 600; background: #fff;">
+              ✕ Tampilkan Semua
+            </button>
+          </div>
+        ` : ''}
+
+        ${displayEmployeesForAtt.length ? `
           <div class="table-responsive">
             <table class="table table-bordered table-hover table-striped">
               <thead>
@@ -143,7 +233,7 @@ export function renderPayroll() {
                 </tr>
               </thead>
               <tbody>
-                ${activeEmployees.map((emp, idx) => {
+                ${displayEmployeesForAtt.map((emp, idx) => {
                   const rec = dateRecords.find((r) => r.employee_id === emp.id);
                   if (rec) {
                     const attInfo = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status, class: 'status-present' };
@@ -195,12 +285,15 @@ export function renderPayroll() {
               </tbody>
             </table>
           </div>
-        ` : emptyState('Belum ada karyawan aktif', 'Tambahkan karyawan terlebih dahulu.')}
+        ` : (attFilter !== 'all'
+              ? emptyState('Tidak ada pekerja dalam filter ini', 'Semua pekerja berada di luar kategori ini. Klik "Tampilkan Semua".')
+              : emptyState('Belum ada karyawan aktif', 'Tambahkan karyawan terlebih dahulu.')
+            )}
       </div>
     </div>
 
     <!-- BOX 3: MASTER DATA PEKERJA -->
-    <div class="box box-info">
+    <div class="box box-info" id="box-employees">
       <div class="box-header">
         <h3 class="box-title">${Icons.users('icon-svg', 18)} Master Karyawan & Tarif Upah</h3>
         <div class="box-tools">

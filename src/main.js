@@ -14,7 +14,7 @@ import { openMovementModal } from './views/inventory/InventoryModal.js';
 import { renderCash } from './views/cash/CashView.js';
 import { openCashModal } from './views/cash/CashModal.js';
 import { renderPayroll } from './views/payroll/PayrollView.js';
-import { employeeForm, attendanceForm, payMonthlySalaryModal, viewEmployeeAttendanceModal } from './views/payroll/AttendanceModal.js';
+import { employeeForm, attendanceForm, payMonthlySalaryModal, viewEmployeeAttendanceModal, openOvertimeDetailModal } from './views/payroll/AttendanceModal.js';
 import { calculateMonthlySalary } from './views/payroll/salaryCalc.js';
 import { renderUsers } from './views/users/UsersView.js';
 import { userForm } from './views/users/UserModal.js';
@@ -443,6 +443,30 @@ async function handlePageAction(event) {
     renderPage();
   } else if (action === 'filter-cash') {
     state.cashFilter = button.dataset.filter || 'all';
+    renderPage();
+  } else if (action === 'scroll-to-box') {
+    if (button.dataset.dismissDialog === 'true') {
+      closeDialog();
+    }
+    const targetId = button.dataset.target;
+    if (targetId) {
+      const el = document.getElementById(targetId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        el.classList.remove('box-highlight-pulse');
+        void el.offsetWidth;
+        el.classList.add('box-highlight-pulse');
+        setTimeout(() => el.classList.remove('box-highlight-pulse'), 2500);
+      }
+    }
+  } else if (action === 'open-overtime-detail') {
+    const month = button.dataset.month || state.selectedPayrollMonth || currentMonth;
+    openOvertimeDetailModal(month);
+  } else if (action === 'filter-payroll-status') {
+    state.payrollStatusFilter = button.dataset.status || 'all';
+    renderPage();
+  } else if (action === 'filter-attendance') {
+    state.attendanceFilter = button.dataset.status || 'all';
     renderPage();
   } else if (action === 'view-report-detail') {
     openReportDetailModal(button.dataset.type, button.dataset.id, state.selectedReportMonth || currentMonth);

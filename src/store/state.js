@@ -17,6 +17,8 @@ export const state = {
   selectedReportFilter: 'all',
   productsFilter: 'all',
   cashFilter: 'all',
+  payrollStatusFilter: 'all',
+  attendanceFilter: 'all',
   products: [],
   inventory: [],
   cash: [],

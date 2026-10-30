@@ -1,5 +1,5 @@
 import { db } from '../../api/db.js';
-import { state, localDate } from '../../store/state.js';
+import { state, localDate, currentMonth } from '../../store/state.js';
 import { openDialog, closeDialog } from '../../components/Dialog.js';
 import { notify, showError } from '../../components/Toast.js';
 import { runMutation } from '../../utils/mutation.js';
@@ -430,6 +430,105 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
           <span>Sudah Dibayar</span>
         </span>
       `}
+    </div>
+  `);
+}
+
+
+export function openOvertimeDetailModal(month = state.selectedPayrollMonth || currentMonth) {
+  const employees = state.employees.filter((e) => e.is_active);
+  const overtimeList = employees.map((emp) => {
+    const calc = calculateMonthlySalary(emp, month);
+    const otHours = calc.totalOvertimeHours || 0;
+    const otRate = (emp.overtime_rate !== undefined && emp.overtime_rate !== null && emp.overtime_rate !== '') ? Number(emp.overtime_rate) : 0;
+    const otPay = calc.overtimeAmount || 0;
+    return {
+      emp,
+      calc,
+      otHours,
+      otRate,
+      otPay,
+    };
+  });
+
+  const activeWithOt = overtimeList.filter((item) => item.otHours > 0);
+  const totalHours = overtimeList.reduce((sum, item) => sum + item.otHours, 0);
+  const totalPay = overtimeList.reduce((sum, item) => sum + item.otPay, 0);
+
+  openDialog(`Rincian Akumulasi Lembur Pekerja — ${escapeHtml(month)}`, `
+    <div class="modal-stat-detail">
+      <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+        <div class="kpi-strip-item" style="border-left: 3px solid #f39c12;">
+          <div class="kpi-label">Total Jam Lembur</div>
+          <div class="kpi-val" style="font-size: 16px; color: #f39c12;">${formatQuantity(totalHours)} Jam</div>
+          <div class="kpi-sub">Bulan ${escapeHtml(month)}</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #00a65a;">
+          <div class="kpi-label">Total Upah Lembur</div>
+          <div class="kpi-val" style="font-size: 16px; color: #00a65a;">${formatMoney(totalPay)}</div>
+          <div class="kpi-sub">Kompensasi lembur</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #3c8dbc;">
+          <div class="kpi-label">Pekerja Lembur</div>
+          <div class="kpi-val" style="font-size: 16px; color: #3c8dbc;">${activeWithOt.length} dari ${employees.length}</div>
+          <div class="kpi-sub">Karyawan aktif</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h3 style="font-size: 13px; font-weight: 700; color: #333; margin-bottom: 6px;">
+          Daftar Lembur Pekerja Pabrik
+        </h3>
+        ${activeWithOt.length ? `
+          <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+            <table class="table table-bordered table-striped table-hover">
+              <thead>
+                <tr>
+                  <th style="width: 40px;" class="align-center">NO</th>
+                  <th>NAMA PEKERJA</th>
+                  <th>POSISI</th>
+                  <th class="align-right">JAM LEMBUR</th>
+                  <th class="align-right">TARIF / JAM</th>
+                  <th class="align-right">TOTAL UPAH</th>
+                  <th style="width: 80px;" class="align-center">AKSI</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${activeWithOt.map((item, idx) => `
+                  <tr>
+                    <td class="align-center">${idx + 1}</td>
+                    <td><strong>${escapeHtml(item.emp.full_name)}</strong></td>
+                    <td><small style="color:#666;">${escapeHtml(item.emp.position || 'Pekerja')}</small></td>
+                    <td class="align-right"><strong style="color: #f39c12;">${formatQuantity(item.otHours)} jam</strong></td>
+                    <td class="align-right amount-cell">${formatMoney(item.otRate)}</td>
+                    <td class="align-right amount-cell" style="font-weight:700; color: #00a65a;">${formatMoney(item.otPay)}</td>
+                    <td class="align-center">
+                      <button type="button" class="btn btn-info btn-xs" data-action="view-employee-attendance" data-id="${escapeHtml(item.emp.id)}" data-month="${escapeHtml(month)}" title="Lihat slip absensi">
+                        ${Icons.clipboard('icon-svg', 11)} Slip
+                      </button>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        ` : `
+          <div class="alert alert-warning" style="margin-top: 10px; margin-bottom: 0; padding: 12px; font-size: 12.5px; background-color: #fcf8e3; border-color: #faebcc; color: #8a6d3b;">
+            <p style="margin: 0;"><strong>Belum Ada Catatan Jam Lembur</strong></p>
+            <p style="margin: 4px 0 0; font-size: 11.5px;">Pada periode bulan <strong>${escapeHtml(month)}</strong> belum ada jam lembur yang tercatat. Untuk menambah lembur pekerja, masukkan jam lembur saat mengisi absensi harian shift.</p>
+          </div>
+        `}
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-success" data-action="download-payroll-report" data-month="${escapeHtml(month)}">
+          ${Icons.download('icon-svg', 13)} Unduh Excel
+        </button>
+        <button type="button" class="btn btn-primary" data-action="scroll-to-box" data-target="box-attendance-daily" data-dismiss-dialog="true">
+          Buka Absensi Harian →
+        </button>
+      </div>
     </div>
   `);
 }

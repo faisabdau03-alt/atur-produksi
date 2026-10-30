@@ -1961,3 +1961,24 @@ dialog#app-dialog::backdrop {
 .label-warning { background-color: #f39c12; }
 .label-info { background-color: #00c0ef; }
 .label-primary { background-color: #3c8dbc; }
+
+
+/* Pulse highlight animation when navigating from KPI small-boxes */
+@keyframes boxHighlightPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(60, 141, 188, 0.7);
+    border-top-color: #00c0ef !important;
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(60, 141, 188, 0.35);
+    border-top-color: #00c0ef !important;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(60, 141, 188, 0);
+  }
+}
+
+.box-highlight-pulse {
+  animation: boxHighlightPulse 1s ease-in-out 2;
+  transition: box-shadow 0.3s ease;
+}
