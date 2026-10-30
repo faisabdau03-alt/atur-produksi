@@ -42,6 +42,13 @@ function renderLogin(errorMsg = '') {
 
 function renderShell() {
   const app = document.querySelector('#app');
+  if (state.sidebarCollapsed) {
+    app?.classList.add('sidebar-collapse');
+    document.body.classList.add('sidebar-collapse');
+  } else {
+    app?.classList.remove('sidebar-collapse');
+    document.body.classList.remove('sidebar-collapse');
+  }
   app.innerHTML = `
     <div class="wrapper">
       ${renderTopbar(state)}
@@ -123,14 +130,25 @@ function setupGlobalEvents() {
       return;
     }
 
-    // 2. Mobile toggle
-    const mobileToggle = event.target.closest('#mobile-menu-toggle');
+    // 2. Sidebar toggle (Desktop collapse & expand / Mobile drawer)
+    const mobileToggle = event.target.closest('#mobile-menu-toggle, .sidebar-toggle');
     if (mobileToggle) {
       event.preventDefault();
+      const isMobile = window.innerWidth <= 768;
+      const appEl = document.querySelector('#app');
       const sidebar = document.querySelector('#app-sidebar');
       const backdrop = document.querySelector('#sidebar-backdrop');
-      sidebar?.classList.toggle('is-open');
-      backdrop?.classList.toggle('is-active');
+
+      if (isMobile) {
+        // Mobile drawer overlay
+        sidebar?.classList.toggle('is-open');
+        backdrop?.classList.toggle('is-active');
+      } else {
+        // Desktop collapse / expand
+        state.sidebarCollapsed = !state.sidebarCollapsed;
+        appEl?.classList.toggle('sidebar-collapse', state.sidebarCollapsed);
+        document.body.classList.toggle('sidebar-collapse', state.sidebarCollapsed);
+      }
       return;
     }
 

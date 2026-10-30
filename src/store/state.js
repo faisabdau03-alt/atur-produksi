@@ -10,6 +10,7 @@ export const state = {
   isDemo: false,
   isMysql: true,
   mysqlAvailable: true,
+  sidebarCollapsed: false,
   page: 'dashboard',
   selectedPayrollDate: localDate,
   selectedPayrollMonth: currentMonth,

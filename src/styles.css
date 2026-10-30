@@ -111,6 +111,13 @@ button, input, select, textarea {
   text-decoration: none;
 }
 
+.main-header .logo .logo-mini {
+  display: none;
+}
+.main-header .logo .logo-lg {
+  display: inline-block;
+}
+
 .main-header .navbar {
   flex: 1;
   display: flex;
@@ -1981,4 +1988,44 @@ dialog#app-dialog::backdrop {
 .box-highlight-pulse {
   animation: boxHighlightPulse 1s ease-in-out 2;
   transition: box-shadow 0.3s ease;
+}
+
+
+/* ==========================================================================
+   DESKTOP SIDEBAR COLLAPSE (AdminLTE 2)
+   ========================================================================== */
+@media (min-width: 769px) {
+  .main-sidebar {
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  .content-wrapper {
+    transition: margin-left 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  }
+
+  body.sidebar-collapse .main-sidebar,
+  #app.sidebar-collapse .main-sidebar {
+    transform: translateX(-230px);
+  }
+
+  body.sidebar-collapse .content-wrapper,
+  #app.sidebar-collapse .content-wrapper {
+    margin-left: 0 !important;
+  }
+
+  body.sidebar-collapse .main-header .logo,
+  #app.sidebar-collapse .main-header .logo {
+    width: 50px;
+    padding: 0;
+  }
+
+  body.sidebar-collapse .main-header .logo .logo-mini,
+  #app.sidebar-collapse .main-header .logo .logo-mini {
+    display: inline-block !important;
+  }
+
+  body.sidebar-collapse .main-header .logo .logo-lg,
+  #app.sidebar-collapse .main-header .logo .logo-lg {
+    display: none !important;
+  }
 }
