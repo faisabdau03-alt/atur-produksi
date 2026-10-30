@@ -67,9 +67,7 @@ export function renderProducts(state = appState) {
           <button type="button" class="btn btn-success btn-sm" data-action="add-production">
             ${Icons.factory('icon-svg', 13)} Hasil Produksi
           </button>
-          <button type="button" class="btn btn-primary btn-sm" data-action="download-report" data-month="${currentMonth}">
-            ${Icons.printer('icon-svg', 13)} PRINT
-          </button>
+
         </div>
       </div>
 

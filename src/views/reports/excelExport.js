@@ -940,8 +940,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
         <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
           <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
         </button>
-        <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
-          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota (Bluetooth)
+        <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak dokumen nota atau simpan sebagai PDF">
+          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota / Faktur
         </button>
       </div>
     `);
@@ -1157,7 +1157,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
         </button>
         <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
-          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota (Bluetooth)
+          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota / Faktur
         </button>
       </div>
     `);

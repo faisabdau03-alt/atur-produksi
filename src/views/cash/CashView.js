@@ -35,9 +35,7 @@ export function renderCash(state = appState) {
           <button type="button" class="btn btn-info btn-sm" data-action="add-cash">
             ${Icons.plus('icon-svg', 13)} Tambah Transaksi Kas
           </button>
-          <button type="button" class="btn btn-primary btn-sm" data-action="download-report" data-month="${currentMonth}">
-            ${Icons.printer('icon-svg', 13)} PRINT
-          </button>
+
         </div>
       </div>
 

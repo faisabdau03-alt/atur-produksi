@@ -23,9 +23,9 @@ export function renderTopbar(state) {
         <!-- Navbar Right Menu -->
         <div class="navbar-custom-menu">
           <!-- Database status -->
-          <div class="db-status-badge ${isOnline ? '' : 'offline'}" title="${isOnline ? 'Tersambung ke Database MariaDB/MySQL port 3306' : 'Database Offline'}">
+          <div class="db-status-badge ${isOnline ? '' : 'offline'}" title="${isOnline ? 'Sistem Cloud Jaya Wijaya Terhubung & Aktif' : 'Koneksi Terputus / Mode Offline'}">
             <span class="dot"></span>
-            <span>${isOnline ? 'MySQL 3306 Connected' : 'Offline'}</span>
+            <span>${isOnline ? 'Online' : 'Offline'}</span>
           </div>
 
           <!-- User info -->
