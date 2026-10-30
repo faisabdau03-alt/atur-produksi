@@ -18,13 +18,14 @@ export function heading(eyebrow, title, description, actions = '') {
 }
 
 export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', options = {}) {
-  const isClickable = Boolean(options.clickable || options.action || options.filter || options.page || options.stat || options.statType || options.target);
+  const showFooter = options.footer !== false && !options.hideFooter;
+  const isClickable = Boolean(showFooter && (options.clickable || options.action || options.filter || options.page || options.stat || options.statType || options.target));
   const action = options.action || (options.filter ? 'filter-report' : '');
-  const actionAttr = action ? ` data-action="${action}"` : '';
-  const filterAttr = options.filter ? ` data-filter="${options.filter}"` : '';
-  const statAttr = options.stat ? ` data-stat="${options.stat}"` : (options.statType ? ` data-stat="${options.statType}"` : '');
-  const pageAttr = options.page ? ` data-page="${options.page}"` : '';
-  const targetAttr = options.target ? ` data-target="${options.target}"` : '';
+  const actionAttr = action && isClickable ? ` data-action="${action}"` : '';
+  const filterAttr = options.filter && isClickable ? ` data-filter="${options.filter}"` : '';
+  const statAttr = (options.stat ? ` data-stat="${options.stat}"` : (options.statType ? ` data-stat="${options.statType}"` : ''));
+  const pageAttr = options.page && isClickable ? ` data-page="${options.page}"` : '';
+  const targetAttr = options.target && isClickable ? ` data-target="${options.target}"` : '';
   const monthAttr = options.month ? ` data-month="${options.month}"` : '';
   const dateAttr = options.date ? ` data-date="${options.date}"` : '';
   const idAttr = options.id ? ` data-id="${options.id}"` : '';
@@ -39,7 +40,7 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
   else if (tone.includes('purple')) bgClass = 'bg-purple';
   else if (tone.includes('blue')) bgClass = 'bg-blue';
 
-  const allAttrs = `${actionAttr}${filterAttr}${statAttr}${pageAttr}${targetAttr}${monthAttr}${dateAttr}${idAttr}`;
+  const allAttrs = isClickable ? `${actionAttr}${filterAttr}${statAttr}${pageAttr}${targetAttr}${monthAttr}${dateAttr}${idAttr}` : '';
 
   return `
     <div class="small-box ${bgClass}"${allAttrs}${titleHint} style="${isClickable ? 'cursor:pointer;' : ''}${activeStyle}">
@@ -51,9 +52,11 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
       <div class="icon">
         ${iconSvg}
       </div>
-      <a href="#" class="small-box-footer"${allAttrs}>
-        Lihat rincian <span aria-hidden="true">→</span>
-      </a>
+      ${showFooter ? `
+        <a href="#" class="small-box-footer"${allAttrs}>
+          Lihat rincian <span aria-hidden="true">→</span>
+        </a>
+      ` : ''}
     </div>
   `;
 }

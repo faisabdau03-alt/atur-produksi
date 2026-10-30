@@ -63,7 +63,7 @@ export function renderPayroll() {
         `${employees.length} terdaftar`,
         Icons.users('icon-svg', 28),
         'blue',
-        { action: 'open-active-employees-detail', hint: 'Buka rincian master data pekerja aktif' }
+        { hideFooter: true }
       )}
       ${statCard(
         `Total Gaji (${selectedMonth})`,
@@ -71,7 +71,7 @@ export function renderPayroll() {
         `Pokok + lembur + bonus`,
         Icons.cash('icon-svg', 28),
         'green',
-        { action: 'open-salary-summary-detail', month: selectedMonth, hint: 'Buka rincian total gaji dan upah bulan ini' }
+        { hideFooter: true }
       )}
       ${statCard(
         'Akumulasi Lembur',
@@ -79,7 +79,7 @@ export function renderPayroll() {
         `Total upah ${formatMoney(totalMonthOvertimePay)}`,
         Icons.zap('icon-svg', 28),
         'yellow',
-        { action: 'open-overtime-detail', month: selectedMonth, hint: 'Buka rincian akumulasi jam lembur pekerja' }
+        { hideFooter: true }
       )}
       ${statCard(
         `Kehadiran (${formatDate(selectedDate)})`,
@@ -87,7 +87,7 @@ export function renderPayroll() {
         `${dateRecords.length} diabsen`,
         Icons.calendar('icon-svg', 28),
         'purple',
-        { action: 'open-daily-attendance-detail', date: selectedDate, hint: 'Buka rincian absensi shift harian' }
+        { hideFooter: true }
       )}
     </div>
 
