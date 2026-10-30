@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { db } from '../../api/db.js';
 import { state, currentMonth, localDate, cashBalance, stockFor, refreshData } from '../../store/state.js';
 import { openDialog, closeDialog } from '../../components/Dialog.js';
@@ -477,6 +478,140 @@ export function downloadPayrollReport(month) {
     })
   ];
 
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      const payRows = [
+        ['REKAPITULASI GAJI & ABSENSI KARYAWAN — JAYA WIJAYA'],
+        ['Nama Perusahaan:', 'Jaya Wijaya', '', 'Periode Bulan:', selectedMonth],
+        ['Bidang Usaha:', 'PRODUKSI • DISTRIBUSI • GROSIR', '', 'Tanggal Unduh:', formatDate(localDate)],
+        ['Total Karyawan Aktif:', `${activeEmployees.length} orang`, '', 'Total Beban Gaji:', totalMonthSalary],
+        ['Status Pembayaran:', `${paidCount} Lunas, ${pendingCount} Belum Dibayar`],
+        [],
+        [
+          'No',
+          'Nama Pekerja',
+          'Jabatan',
+          'Hadir Penuh (Hari)',
+          'Setengah Hari',
+          'Izin',
+          'Sakit',
+          'Alpa',
+          'Total Hari Kerja Efektif',
+          'Upah Pokok / Hari (IDR)',
+          'Total Upah Pokok (IDR)',
+          'Total Jam Lembur',
+          'Total Upah Lembur (IDR)',
+          'Total Hasil Produksi (Unit)',
+          'Total Insentif Produksi (IDR)',
+          'TOTAL PENDAPATAN GAJI (IDR)',
+          'Status Pembayaran',
+          'Tanggal Pembayaran'
+        ],
+        ...monthlyCalcs.map(({ employee: emp, calc }, idx) => [
+          idx + 1,
+          emp.full_name,
+          emp.position || 'Pekerja Produksi',
+          calc.present,
+          calc.halfDay,
+          calc.permit,
+          calc.sick,
+          calc.absent,
+          calc.effectiveDays,
+          calc.dailySalary,
+          calc.baseSalary,
+          calc.totalOvertimeHours,
+          calc.overtimeAmount,
+          calc.totalProduction,
+          calc.incentiveAmount,
+          calc.totalSalary,
+          calc.isPaid ? 'Lunas (Dibayar)' : 'Belum Dibayar',
+          calc.payout?.paid_at ? formatDate(calc.payout.paid_at) : '—'
+        ]),
+        [
+          'TOTAL',
+          'KESELURUHAN',
+          '',
+          monthlyCalcs.reduce((s, i) => s + i.calc.present, 0),
+          monthlyCalcs.reduce((s, i) => s + i.calc.halfDay, 0),
+          monthlyCalcs.reduce((s, i) => s + i.calc.permit, 0),
+          monthlyCalcs.reduce((s, i) => s + i.calc.sick, 0),
+          monthlyCalcs.reduce((s, i) => s + i.calc.absent, 0),
+          monthlyCalcs.reduce((s, i) => s + i.calc.effectiveDays, 0),
+          '',
+          totalBaseSalary,
+          totalOvertimeHours,
+          totalOvertimePay,
+          totalProduction,
+          totalIncentive,
+          totalMonthSalary,
+          `${paidCount} Lunas`,
+          ''
+        ]
+      ];
+      const wsPay = XLSX.utils.aoa_to_sheet(payRows);
+      XLSX.utils.book_append_sheet(wb, wsPay, 'Rekap Gaji Bulanan');
+
+      const attRows = [
+        ['LOG ABSENSI HARIAN REALTIME — JAYA WIJAYA'],
+        ['Periode Bulan:', selectedMonth],
+        [],
+        [
+          'No',
+          'Tanggal Kerja',
+          'Nama Pekerja',
+          'Jabatan',
+          'Status Kehadiran',
+          'Upah Harian Hari Ini (IDR)',
+          'Jam Lembur',
+          'Tarif Lembur / Jam (IDR)',
+          'Upah Lembur Hari Ini (IDR)',
+          'Hasil Produksi (Unit)',
+          'Insentif Produksi (IDR)',
+          'Total Estimasi Hari Ini (IDR)',
+          'Catatan / Hasil Kerja'
+        ],
+        ...attendanceRecords.map((r, idx) => {
+          const emp = state.employees.find((e) => e.id === r.employee_id) || r.employees;
+          const att = ATTENDANCE_LABELS[r.attendance_status] || { label: r.attendance_status || 'Hadir' };
+          const otHours = Number(r.overtime_hours) || 0;
+          const recOtRate = (r.overtime_rate !== undefined && r.overtime_rate !== null && r.overtime_rate !== '') ? Number(r.overtime_rate) : (emp?.overtime_rate || 0);
+          const otPay = (r.overtime_pay !== undefined && r.overtime_pay !== null && r.overtime_pay !== '') ? Number(r.overtime_pay) : Math.round(otHours * recOtRate);
+          const prodQty = Number(r.production_quantity) || 0;
+          const incRate = Number(emp?.incentive_per_unit) || 0;
+          const incAmount = Math.round(prodQty * incRate);
+          const dailyWage = Number(r.daily_wage || r.base_salary) || 0;
+          const totalDay = dailyWage + otPay + incAmount;
+
+          return [
+            idx + 1,
+            r.work_date || r.period,
+            emp?.full_name || 'Karyawan',
+            emp?.position || 'Produksi',
+            att.label,
+            dailyWage,
+            otHours,
+            recOtRate,
+            otPay,
+            prodQty,
+            incAmount,
+            totalDay,
+            r.notes || '—'
+          ];
+        })
+      ];
+      const wsAtt = XLSX.utils.aoa_to_sheet(attRows);
+      XLSX.utils.book_append_sheet(wb, wsAtt, 'Log Absensi Harian');
+
+      XLSX.writeFile(wb, `rekap-gaji-dan-absensi-${selectedMonth}.xlsx`);
+      notify(`Rekap gaji & absensi periode ${selectedMonth} berhasil diunduh (Excel).`);
+      return;
+    } catch (err) {
+      console.warn('XLSX export failed, fallback to CSV:', err);
+    }
+  }
+
   const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
   const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
   const link = document.createElement('a');
@@ -485,8 +620,8 @@ export function downloadPayrollReport(month) {
   document.body.append(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-  notify(`Rekap gaji & absensi periode ${selectedMonth} berhasil diunduh.`);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+  notify(`Rekap gaji & absensi periode ${selectedMonth} berhasil diunduh (CSV).`);
 }
 
 export function downloadSingleEmployeeAttendance(employeeId, month) {
@@ -548,7 +683,7 @@ export function downloadSingleEmployeeAttendance(employeeId, month) {
   document.body.append(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
   notify(`Rincian absensi ${employee.full_name} berhasil diunduh.`);
 }
 
