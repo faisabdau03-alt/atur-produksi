@@ -5,6 +5,32 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
 const activeSessions = new Map();
+const JWT_SECRET = process.env.JWT_SECRET || 'jayawijaya_erp_auth_secret_key_2026_secured_token';
+
+function signToken(payload) {
+  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
+  const exp = Date.now() + 30 * 24 * 3600 * 1000; // 30 hari aktif
+  const fullPayload = { ...payload, exp, iat: Date.now() };
+  const body = Buffer.from(JSON.stringify(fullPayload)).toString('base64url');
+  const signature = crypto.createHmac('sha256', JWT_SECRET).update(header + '.' + body).digest('base64url');
+  return header + '.' + body + '.' + signature;
+}
+
+function verifyToken(tokenStr) {
+  if (!tokenStr || typeof tokenStr !== 'string') return null;
+  const parts = tokenStr.split('.');
+  if (parts.length !== 3) return null;
+  const [header, body, signature] = parts;
+  const expectedSig = crypto.createHmac('sha256', JWT_SECRET).update(header + '.' + body).digest('base64url');
+  if (signature !== expectedSig) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'));
+    if (payload.exp && Date.now() > payload.exp) return null;
+    return payload;
+  } catch (_) {
+    return null;
+  }
+}
 const BASE_DATA_DIR = process.env.VERCEL ? '/tmp' : process.cwd();
 const USERS_FILE = path.resolve(BASE_DATA_DIR, 'database/auth_users.json');
 const STORE_FILE = path.resolve(BASE_DATA_DIR, 'database/local_store.json');
@@ -338,7 +364,8 @@ export async function handleApiRequest(req, res) {
 
     const authHeader = req.headers['authorization'] || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-    const session = token ? activeSessions.get(token) : null;
+    const verifiedUser = token ? verifyToken(token) : null;
+    const session = verifiedUser ? { user: verifiedUser } : (token ? activeSessions.get(token) : null);
 
     const mysqlOk = await testConnection();
     let db = null;
@@ -421,7 +448,6 @@ export async function handleApiRequest(req, res) {
               return;
             }
 
-            const newToken = 'jw_token_' + crypto.randomBytes(24).toString('hex') + '_' + Date.now();
             const safeUser = {
               id: user.id,
               username: user.username,
@@ -429,10 +455,11 @@ export async function handleApiRequest(req, res) {
               full_name: user.full_name,
               role: user.role || 'operator',
             };
+            const newToken = signToken(safeUser);
             activeSessions.set(newToken, {
               user: safeUser,
               createdAt: Date.now(),
-              expiresAt: Date.now() + 7 * 24 * 3600 * 1000,
+              expiresAt: Date.now() + 30 * 24 * 3600 * 1000,
             });
 
             res.end(JSON.stringify({
@@ -451,6 +478,14 @@ export async function handleApiRequest(req, res) {
               res.statusCode = 401;
               res.end(JSON.stringify({ ok: false, error: 'Sesi belum dibuat atau telah kedaluwarsa.' }));
               return;
+            }
+            if (db && session.user && session.user.id) {
+              try {
+                const [rows] = await db.query('SELECT id, username, email, full_name, role FROM users WHERE id = ? LIMIT 1', [session.user.id]);
+                if (rows && rows.length > 0) {
+                  session.user = { ...session.user, ...rows[0] };
+                }
+              } catch (_) {}
             }
             res.end(JSON.stringify({ ok: true, user: session.user }));
             return;

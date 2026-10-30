@@ -4,14 +4,37 @@ export const db = {
   auth: {
     async getSession() {
       const token = localStorage.getItem('jw_session_token');
+      const cachedUserStr = localStorage.getItem('jw_session_user');
       if (!token) return { data: { session: null }, error: null };
+
+      let cachedUser = null;
+      if (cachedUserStr) {
+        try { cachedUser = JSON.parse(cachedUserStr); } catch (_) {}
+      }
+
       try {
         const res = await apiRequest('/auth/me', { method: 'GET' });
         if (res && res.ok && res.user) {
+          localStorage.setItem('jw_session_user', JSON.stringify(res.user));
           return { data: { session: { user: res.user, access_token: token } }, error: null };
         }
-      } catch (_) {}
+      } catch (err) {
+        const msg = String(err?.message || '');
+        const isExpiredOrInvalid = msg.includes('401') || msg.includes('kedaluwarsa') || msg.includes('Sesi belum') || msg.includes('Unauthorized');
+        if (isExpiredOrInvalid) {
+          localStorage.removeItem('jw_session_token');
+          localStorage.removeItem('jw_session_user');
+          return { data: { session: null }, error: null };
+        }
+        // Jika server sedang offline / restart sementara, gunakan sesi cache agar tidak ke-logout saat refresh
+        if (cachedUser) {
+          console.warn('[Session] Menggunakan sesi cache pengguna:', cachedUser.username);
+          return { data: { session: { user: cachedUser, access_token: token } }, error: null };
+        }
+      }
+
       localStorage.removeItem('jw_session_token');
+      localStorage.removeItem('jw_session_user');
       return { data: { session: null }, error: null };
     },
 
@@ -27,6 +50,9 @@ export const db = {
         }
 
         localStorage.setItem('jw_session_token', res.token);
+        if (res.user) {
+          localStorage.setItem('jw_session_user', JSON.stringify(res.user));
+        }
         return { data: { user: res.user, session: { access_token: res.token, user: res.user } }, error: null };
       } catch (err) {
         return { data: { user: null }, error: err };
@@ -41,6 +67,7 @@ export const db = {
         } catch (_) {}
       }
       localStorage.removeItem('jw_session_token');
+      localStorage.removeItem('jw_session_user');
       return { error: null };
     },
   },

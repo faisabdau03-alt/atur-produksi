@@ -168,6 +168,7 @@ function setupGlobalEvents() {
       const targetPage = navItem.dataset.page;
       if (targetPage) {
         state.page = targetPage;
+        sessionStorage.setItem('jw_current_page', targetPage);
         document.querySelector('#app-sidebar')?.classList.remove('is-open');
         document.querySelector('#sidebar-backdrop')?.classList.remove('is-active');
         renderShell();
@@ -544,14 +545,15 @@ async function enterWorkspace(user) {
   state.isAdmin = user.role === 'admin' || user.app_metadata?.role === 'admin' || user.user_metadata?.role === 'admin';
   try {
     await refreshData();
-    state.page = 'dashboard';
-    renderShell();
-    subscribeToWorkspace();
-    notify(`Selamat datang, ${userDisplayId(user)}!`);
   } catch (error) {
-    renderLogin(`Gagal memuat data ruang kerja: ${error.message}.`);
-    await db.auth.signOut();
+    console.warn('Kendala memuat data ruang kerja saat masuk:', error);
+    showError(`Kendala memuat sebagian data: ${error.message || 'Koneksi lambat'}. Menampilkan data yang tersedia.`);
   }
+  const savedPage = sessionStorage.getItem('jw_current_page');
+  state.page = savedPage || 'dashboard';
+  renderShell();
+  subscribeToWorkspace();
+  notify(`Selamat datang, ${userDisplayId(user)}!`);
 }
 
 function subscribeToWorkspace() {
@@ -566,6 +568,7 @@ function subscribeToWorkspace() {
 
 async function handleSignOut() {
   window.clearInterval(refreshTimer);
+  sessionStorage.removeItem('jw_current_page');
   await db.auth.signOut();
   state.user = null;
   state.isAdmin = false;
