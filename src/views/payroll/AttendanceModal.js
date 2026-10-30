@@ -434,6 +434,177 @@ export function viewEmployeeAttendanceModal(employeeId, month) {
   `);
 }
 
+export function openActiveEmployeesDetailModal() {
+  const employees = [...state.employees].sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+  const activeEmployees = employees.filter((e) => e.is_active);
+  const totalDailyWages = activeEmployees.reduce((sum, e) => sum + (Number(e.daily_salary) || 0), 0);
+
+  openDialog(`Rincian Karyawan Aktif Pabrik (${activeEmployees.length} Pekerja)`, `
+    <div class="modal-stat-detail">
+      <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+        <div class="kpi-strip-item" style="border-left: 3px solid #3c8dbc;">
+          <div class="kpi-label">Pekerja Aktif</div>
+          <div class="kpi-val" style="font-size: 16px; color: #3c8dbc;">${activeEmployees.length} Orang</div>
+          <div class="kpi-sub">Siap operasional</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #00a65a;">
+          <div class="kpi-label">Total Upah Pokok/Hari</div>
+          <div class="kpi-val" style="font-size: 16px; color: #00a65a;">${formatMoney(totalDailyWages)}</div>
+          <div class="kpi-sub">Estimasi harian shift</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #7c3aed;">
+          <div class="kpi-label">Master Terdaftar</div>
+          <div class="kpi-val" style="font-size: 16px; color: #7c3aed;">${employees.length} Karyawan</div>
+          <div class="kpi-sub">${employees.length - activeEmployees.length} non-aktif</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h3 style="font-size: 13px; font-weight: 700; color: #333; margin-bottom: 6px;">
+          Daftar Karyawan Aktif & Tarif Upah
+        </h3>
+        <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+          <table class="table table-bordered table-striped table-hover">
+            <thead>
+              <tr>
+                <th style="width: 40px;" class="align-center">NO</th>
+                <th>NAMA LENGKAP</th>
+                <th>POSISI</th>
+                <th class="align-right">UPAH HARIAN</th>
+                <th class="align-right">TARIF LEMBUR</th>
+                <th class="align-right">INSENTIF</th>
+                <th style="width: 70px;" class="align-center">AKSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activeEmployees.length ? activeEmployees.map((emp, idx) => `
+                <tr>
+                  <td class="align-center">${idx + 1}</td>
+                  <td><strong>${escapeHtml(emp.full_name)}</strong></td>
+                  <td><span class="label label-default">${escapeHtml(emp.position || 'Produksi')}</span></td>
+                  <td class="align-right amount-cell">${formatMoney(emp.daily_salary || 0)}</td>
+                  <td class="align-right amount-cell" style="color: #f39c12; font-weight:600;">${formatMoney(emp.overtime_rate || 0)}/jam</td>
+                  <td class="align-right amount-cell">${formatMoney(emp.incentive_per_unit || 0)}/unit</td>
+                  <td class="align-center">
+                    <button type="button" class="btn btn-default btn-xs" data-action="edit-employee" data-id="${escapeHtml(emp.id)}" title="Ubah data">
+                      ${Icons.wrench('icon-svg', 11)}
+                    </button>
+                  </td>
+                </tr>
+              `).join('') : `<tr><td colspan="7" class="align-center" style="padding: 16px; color: #888;">Belum ada karyawan aktif.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-info" data-action="add-employee">
+          ${Icons.plus('icon-svg', 12)} Tambah Karyawan Baru
+        </button>
+        <button type="button" class="btn btn-primary" data-action="scroll-to-box" data-target="box-employees" data-dismiss-dialog="true">
+          Buka Tabel Master →
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+export function openSalarySummaryModal(month = state.selectedPayrollMonth || currentMonth) {
+  const employees = state.employees.filter((e) => e.is_active);
+  const monthlyCalcs = employees.map((emp) => ({
+    emp,
+    calc: calculateMonthlySalary(emp, month),
+  }));
+
+  const totalMonthSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.totalSalary, 0);
+  const totalBaseSalary = monthlyCalcs.reduce((sum, item) => sum + item.calc.baseSalary, 0);
+  const totalOvertimePay = monthlyCalcs.reduce((sum, item) => sum + item.calc.overtimeAmount, 0);
+  const totalIncentive = monthlyCalcs.reduce((sum, item) => sum + item.calc.incentiveAmount, 0);
+  const paidCount = monthlyCalcs.filter((item) => item.calc.isPaid).length;
+  const pendingCount = monthlyCalcs.filter((item) => !item.calc.isPaid).length;
+
+  openDialog(`Rincian Beban Gaji & Upah Karyawan — ${escapeHtml(month)}`, `
+    <div class="modal-stat-detail">
+      <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+        <div class="kpi-strip-item" style="border-left: 3px solid #00a65a;">
+          <div class="kpi-label">Total Beban Gaji</div>
+          <div class="kpi-val" style="font-size: 16px; color: #00a65a;">${formatMoney(totalMonthSalary)}</div>
+          <div class="kpi-sub">Periode ${escapeHtml(month)}</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #3c8dbc;">
+          <div class="kpi-label">Upah Pokok</div>
+          <div class="kpi-val" style="font-size: 16px; color: #3c8dbc;">${formatMoney(totalBaseSalary)}</div>
+          <div class="kpi-sub">Hari kerja efektif</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #f39c12;">
+          <div class="kpi-label">Lembur & Insentif</div>
+          <div class="kpi-val" style="font-size: 16px; color: #f39c12;">${formatMoney(totalOvertimePay + totalIncentive)}</div>
+          <div class="kpi-sub">Lembur: ${formatMoney(totalOvertimePay)}</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid ${pendingCount > 0 ? '#dd4b39' : '#00a65a'};">
+          <div class="kpi-label">Status Bayar</div>
+          <div class="kpi-val" style="font-size: 16px; color: ${pendingCount > 0 ? '#dd4b39' : '#00a65a'};">${paidCount} Lunas / ${pendingCount} Belum</div>
+          <div class="kpi-sub">${employees.length} pekerja aktif</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h3 style="font-size: 13px; font-weight: 700; color: #333; margin-bottom: 6px;">
+          Rekapitulasi Hak Upah per Pekerja
+        </h3>
+        <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+          <table class="table table-bordered table-striped table-hover">
+            <thead>
+              <tr>
+                <th style="width: 40px;" class="align-center">NO</th>
+                <th>NAMA PEKERJA</th>
+                <th>HARI KERJA</th>
+                <th class="align-right">POKOK</th>
+                <th class="align-right">LEMBUR</th>
+                <th class="align-right">TOTAL GAJI</th>
+                <th class="align-center">STATUS</th>
+                <th style="width: 90px;" class="align-center">AKSI</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${monthlyCalcs.length ? monthlyCalcs.map(({ emp, calc }, idx) => `
+                <tr>
+                  <td class="align-center">${idx + 1}</td>
+                  <td><strong>${escapeHtml(emp.full_name)}</strong><br /><small style="color:#777;">${escapeHtml(emp.position)}</small></td>
+                  <td>${calc.effectiveDays} hari (${calc.present} Hadir)</td>
+                  <td class="align-right amount-cell">${formatMoney(calc.baseSalary)}</td>
+                  <td class="align-right amount-cell" style="color:#f39c12;">${formatMoney(calc.overtimeAmount)}</td>
+                  <td class="align-right amount-cell" style="font-weight:700; color: #00a65a;">${formatMoney(calc.totalSalary)}</td>
+                  <td class="align-center">
+                    <span class="status-pill ${calc.isPaid ? 'status-paid' : 'status-pending'}">
+                      ${calc.isPaid ? 'Lunas' : 'Belum Bayar'}
+                    </span>
+                  </td>
+                  <td class="align-center">
+                    <button type="button" class="btn btn-info btn-xs" data-action="view-employee-attendance" data-id="${escapeHtml(emp.id)}" data-month="${escapeHtml(month)}" title="Lihat slip rincian">
+                      ${Icons.clipboard('icon-svg', 11)} Slip
+                    </button>
+                  </td>
+                </tr>
+              `).join('') : `<tr><td colspan="8" class="align-center" style="padding: 16px; color: #888;">Belum ada karyawan aktif.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-success" data-action="download-payroll-report" data-month="${escapeHtml(month)}">
+          ${Icons.download('icon-svg', 13)} Unduh Rekap Excel
+        </button>
+        <button type="button" class="btn btn-primary" data-action="scroll-to-box" data-target="box-payroll-rekap" data-dismiss-dialog="true">
+          Buka Tabel Pembayaran →
+        </button>
+      </div>
+    </div>
+  `);
+}
 
 export function openOvertimeDetailModal(month = state.selectedPayrollMonth || currentMonth) {
   const employees = state.employees.filter((e) => e.is_active);
@@ -527,6 +698,113 @@ export function openOvertimeDetailModal(month = state.selectedPayrollMonth || cu
         </button>
         <button type="button" class="btn btn-primary" data-action="scroll-to-box" data-target="box-attendance-daily" data-dismiss-dialog="true">
           Buka Absensi Harian →
+        </button>
+      </div>
+    </div>
+  `);
+}
+
+export function openDailyAttendanceDetailModal(date = state.selectedPayrollDate || localDate) {
+  const activeEmployees = state.employees.filter((e) => e.is_active);
+  const dateRecords = state.payroll.filter((r) => (r.work_date || r.period) === date);
+  const presentCount = dateRecords.filter((r) => r.attendance_status === 'present').length;
+  const unattendedCount = activeEmployees.length - dateRecords.length;
+  const shiftOtHours = dateRecords.reduce((sum, r) => sum + (Number(r.overtime_hours) || 0), 0);
+
+  openDialog(`Rincian Absensi Shift Harian — ${formatDate(date)}`, `
+    <div class="modal-stat-detail">
+      <div class="report-kpi-strip" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); margin-bottom: 14px;">
+        <div class="kpi-strip-item" style="border-left: 3px solid #00a65a;">
+          <div class="kpi-label">Pekerja Hadir</div>
+          <div class="kpi-val" style="font-size: 16px; color: #00a65a;">${presentCount} Orang</div>
+          <div class="kpi-sub">Shift ${formatDate(date)}</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid ${unattendedCount > 0 ? '#dd4b39' : '#00a65a'};">
+          <div class="kpi-label">Belum Diabsen</div>
+          <div class="kpi-val" style="font-size: 16px; color: ${unattendedCount > 0 ? '#dd4b39' : '#00a65a'};">${unattendedCount} Orang</div>
+          <div class="kpi-sub">Perlu dicatat statusnya</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #f39c12;">
+          <div class="kpi-label">Lembur Shift Ini</div>
+          <div class="kpi-val" style="font-size: 16px; color: #f39c12;">${formatQuantity(shiftOtHours)} Jam</div>
+          <div class="kpi-sub">Total jam ekstra</div>
+        </div>
+        <div class="kpi-strip-item" style="border-left: 3px solid #3c8dbc;">
+          <div class="kpi-label">Total Pekerja Shift</div>
+          <div class="kpi-val" style="font-size: 16px; color: #3c8dbc;">${activeEmployees.length} Orang</div>
+          <div class="kpi-sub">Karyawan aktif</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 12px;">
+        <h3 style="font-size: 13px; font-weight: 700; color: #333; margin-bottom: 6px;">
+          Status Kehadiran Pekerja (${formatDate(date)})
+        </h3>
+        <div class="table-responsive" style="max-height: 280px; overflow-y: auto;">
+          <table class="table table-bordered table-striped table-hover">
+            <thead>
+              <tr>
+                <th style="width: 40px;" class="align-center">NO</th>
+                <th>NAMA PEKERJA</th>
+                <th>STATUS ABSEN</th>
+                <th>LEMBUR</th>
+                <th>PRODUKSI</th>
+                <th class="align-right">UPAH SHIFT</th>
+                <th style="width: 100px;" class="align-center">AKSI CEPAT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activeEmployees.map((emp, idx) => {
+                const rec = dateRecords.find((r) => r.employee_id === emp.id);
+                if (rec) {
+                  const att = ATTENDANCE_LABELS[rec.attendance_status] || { label: rec.attendance_status, class: 'status-present' };
+                  return `
+                    <tr>
+                      <td class="align-center">${idx + 1}</td>
+                      <td><strong>${escapeHtml(emp.full_name)}</strong></td>
+                      <td><span class="status-pill status-paid">${att.label}</span></td>
+                      <td>${Number(rec.overtime_hours) > 0 ? `${formatQuantity(rec.overtime_hours)} jam` : '—'}</td>
+                      <td>${Number(rec.production_quantity) > 0 ? `${formatQuantity(rec.production_quantity)} unit` : '—'}</td>
+                      <td class="align-right amount-cell"><strong>${formatMoney(rec.total_amount)}</strong></td>
+                      <td class="align-center">
+                        <button type="button" class="btn btn-default btn-xs" data-action="edit-attendance" data-id="${escapeHtml(rec.id)}" title="Ubah absensi">
+                          ${Icons.wrench('icon-svg', 11)} Edit
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }
+                return `
+                  <tr>
+                    <td class="align-center">${idx + 1}</td>
+                    <td><strong>${escapeHtml(emp.full_name)}</strong></td>
+                    <td><span class="status-pill status-danger">Belum Hadir</span></td>
+                    <td>—</td>
+                    <td>—</td>
+                    <td class="align-right amount-cell">—</td>
+                    <td class="align-center">
+                      <button type="button" class="btn btn-info btn-xs" data-action="quick-attendance" data-id="${escapeHtml(emp.id)}" data-status="present">
+                        Hadir
+                      </button>
+                      <button type="button" class="btn btn-default btn-xs" data-action="open-attendance-modal" data-id="${escapeHtml(emp.id)}">
+                        Detail
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-warning" data-action="open-attendance-modal">
+          ${Icons.plus('icon-svg', 12)} Form Absensi Shift
+        </button>
+        <button type="button" class="btn btn-primary" data-action="scroll-to-box" data-target="box-attendance-daily" data-dismiss-dialog="true">
+          Buka Tabel Harian →
         </button>
       </div>
     </div>

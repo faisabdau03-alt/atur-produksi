@@ -63,7 +63,7 @@ export function renderPayroll() {
         `${employees.length} terdaftar`,
         Icons.users('icon-svg', 28),
         'blue',
-        { action: 'scroll-to-box', target: 'box-employees', hint: 'Buka master data karyawan & tarif upah' }
+        { action: 'open-active-employees-detail', hint: 'Buka rincian master data pekerja aktif' }
       )}
       ${statCard(
         `Total Gaji (${selectedMonth})`,
@@ -71,7 +71,7 @@ export function renderPayroll() {
         `Pokok + lembur + bonus`,
         Icons.cash('icon-svg', 28),
         'green',
-        { action: 'scroll-to-box', target: 'box-payroll-rekap', hint: 'Lihat rekapitulasi gaji karyawan bulan ini' }
+        { action: 'open-salary-summary-detail', month: selectedMonth, hint: 'Buka rincian total gaji dan upah bulan ini' }
       )}
       ${statCard(
         'Akumulasi Lembur',
@@ -79,7 +79,7 @@ export function renderPayroll() {
         `Total upah ${formatMoney(totalMonthOvertimePay)}`,
         Icons.zap('icon-svg', 28),
         'yellow',
-        { action: 'open-overtime-detail', hint: 'Buka rincian akumulasi jam lembur pekerja' }
+        { action: 'open-overtime-detail', month: selectedMonth, hint: 'Buka rincian akumulasi jam lembur pekerja' }
       )}
       ${statCard(
         `Kehadiran (${formatDate(selectedDate)})`,
@@ -87,7 +87,7 @@ export function renderPayroll() {
         `${dateRecords.length} diabsen`,
         Icons.calendar('icon-svg', 28),
         'purple',
-        { action: 'scroll-to-box', target: 'box-attendance-daily', hint: 'Buka catatan absensi shift harian' }
+        { action: 'open-daily-attendance-detail', date: selectedDate, hint: 'Buka rincian absensi shift harian' }
       )}
     </div>
 
@@ -268,7 +268,6 @@ export function renderPayroll() {
                       <td><strong>${escapeHtml(emp.full_name)}</strong></td>
                       <td><span class="status-pill status-danger">Belum Hadir</span></td>
                       <td>—</td>
-                      <td class="align-right amount-cell">—</td>
                       <td>—</td>
                       <td class="align-right amount-cell">—</td>
                       <td class="align-center">

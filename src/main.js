@@ -14,7 +14,7 @@ import { openMovementModal } from './views/inventory/InventoryModal.js';
 import { renderCash } from './views/cash/CashView.js';
 import { openCashModal } from './views/cash/CashModal.js';
 import { renderPayroll } from './views/payroll/PayrollView.js';
-import { employeeForm, attendanceForm, payMonthlySalaryModal, viewEmployeeAttendanceModal, openOvertimeDetailModal } from './views/payroll/AttendanceModal.js';
+import { employeeForm, attendanceForm, payMonthlySalaryModal, viewEmployeeAttendanceModal, openOvertimeDetailModal, openActiveEmployeesDetailModal, openSalarySummaryModal, openDailyAttendanceDetailModal } from './views/payroll/AttendanceModal.js';
 import { calculateMonthlySalary } from './views/payroll/salaryCalc.js';
 import { renderUsers } from './views/users/UsersView.js';
 import { userForm } from './views/users/UserModal.js';
@@ -459,9 +459,17 @@ async function handlePageAction(event) {
         setTimeout(() => el.classList.remove('box-highlight-pulse'), 2500);
       }
     }
+  } else if (action === 'open-active-employees-detail') {
+    openActiveEmployeesDetailModal();
+  } else if (action === 'open-salary-summary-detail') {
+    const month = button.dataset.month || state.selectedPayrollMonth || currentMonth;
+    openSalarySummaryModal(month);
   } else if (action === 'open-overtime-detail') {
     const month = button.dataset.month || state.selectedPayrollMonth || currentMonth;
     openOvertimeDetailModal(month);
+  } else if (action === 'open-daily-attendance-detail') {
+    const date = button.dataset.date || state.selectedPayrollDate || localDate;
+    openDailyAttendanceDetailModal(date);
   } else if (action === 'filter-payroll-status') {
     state.payrollStatusFilter = button.dataset.status || 'all';
     renderPage();
