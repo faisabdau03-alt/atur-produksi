@@ -18,10 +18,14 @@ export function heading(eyebrow, title, description, actions = '') {
 }
 
 export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', options = {}) {
-  const isClickable = Boolean(options.clickable || options.action || options.filter);
-  const actionAttr = options.action ? ` data-action="${options.action}"` : (options.filter ? ` data-action="filter-report" data-filter="${options.filter}"` : '');
+  const isClickable = Boolean(options.clickable || options.action || options.filter || options.page || options.stat || options.statType);
+  const action = options.action || (options.filter ? 'filter-report' : '');
+  const actionAttr = action ? ` data-action="${action}"` : '';
+  const filterAttr = options.filter ? ` data-filter="${options.filter}"` : '';
   const statAttr = options.stat ? ` data-stat="${options.stat}"` : (options.statType ? ` data-stat="${options.statType}"` : '');
+  const pageAttr = options.page ? ` data-page="${options.page}"` : '';
   const titleHint = options.hint ? ` title="${escapeHtml(options.hint)}"` : '';
+  const activeStyle = options.active ? ' box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px rgba(0,0,0,0.35); transform: translateY(-2px);' : '';
 
   // Map tone to AdminLTE classic bg colors
   let bgClass = 'bg-aqua';
@@ -31,8 +35,10 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
   else if (tone.includes('purple')) bgClass = 'bg-purple';
   else if (tone.includes('blue')) bgClass = 'bg-blue';
 
+  const footerAttrs = `${actionAttr}${filterAttr}${statAttr}${pageAttr}`;
+
   return `
-    <div class="small-box ${bgClass}"${actionAttr}${statAttr}${titleHint}${isClickable ? ' style="cursor:pointer;"' : ''}>
+    <div class="small-box ${bgClass}"${actionAttr}${filterAttr}${statAttr}${pageAttr}${titleHint} style="${isClickable ? 'cursor:pointer;' : ''}${activeStyle}">
       <div class="inner">
         <h3>${value}</h3>
         <p>${escapeHtml(label)}</p>
@@ -41,7 +47,7 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
       <div class="icon">
         ${iconSvg}
       </div>
-      <a href="#" class="small-box-footer">
+      <a href="#" class="small-box-footer"${footerAttrs}>
         Lihat rincian <span aria-hidden="true">→</span>
       </a>
     </div>

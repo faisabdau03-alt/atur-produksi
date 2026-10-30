@@ -160,6 +160,7 @@ function setupGlobalEvents() {
     // 4. Other actions
     const button = event.target.closest('[data-action]');
     if (button) {
+      if (event.target.closest('a')) event.preventDefault();
       handlePageAction(event);
       return;
     }
@@ -198,6 +199,7 @@ function setupGlobalEvents() {
 }
 
 async function handlePageAction(event) {
+  if (event && event.target && event.target.closest('a')) event.preventDefault();
   const button = event.target.closest('[data-action]');
   if (!button) return;
 
@@ -435,6 +437,12 @@ async function handlePageAction(event) {
     downloadSingleEmployeeAttendance(id, month);
   } else if (action === 'filter-report') {
     state.selectedReportFilter = button.dataset.filter || 'all';
+    renderPage();
+  } else if (action === 'filter-products') {
+    state.productsFilter = button.dataset.filter || 'all';
+    renderPage();
+  } else if (action === 'filter-cash') {
+    state.cashFilter = button.dataset.filter || 'all';
     renderPage();
   } else if (action === 'view-report-detail') {
     openReportDetailModal(button.dataset.type, button.dataset.id, state.selectedReportMonth || currentMonth);

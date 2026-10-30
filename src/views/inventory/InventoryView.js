@@ -14,9 +14,9 @@ export function renderInventory(state = appState) {
     ${heading('', 'Persediaan Gudang', 'Pencatatan mutasi stok barang masuk, hasil produksi, dan pengiriman')}
 
     <div class="stats-grid">
-      ${statCard('Produk Siap Kirim', `${quantityFormat.format(inStockCount)} SKU`, 'Stok fisik aman di gudang', Icons.box('icon-svg', 28), 'green')}
-      ${statCard('Mutasi Bulan Ini', `${quantityFormat.format(monthInv.length)} Catatan`, 'Barang masuk & keluar', Icons.inventory('icon-svg', 28), 'yellow')}
-      ${statCard('Total Master SKU', `${quantityFormat.format(products.length)} SKU`, 'Katalog produk terdaftar', Icons.products('icon-svg', 28), 'blue')}
+      ${statCard('Produk Siap Kirim', `${quantityFormat.format(inStockCount)} SKU`, 'Stok fisik aman di gudang', Icons.box('icon-svg', 28), 'green', { page: 'products', hint: 'Lihat daftar stok di Data Barang' })}
+      ${statCard('Mutasi Bulan Ini', `${quantityFormat.format(monthInv.length)} Catatan`, 'Barang masuk & keluar', Icons.inventory('icon-svg', 28), 'yellow', { action: 'open-stat-detail', stat: 'inventory-movements', hint: 'Buka rincian riwayat mutasi stok' })}
+      ${statCard('Total Master SKU', `${quantityFormat.format(products.length)} SKU`, 'Katalog produk terdaftar', Icons.products('icon-svg', 28), 'blue', { page: 'products', hint: 'Buka master Data Barang' })}
     </div>
 
     <div class="box box-primary">

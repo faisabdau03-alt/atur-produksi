@@ -15,6 +15,8 @@ export const state = {
   selectedPayrollMonth: currentMonth,
   selectedReportMonth: currentMonth,
   selectedReportFilter: 'all',
+  productsFilter: 'all',
+  cashFilter: 'all',
   products: [],
   inventory: [],
   cash: [],

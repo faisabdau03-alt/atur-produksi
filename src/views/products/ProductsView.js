@@ -6,18 +6,55 @@ import { stockFor, state as appState } from '../../store/state.js';
 import { Icons } from '../../components/Icons.js';
 
 export function renderProducts(state = appState) {
-  const rows = [...state.products].sort((a, b) => a.name.localeCompare(b.name));
-  const inStockCount = rows.filter((p) => stockFor(p.id) > 0).length;
-  const outOfStockCount = rows.filter((p) => stockFor(p.id) <= 0).length;
+  const currentFilter = state.productsFilter || 'all';
+  const allRows = [...state.products].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const totalCount = allRows.length;
+  const inStockCount = allRows.filter((p) => stockFor(p.id) > 0).length;
+  const outOfStockCount = allRows.filter((p) => stockFor(p.id) <= 0).length;
+
+  let rows = allRows;
+  if (currentFilter === 'in-stock') {
+    rows = allRows.filter((p) => stockFor(p.id) > 0);
+  } else if (currentFilter === 'out-of-stock') {
+    rows = allRows.filter((p) => stockFor(p.id) <= 0);
+  }
 
   return `
     ${heading('', 'Data Barang', 'Master data barang dan inventaris produk pabrik')}
 
     <div class="stats-grid">
-      ${statCard('Total Ragam Barang', `${quantityFormat.format(rows.length)} SKU`, 'Katalog produk terdaftar', Icons.products('icon-svg', 28), 'blue')}
-      ${statCard('Stok Fisik Tersedia', `${quantityFormat.format(inStockCount)} Produk`, 'Stok di atas 0 unit', Icons.box('icon-svg', 28), 'green')}
-      ${statCard('Stok Habis / Kritis', `${quantityFormat.format(outOfStockCount)} Produk`, 'Perlu antrean produksi', Icons.alertCircle('icon-svg', 28), 'red')}
-      ${statCard('Mutasi Bulan Ini', `${quantityFormat.format(monthRecords(state.inventory, currentMonth).length)} Kali`, 'Aktivitas pergerakan gudang', Icons.trendingUp('icon-svg', 28), 'yellow')}
+      ${statCard(
+        'Total Ragam Barang',
+        `${quantityFormat.format(totalCount)} SKU`,
+        'Katalog produk terdaftar',
+        Icons.products('icon-svg', 28),
+        'blue',
+        { action: 'filter-products', filter: 'all', hint: 'Tampilkan semua produk', active: currentFilter === 'all' }
+      )}
+      ${statCard(
+        'Stok Fisik Tersedia',
+        `${quantityFormat.format(inStockCount)} Produk`,
+        'Stok di atas 0 unit',
+        Icons.box('icon-svg', 28),
+        'green',
+        { action: 'filter-products', filter: 'in-stock', hint: 'Saring: Produk dengan stok aman (> 0)', active: currentFilter === 'in-stock' }
+      )}
+      ${statCard(
+        'Stok Habis / Kritis',
+        `${quantityFormat.format(outOfStockCount)} Produk`,
+        'Perlu antrean produksi',
+        Icons.alertCircle('icon-svg', 28),
+        'red',
+        { action: 'filter-products', filter: 'out-of-stock', hint: 'Saring: Produk habis atau stok 0', active: currentFilter === 'out-of-stock' }
+      )}
+      ${statCard(
+        'Mutasi Bulan Ini',
+        `${quantityFormat.format(monthRecords(state.inventory, currentMonth).length)} Kali`,
+        'Aktivitas pergerakan gudang',
+        Icons.trendingUp('icon-svg', 28),
+        'yellow',
+        { page: 'inventory', hint: 'Buka riwayat pergerakan stok gudang' }
+      )}
     </div>
 
     <div class="box box-primary">
@@ -38,6 +75,21 @@ export function renderProducts(state = appState) {
 
       <div class="box-body">
         ${tableToolbar('search-products')}
+
+        ${currentFilter !== 'all' ? `
+          <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 14px; padding: 10px 14px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 16px;">🔍</span>
+              <span>
+                Menyaring tampilan: <strong>${currentFilter === 'in-stock' ? 'Stok Fisik Tersedia (> 0)' : 'Stok Habis / Kritis (≤ 0)'}</strong>
+                — Menampilkan <strong>${rows.length}</strong> dari <strong>${totalCount}</strong> SKU
+              </span>
+            </div>
+            <button type="button" class="btn btn-default btn-xs" data-action="filter-products" data-filter="all" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;">
+              ✕ Tampilkan Semua
+            </button>
+          </div>
+        ` : ''}
 
         ${rows.length ? `
           <div class="table-responsive">
@@ -92,11 +144,14 @@ export function renderProducts(state = appState) {
               </tbody>
             </table>
           </div>
-        ` : emptyState('Belum ada data barang', 'Klik tombol "Tambah Barang Baru" di atas untuk menambahkan produk ke sistem.')}
+        ` : (currentFilter !== 'all' 
+              ? emptyState('Tidak ada produk yang sesuai dengan filter', 'Semua produk saat ini berada di luar kategori ini. Klik "Tampilkan Semua" untuk melihat seluruh katalog.')
+              : emptyState('Belum ada data barang', 'Klik tombol "Tambah Barang Baru" di atas untuk menambahkan produk ke sistem.')
+            )}
       </div>
 
       <div class="box-footer">
-        ${tableFooter(rows.length, rows.length)}
+        ${tableFooter(rows.length, totalCount)}
       </div>
     </div>
   `;
