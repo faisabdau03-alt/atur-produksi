@@ -7,8 +7,7 @@ export function renderSidebar(state) {
 
   const menu = [
     { page: 'dashboard', label: 'DASHBOARD', icon: Icons.dashboard('icon-svg', 15) },
-    { page: 'products', label: 'DATA BARANG', icon: Icons.products('icon-svg', 15) },
-    { page: 'inventory', label: 'PERSEDIAAN GUDANG', icon: Icons.inventory('icon-svg', 15) },
+    { page: 'inventory', label: 'INVENTARIS & GUDANG', icon: Icons.inventory('icon-svg', 15) },
     { page: 'cash', label: 'TRANSAKSI KAS', icon: Icons.cash('icon-svg', 15) },
   ];
 

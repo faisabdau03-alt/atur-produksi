@@ -79,9 +79,9 @@ function renderShell() {
 function renderPage() {
   const pages = {
     dashboard: ['Ringkasan', renderDashboard],
-    inventory: ['Persediaan', renderInventory],
+    inventory: ['Inventaris & Gudang', renderInventory],
+    products: ['Inventaris & Gudang', () => { state.inventoryTab = 'catalog'; return renderInventory(); }],
     cash: ['Keuangan', renderCash],
-    products: ['Produk', renderProducts],
     payroll: ['Absensi & gaji', renderPayroll],
     users: ['Kelola Pengguna', renderUsers],
     reports: ['Laporan', () => renderReports(state.selectedReportMonth || currentMonth)],
@@ -168,7 +168,11 @@ function setupGlobalEvents() {
     const navItem = event.target.closest('[data-page]');
     if (navItem) {
       event.preventDefault();
-      const targetPage = navItem.dataset.page;
+      let targetPage = navItem.dataset.page;
+      if (targetPage === 'products') {
+        targetPage = 'inventory';
+        state.inventoryTab = 'catalog';
+      }
       if (targetPage) {
         state.page = targetPage;
         sessionStorage.setItem('jw_current_page', targetPage);
@@ -460,7 +464,11 @@ async function handlePageAction(event) {
   } else if (action === 'filter-report') {
     state.selectedReportFilter = button.dataset.filter || 'all';
     renderPage();
+  } else if (action === 'switch-inventory-tab') {
+    state.inventoryTab = button.dataset.tab || 'catalog';
+    renderPage();
   } else if (action === 'filter-products') {
+    state.inventoryTab = 'catalog';
     state.productsFilter = button.dataset.filter || 'all';
     renderPage();
   } else if (action === 'filter-cash') {

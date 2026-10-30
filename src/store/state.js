@@ -12,6 +12,7 @@ export const state = {
   mysqlAvailable: true,
   sidebarCollapsed: false,
   page: 'dashboard',
+  inventoryTab: 'catalog', // 'catalog' | 'movements'
   selectedPayrollDate: localDate,
   selectedPayrollMonth: currentMonth,
   selectedReportMonth: currentMonth,
