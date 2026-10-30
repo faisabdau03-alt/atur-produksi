@@ -29,7 +29,12 @@ export function renderInventory(state = appState) {
           <button type="button" class="btn btn-success btn-sm" data-action="add-production">
             ${Icons.factory('icon-svg', 13)} Hasil Produksi
           </button>
-
+          <button type="button" class="btn btn-default btn-sm" data-action="export-inventory-csv" title="Unduh mutasi persediaan format CSV">
+            ${Icons.download('icon-svg', 13)} Unduh CSV
+          </button>
+          <button type="button" class="btn btn-default btn-sm" data-action="export-inventory-excel" title="Unduh mutasi persediaan format Excel (.xlsx)">
+            ${Icons.download('icon-svg', 13)} Unduh Excel
+          </button>
         </div>
       </div>
 

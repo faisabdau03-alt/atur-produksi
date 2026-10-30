@@ -687,6 +687,197 @@ export function downloadSingleEmployeeAttendance(employeeId, month) {
   notify(`Rincian absensi ${employee.full_name} berhasil diunduh.`);
 }
 
+export function downloadFileBlob(content, filename, mimeType = 'text/csv;charset=utf-8;') {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+export function exportProducts(format = 'csv') {
+  let products = [...(state.products || [])];
+  if (!products.length) {
+    showError('Belum ada data barang untuk diunduh.');
+    return;
+  }
+
+  const currentFilter = state.productsFilter || 'all';
+  if (currentFilter === 'available') {
+    products = products.filter((p) => stockFor(p.id) > 0);
+  } else if (currentFilter === 'empty') {
+    products = products.filter((p) => stockFor(p.id) <= 0);
+  }
+
+  const dateStr = typeof localDate === 'function' ? localDate() : (localDate || new Date().toISOString().slice(0, 10));
+  const filterLabel = currentFilter === 'available' ? 'Stok Tersedia (>0)' : (currentFilter === 'empty' ? 'Stok Habis / Kritis (<=0)' : 'Semua Data Barang');
+
+  const rows = [
+    ['KATALOG DATA BARANG - JAYA WIJAYA'],
+    ['Kategori Saring', filterLabel],
+    ['Tanggal Ekspor', formatDate(dateStr)],
+    ['Total Produk', `${products.length} SKU`],
+    [],
+    ['NO', 'KODE SKU', 'NAMA BARANG', 'KATEGORI', 'SATUAN', 'HARGA BELI (RP)', 'HARGA JUAL (RP)', 'ESTIMASI LABA/SATUAN (RP)', 'STOK FISIK', 'STATUS STOK']
+  ];
+
+  products.forEach((p, idx) => {
+    const stock = stockFor(p.id);
+    const purchase = Number(p.purchase_price) || 0;
+    const sale = Number(p.sale_price) || 0;
+    const margin = sale - purchase;
+    const status = stock <= 0 ? 'Habis / Kritis' : (stock <= (p.min_stock || 5) ? 'Menipis' : 'Tersedia');
+
+    rows.push([
+      idx + 1,
+      p.sku || `PRD-${p.id}`,
+      p.name,
+      p.category || 'Umum',
+      p.unit || 'Pcs',
+      purchase,
+      sale,
+      margin,
+      stock,
+      status
+    ]);
+  });
+
+  const baseFilename = `Data_Barang_Jaya_Wijaya_${dateStr.replace(/-/g, '')}`;
+
+  if (format === 'excel' && typeof XLSX !== 'undefined') {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Data Barang');
+    XLSX.writeFile(wb, `${baseFilename}.xlsx`);
+    notify('Data barang berhasil diunduh (Excel).');
+  } else {
+    const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+    downloadFileBlob(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+    notify('Data barang berhasil diunduh (CSV).');
+  }
+}
+
+export function exportInventory(format = 'csv') {
+  const inventory = [...(state.inventory || [])];
+  if (!inventory.length) {
+    showError('Belum ada data pergerakan barang untuk diunduh.');
+    return;
+  }
+
+  inventory.sort((a, b) => String(b.occurred_on || '').localeCompare(String(a.occurred_on || '')));
+  const dateStr = typeof localDate === 'function' ? localDate() : (localDate || new Date().toISOString().slice(0, 10));
+
+  const rows = [
+    ['RIWAYAT PERGERAKAN STOK GUDANG (MUTASI) - JAYA WIJAYA'],
+    ['Tanggal Ekspor', formatDate(dateStr)],
+    ['Total Mutasi Tercatat', `${inventory.length} Transaksi`],
+    [],
+    ['NO', 'TANGGAL', 'KODE TRANSAKSI', 'NAMA BARANG', 'ARUS MUTASI', 'JUMLAH (QTY)', 'SATUAN', 'KETERANGAN / KEPERLUAN', 'WAKTU INPUT']
+  ];
+
+  inventory.forEach((inv, idx) => {
+    const prod = state.products.find((p) => p.id === inv.product_id);
+    const directionLabel = inv.direction === 'in' ? 'Barang Masuk (+)' : 'Barang Keluar (-)';
+    const unit = prod?.unit || 'Pcs';
+    const prodName = prod?.name || `Produk #${inv.product_id}`;
+
+    rows.push([
+      idx + 1,
+      formatDate(inv.occurred_on),
+      inv.id || `#${idx + 1}`,
+      prodName,
+      directionLabel,
+      Number(inv.quantity),
+      unit,
+      inv.notes || '',
+      inv.created_at ? formatDate(inv.created_at) : ''
+    ]);
+  });
+
+  const baseFilename = `Mutasi_Gudang_Jaya_Wijaya_${dateStr.replace(/-/g, '')}`;
+
+  if (format === 'excel' && typeof XLSX !== 'undefined') {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Mutasi Stok');
+    XLSX.writeFile(wb, `${baseFilename}.xlsx`);
+    notify('Data mutasi gudang berhasil diunduh (Excel).');
+  } else {
+    const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+    downloadFileBlob(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+    notify('Data mutasi gudang berhasil diunduh (CSV).');
+  }
+}
+
+export function exportCash(format = 'csv') {
+  let cash = [...(state.cash || [])];
+  if (!cash.length) {
+    showError('Belum ada data transaksi kas untuk diunduh.');
+    return;
+  }
+
+  const currentFilter = state.cashFilter || 'all';
+  if (currentFilter === 'in') {
+    cash = cash.filter((c) => c.direction === 'in');
+  } else if (currentFilter === 'out') {
+    cash = cash.filter((c) => c.direction === 'out');
+  }
+
+  cash.sort((a, b) => String(b.occurred_on || '').localeCompare(String(a.occurred_on || '')));
+  const dateStr = typeof localDate === 'function' ? localDate() : (localDate || new Date().toISOString().slice(0, 10));
+  const filterLabel = currentFilter === 'in' ? 'Hanya Uang Masuk (Pemasukan)' : (currentFilter === 'out' ? 'Hanya Uang Keluar (Pengeluaran)' : 'Semua Transaksi Kas');
+
+  const totalIn = cash.filter((c) => c.direction === 'in').reduce((sum, c) => sum + Number(c.amount), 0);
+  const totalOut = cash.filter((c) => c.direction === 'out').reduce((sum, c) => sum + Number(c.amount), 0);
+  const saldoFilter = totalIn - totalOut;
+
+  const rows = [
+    ['BUKU BESAR ARUS KAS MASUK & KELUAR - JAYA WIJAYA'],
+    ['Kategori Saring', filterLabel],
+    ['Tanggal Ekspor', formatDate(dateStr)],
+    ['Total Pemasukan Saring (Rp)', totalIn],
+    ['Total Pengeluaran Saring (Rp)', totalOut],
+    ['Selisih Arus Kas (Rp)', saldoFilter],
+    [],
+    ['NO', 'TANGGAL', 'KATEGORI', 'ARUS TRANSAKSI', 'UANG MASUK (RP)', 'UANG KELUAR (RP)', 'KETERANGAN', 'WAKTU INPUT']
+  ];
+
+  cash.forEach((c, idx) => {
+    const isMasuk = c.direction === 'in';
+    const amt = Number(c.amount) || 0;
+
+    rows.push([
+      idx + 1,
+      formatDate(c.occurred_on),
+      c.category || 'Operasional',
+      isMasuk ? 'Uang Masuk (+)' : 'Uang Keluar (-)',
+      isMasuk ? amt : 0,
+      !isMasuk ? amt : 0,
+      c.notes || '',
+      c.created_at ? formatDate(c.created_at) : ''
+    ]);
+  });
+
+  const baseFilename = `Buku_Kas_Jaya_Wijaya_${dateStr.replace(/-/g, '')}`;
+
+  if (format === 'excel' && typeof XLSX !== 'undefined') {
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    XLSX.utils.book_append_sheet(wb, ws, 'Buku Kas');
+    XLSX.writeFile(wb, `${baseFilename}.xlsx`);
+    notify('Data buku kas berhasil diunduh (Excel).');
+  } else {
+    const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\r\n')}`;
+    downloadFileBlob(csv, `${baseFilename}.csv`, 'text/csv;charset=utf-8;');
+    notify('Data buku kas berhasil diunduh (CSV).');
+  }
+}
+
+
 export function openReportDetailModal(type, id, month = currentMonth) {
   if (type === 'cash') {
     const rec = state.cash.find((c) => c.id === id);

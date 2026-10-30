@@ -28,6 +28,9 @@ import {
   openStatDetailModal,
   printThermalReceipt,
   copyReceiptText,
+  exportProducts,
+  exportInventory,
+  exportCash,
 } from './views/reports/excelExport.js';
 import { ATTENDANCE_LABELS, formatQuantity, formatDate, formatMoney } from './utils/formatters.js';
 import { Icons } from './components/Icons.js';
