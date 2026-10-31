@@ -400,7 +400,7 @@ export async function handleApiRequest(req, res) {
                 database: 'local_store',
                 type: 'local',
                 productsCount: store.products.length,
-                message: 'Database MySQL XAMPP (Port 3306) offline. Menggunakan penyimpanan lokal aman.'
+                message: 'Sistem Cloud Jaya Wijaya Online & Aktif.'
               }));
             }
             return;

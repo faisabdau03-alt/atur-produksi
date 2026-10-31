@@ -3,7 +3,6 @@ import { userDisplayId } from '../store/state.js';
 import { Icons } from './Icons.js';
 
 export function renderTopbar(state) {
-  const isOnline = Boolean(state.mysqlAvailable);
 
   return `
     <header class="main-header">
@@ -25,11 +24,6 @@ export function renderTopbar(state) {
 
         <!-- Navbar Right Menu -->
         <div class="navbar-custom-menu">
-          <!-- Database status -->
-          <div class="db-status-badge ${isOnline ? '' : 'offline'}" title="${isOnline ? 'Sistem Cloud Jaya Wijaya Terhubung & Aktif' : 'Koneksi Terputus / Mode Offline'}">
-            <span class="dot"></span>
-            <span>${isOnline ? 'Online' : 'Offline'}</span>
-          </div>
 
           <!-- User info -->
           <div class="user-nav-item">

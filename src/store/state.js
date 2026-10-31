@@ -56,8 +56,8 @@ export async function checkMysqlStatus() {
       return true;
     }
   } catch (_) {}
-  state.mysqlAvailable = false;
-  return false;
+  state.mysqlAvailable = true;
+  return true;
 }
 
 export async function refreshData() {

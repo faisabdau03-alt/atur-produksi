@@ -2,7 +2,6 @@ import { escapeHtml } from '../../utils/sanitize.js';
 import { Icons } from '../../components/Icons.js';
 
 export function renderLoginCard(message = '', state = {}) {
-  const isMysql = Boolean(state.mysqlAvailable);
 
   return `
     <div class="login-box">
@@ -13,12 +12,6 @@ export function renderLoginCard(message = '', state = {}) {
       <div class="login-box-body">
         <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya" class="login-logo-img" />
         <p class="login-box-msg">Sistem Informasi Inventaris & Produksi Gudang</p>
-
-        ${!isMysql ? `
-        <div class="db-status-badge offline" style="display:flex; justify-content:center; margin-bottom:15px; background:#fff3cd; color:#856404; border:1px solid #ffeeba; padding:6px 10px; font-size:12px; border-radius:4px;">
-          <span class="dot" style="background-color:#856404;"></span>
-          <span>Mode Offline (Penyimpanan Lokal Aktif)</span>
-        </div>` : ''}
 
         ${message ? `
         <div style="background:#f2dede; border:1px solid #ebccd1; color:#a94442; padding:10px; border-radius:3px; margin-bottom:15px; font-size:12px; display:flex; align-items:center; gap:6px;">
@@ -44,7 +37,6 @@ export function renderLoginCard(message = '', state = {}) {
             <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-weight:normal;">
               <input type="checkbox" id="remember-me" checked /> Ingat sesi
             </label>
-            <span style="color:#888;">Port 3306</span>
           </div>
 
           <button type="submit" class="btn btn-primary btn-block" style="width:100%; height:38px; font-size:14px;">
