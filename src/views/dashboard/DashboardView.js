@@ -58,9 +58,6 @@ export function renderDashboard(state = appState) {
       <div class="box-header">
         <h3 class="box-title">${Icons.dashboard('icon-svg', 18)} Riwayat Aktivitas Operasional Terbaru</h3>
         <div class="box-tools">
-          <button type="button" class="btn btn-info btn-sm" data-action="quick-entry">
-            ${Icons.plus('icon-svg', 13)} Catat Transaksi Baru
-          </button>
           <button type="button" class="btn btn-default btn-sm" data-page="reports">
             Buka Laporan Lengkap →
           </button>
