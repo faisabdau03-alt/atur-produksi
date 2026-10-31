@@ -201,8 +201,9 @@ function renderMovementsSection(invRecords) {
       <div class="box-header">
         <h3 class="box-title">${Icons.inventory('icon-svg', 18)} Riwayat Pergerakan Barang Masuk & Keluar</h3>
         <div class="box-tools">
-          <button type="button" class="btn btn-primary btn-sm" data-action="open-sale-invoice-modal" style="background: #187554; border-color: #12583f; font-weight: 600;">
-            ${Icons.receipt('icon-svg', 13)} Buat Nota Penjualan
+          <button type="button" class="btn btn-warning btn-sm" data-action="add-sale" style="background:#e07b00; border-color:#c46b00; color:#fff; font-weight:600;">
+            ${Icons.receipt('icon-svg', 13)} Penjualan (Nota)
+          </button>
           </button>
           <button type="button" class="btn btn-info btn-sm" data-action="add-inventory">
             ${Icons.plus('icon-svg', 13)} Catat Pergerakan

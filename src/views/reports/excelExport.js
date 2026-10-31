@@ -5,7 +5,7 @@ import { openDialog, closeDialog } from '../../components/Dialog.js';
 import { notify, showError } from '../../components/Toast.js';
 import { runMutation } from '../../utils/mutation.js';
 import { escapeHtml } from '../../utils/sanitize.js';
-import { formatMoney, formatQuantity, formatDate, monthRecords, monthEnd, ATTENDANCE_LABELS } from '../../utils/formatters.js';
+import { formatMoney, formatQuantity, formatDate, monthRecords, monthEnd, ATTENDANCE_LABELS, extractNotaId } from '../../utils/formatters.js';
 import { movementTable, emptyState } from '../../components/Table.js';
 import { calculateMonthlySalary } from '../payroll/salaryCalc.js';
 import { payMonthlySalaryModal } from '../payroll/AttendanceModal.js';
@@ -82,14 +82,14 @@ export function buildReceiptRawText({
 
   lines.push(divDash);
   if (items && items.length > 0) {
-    lines.push(items.length > 1 ? `DAFTAR BARANG (${items.length} ITEM):` : 'RINCIAN BARANG:');
+    lines.push(`RINCIAN (${items.length} ITEM):`);
     items.forEach((it, idx) => {
-      const numPrefix = items.length > 1 ? `${idx + 1}. ` : '';
-      lines.push(numPrefix + (it.name || 'Produk'));
-      const qText = typeof it.qty === 'number' ? `${formatQuantity(it.qty)} ${it.unit || ''}`.trim() : String(it.qty || '1');
-      const pText = it.price ? `@ ${typeof it.price === 'number' ? formatMoney(it.price) : it.price}` : '';
-      const tText = typeof it.total === 'number' ? formatMoney(it.total) : String(it.total || '');
-      lines.push(row(`${qText} ${pText}`.trim(), tText));
+      const itemTitle = (items.length > 1 ? `${idx + 1}. ` : '') + (it.name || 'Produk');
+      lines.push(itemTitle);
+      const uPrice = Number(it.unitPrice || it.price) || 0;
+      const sub = Number(it.subtotal || it.total) || 0;
+      const subInfo = `${formatQuantity(it.qty)} ${it.unit || 'unit'}` + (uPrice > 0 ? ` @ ${formatMoney(uPrice)}` : '');
+      lines.push(row(subInfo, formatMoney(sub)));
     });
   } else {
     lines.push('RINCIAN:');
@@ -98,12 +98,12 @@ export function buildReceiptRawText({
   }
   lines.push(divDash);
 
-  lines.push(row('Total Belanja :', formatMoney(totalAmount)));
+  lines.push(row('Total Transaksi:', formatMoney(totalAmount)));
   if (isDP) {
-    lines.push(row('Uang Muka (DP):', formatMoney(paidAmount)));
-    lines.push(row('Sisa Tagihan  :', formatMoney(remainingAmount)));
+    lines.push(row('Uang Muka (DP) :', formatMoney(paidAmount)));
+    lines.push(row('Sisa Tagihan   :', formatMoney(remainingAmount)));
   } else {
-    lines.push(row('Total Bayar   :', formatMoney(paidAmount)));
+    lines.push(row('Total Bayar    :', formatMoney(paidAmount)));
   }
 
   if (extraNotes) {
@@ -112,10 +112,8 @@ export function buildReceiptRawText({
 
   lines.push(divDouble);
   lines.push(center('*** TERIMA KASIH ***'));
-  lines.push(center('Simpan struk ini sebagai'));
-  lines.push(center('bukti transaksi sah'));
+  lines.push(center('Simpan bukti nota transaksi ini'));
   lines.push(divDouble);
-  lines.push('\n\n');
 
   return lines.join('\n');
 }
@@ -898,6 +896,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
     const isIncome = rec.direction === 'in';
     const desc = rec.description || '';
     const catLower = (rec.category || '').toLowerCase();
+    const notaId = extractNotaId(desc);
 
     // Parse Buyer, Supplier, Production Team
     const buyerName = (desc.match(/Pembeli:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
@@ -915,7 +914,6 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       paymentStatusText = 'Lunas';
       paymentStatusClass = 'lunas';
       isDP = false;
-      paidAmount = Number(rec.amount) || 0;
       remainingAmount = 0;
     } else if (desc.includes('DP') || (rec.category || '').includes('DP')) {
       paymentStatusText = 'Uang Muka (DP)';
@@ -930,47 +928,92 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       paymentStatusClass = 'tempo';
     }
 
-    const totalAmount = isDP ? (paidAmount + remainingAmount) : paidAmount;
-
-    // Parse Item & Qty
-    let itemName = '';
-    let itemQtyText = '1 transaksi';
-    let itemPriceText = '';
-
-    const matchingInv = state.inventory.find((inv) => {
-      if (inv.occurred_on !== rec.occurred_on) return false;
-      if (isIncome && inv.direction === 'out') {
-        if (buyerName && (inv.notes || '').includes(buyerName)) return true;
-        return true;
+    // MULTI-ITEM SUPPORT
+    let itemsList = [];
+    if (notaId) {
+      const matchingInvs = state.inventory.filter((inv) => extractNotaId(inv.notes) === notaId);
+      if (matchingInvs.length > 0) {
+        itemsList = matchingInvs.map((inv) => {
+          const prod = state.products.find((p) => p.id === inv.product_id) || inv.products;
+          const qty = Number(inv.quantity) || 0;
+          const unit = prod?.unit || 'unit';
+          const priceMatch = (inv.notes || '').match(/@\s*(?:Rp\s*)?([\d.,]+)/i);
+          let unitPrice = 0;
+          if (priceMatch) {
+            unitPrice = Number(priceMatch[1].replace(/[.,]/g, '')) || 0;
+          } else {
+            unitPrice = isIncome ? (Number(prod?.selling_price) || 0) : (Number(prod?.purchase_price) || 0);
+          }
+          const subtotal = Math.round(qty * unitPrice);
+          return {
+            name: prod?.name || 'Produk',
+            qty,
+            unit,
+            unitPrice,
+            subtotal,
+          };
+        });
       }
-      if (!isIncome && inv.direction === 'in') {
-        if (supplierName && (inv.notes || '').includes(supplierName)) return true;
-      }
-      return false;
-    });
-
-    if (matchingInv) {
-      const prod = state.products.find((p) => p.id === matchingInv.product_id) || matchingInv.products;
-      itemName = prod?.name || 'Produk';
-      itemQtyText = `${formatQuantity(matchingInv.quantity)} ${prod?.unit || 'unit'}`;
-      const unitPrice = isIncome ? (Number(prod?.selling_price) || 0) : (Number(prod?.purchase_price) || 0);
-      if (unitPrice > 0) itemPriceText = formatMoney(unitPrice);
     }
 
-    if (!itemName) {
-      const itemMatch = desc.match(/(?:Penjualan|DP Penjualan|Belanja|DP Belanja)\s+([\d.,]+)\s+([a-zA-Z]+)\s+([^·\r\n(]+)/i);
-      if (itemMatch) {
-        itemQtyText = `${itemMatch[1]} ${itemMatch[2]}`;
-        itemName = itemMatch[3].trim();
-        const numQty = Number(itemMatch[1].replace(/[.,]/g, '')) || 1;
-        if (numQty > 1 && totalAmount > 0) {
-          itemPriceText = formatMoney(Math.round(totalAmount / numQty));
-        }
-      } else {
-        const parts = desc.split('·').map((p) => p.trim());
-        const mainPart = parts[0] || rec.category;
-        itemName = mainPart.replace(/\s*\((Lunas|DP)\)\s*/gi, '').trim();
+    let totalAmount = isDP ? (paidAmount + remainingAmount) : paidAmount;
+    if (itemsList.length > 0) {
+      const calculatedTotal = itemsList.reduce((sum, it) => sum + it.subtotal, 0);
+      if (calculatedTotal > 0) totalAmount = calculatedTotal;
+      if (isDP && remainingAmount === 0 && totalAmount > paidAmount) {
+        remainingAmount = Math.max(0, totalAmount - paidAmount);
       }
+    }
+
+    // Fallback single item if no multi-item list found
+    if (!itemsList.length) {
+      let itemName = '';
+      let itemQty = 1;
+      let itemUnit = 'unit';
+      let itemPrice = 0;
+
+      const matchingInv = state.inventory.find((inv) => {
+        if (inv.occurred_on !== rec.occurred_on) return false;
+        if (isIncome && inv.direction === 'out') {
+          if (buyerName && (inv.notes || '').includes(buyerName)) return true;
+          return true;
+        }
+        if (!isIncome && inv.direction === 'in') {
+          if (supplierName && (inv.notes || '').includes(supplierName)) return true;
+        }
+        return false;
+      });
+
+      if (matchingInv) {
+        const prod = state.products.find((p) => p.id === matchingInv.product_id) || matchingInv.products;
+        itemName = prod?.name || 'Produk';
+        itemQty = Number(matchingInv.quantity) || 1;
+        itemUnit = prod?.unit || 'unit';
+        itemPrice = isIncome ? (Number(prod?.selling_price) || 0) : (Number(prod?.purchase_price) || 0);
+      }
+
+      if (!itemName) {
+        const itemMatch = desc.match(/(?:Penjualan|DP Penjualan|Belanja|DP Belanja)\s+([\d.,]+)\s+([a-zA-Z]+)\s+([^·\r\n(]+)/i);
+        if (itemMatch) {
+          itemQty = Number(itemMatch[1].replace(/[.,]/g, '')) || 1;
+          itemUnit = itemMatch[2];
+          itemName = itemMatch[3].trim();
+          itemPrice = totalAmount > 0 ? Math.round(totalAmount / itemQty) : 0;
+        } else {
+          const parts = desc.split('·').map((p) => p.trim());
+          const mainPart = parts[0] || rec.category;
+          itemName = mainPart.replace(/\s*\((Lunas|DP)\)\s*/gi, '').trim();
+          itemPrice = totalAmount;
+        }
+      }
+
+      itemsList = [{
+        name: itemName,
+        qty: itemQty,
+        unit: itemUnit,
+        unitPrice: itemPrice,
+        subtotal: totalAmount,
+      }];
     }
 
     // Extra notes
@@ -978,7 +1021,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
     const extraParts = parts.filter((p) =>
       !p.match(/^(Pembeli|Supplier|Produksi|Keperluan):/i) &&
       !p.match(/^(Penjualan|DP Penjualan|Belanja|DP Belanja)/i) &&
-      !p.match(/^(Diterima:|Dibayar:)/i)
+      !p.match(/^(Diterima:|Dibayar:)/i) &&
+      !p.match(/\[Nota\s*#?[A-Za-z0-9\-_]+\]/i)
     );
     const extraNotes = extraParts.join(' · ');
 
@@ -989,57 +1033,19 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       receiptTitle = 'BUKTI PEMBAYARAN GAJI';
     }
 
-    let receiptNumber = `TRX-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
-    let multiItems = [];
-
-    // Check if this cash transaction is a multi-item sale invoice
-    const itemsJsonMatch = desc.match(/\[ITEMS_JSON:(.*?)\]/s);
-    if (itemsJsonMatch) {
-      try {
-        const meta = JSON.parse(itemsJsonMatch[1]);
-        if (Array.isArray(meta.items) && meta.items.length > 0) {
-          multiItems = meta.items;
-          if (meta.buyer) buyerName = meta.buyer;
-          if (meta.ref) receiptNumber = meta.ref;
-          if (meta.totalAmount !== undefined) totalAmount = meta.totalAmount;
-          if (meta.paidAmount !== undefined) paidAmount = meta.paidAmount;
-          if (meta.remainingAmount !== undefined) remainingAmount = meta.remainingAmount;
-          if (meta.status === 'dp') {
-            paymentStatusText = 'Uang Muka (DP)';
-            paymentStatusClass = 'dp';
-            isDP = true;
-          } else if (meta.status === 'unpaid') {
-            paymentStatusText = 'Tempo / Piutang';
-            paymentStatusClass = 'tempo';
-            isDP = false;
-          } else {
-            paymentStatusText = 'Lunas';
-            paymentStatusClass = 'lunas';
-            isDP = false;
-          }
-          if (meta.notes) {
-            extraNotes = meta.notes;
-          }
-        }
-      } catch (e) {
-        console.warn('Gagal membaca meta items:', e);
-      }
-    }
+    const receiptNumber = notaId ? `#${notaId}` : `TRX-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
 
     const rawText = buildReceiptRawText({
       shopName: 'JAYA WIJAYA',
       shopSub: 'PRODUKSI • DISTRIBUSI • GROSIR',
       title: receiptTitle,
-      receiptNumber,
+      receiptNumber: receiptNumber.replace(/^#/, ''),
       date: formatDate(rec.occurred_on),
       buyer: buyerName,
       supplier: supplierName,
       team: teamName,
       paymentStatus: paymentStatusText,
-      items: multiItems.length > 0 ? multiItems : [{ name: itemName, qty: itemQtyText, price: itemPriceText, total: totalAmount }],
-      itemName,
-      qtyText: itemQtyText,
-      priceText: itemPriceText,
+      items: itemsList,
       totalAmount,
       paidAmount,
       remainingAmount,
@@ -1047,6 +1053,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       extraNotes,
     });
 
+    // Accounting Roles
     let financialRole = 'Beban Operasional Usaha';
     let impactText = 'Mengurangi kas dan mengurangi laba bersih operasional.';
     if (isIncome) {
@@ -1056,84 +1063,79 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       financialRole = 'Harga Pokok Penjualan (HPP) / Belanja Bahan Baku';
       impactText = 'Beban pokok pengadaan material/produk. Mengurangi laba kotor & laba bersih.';
     } else if (catLower.includes('gaji') || catLower.includes('upah')) {
-      financialRole = 'Beban Gaji & Upah Karyawan (Operasional)';
-      impactText = 'Beban upah tenaga kerja produksi. Mengurangi laba bersih.';
-    } else if (catLower.includes('listrik') || catLower.includes('utilitas')) {
-      financialRole = 'Beban Utilitas & Listrik Pabrik (Operasional)';
-      impactText = 'Biaya operasional fasilitas produksi. Mengurangi laba bersih.';
-    } else if (catLower.includes('rawat') || catLower.includes('perbaikan') || catLower.includes('mesin') || catLower.includes('alat')) {
-      financialRole = 'Beban Pemeliharaan Mesin & Alat (Operasional)';
-      impactText = 'Biaya perawatan mesin cetak & potong. Mengurangi laba bersih.';
+      financialRole = 'Beban Gaji & Upah Tenaga Kerja';
+      impactText = 'Biaya upah operasional pekerja. Mengurangi laba bersih perusahaan.';
     }
 
     openDialog(`Nota Transaksi — ${receiptTitle}`, `
       <div class="nota-card-container">
         <div id="receipt-paper" class="receipt-paper" data-raw-text="${escapeHtml(rawText)}">
+          
           <div class="receipt-header">
             <div class="receipt-shop-name">JAYA WIJAYA</div>
             <div class="receipt-shop-sub">PRODUKSI • DISTRIBUSI • GROSIR</div>
             <div class="receipt-title">${escapeHtml(receiptTitle)}</div>
             <div class="receipt-divider-double"></div>
           </div>
+
           <div class="receipt-meta">
             <div class="receipt-row">
               <span>No. Bukti / Nota:</span>
-              <strong>#${escapeHtml(receiptNumber)}</strong>
+              <strong>${escapeHtml(receiptNumber)}</strong>
             </div>
             <div class="receipt-row">
-              <span>Tanggal Transaksi:</span>
+              <span>Tanggal:</span>
               <strong>${formatDate(rec.occurred_on)}</strong>
             </div>
           </div>
+
+          <!-- NAMA PIHAK TERKAIT -->
           ${buyerName ? `
           <div class="receipt-party-box party-buyer">
             <div class="receipt-party-label">PEMBELI / PELANGGAN:</div>
             <div class="receipt-party-name">${escapeHtml(buyerName)}</div>
             <div class="receipt-party-badge badge-${paymentStatusClass}">${escapeHtml(paymentStatusText)}</div>
           </div>` : ''}
+
           ${supplierName ? `
           <div class="receipt-party-box party-supplier">
             <div class="receipt-party-label">SUPPLIER / TEMPAT BELI:</div>
             <div class="receipt-party-name">${escapeHtml(supplierName)}</div>
             <div class="receipt-party-badge badge-${paymentStatusClass}">${escapeHtml(paymentStatusText)}</div>
           </div>` : ''}
+
           ${teamName ? `
           <div class="receipt-party-box party-prod">
             <div class="receipt-party-label">TIM / SHIFT PRODUKSI:</div>
             <div class="receipt-party-name">${escapeHtml(teamName)}</div>
           </div>` : ''}
+
           <div class="receipt-divider"></div>
+
+          <!-- DAFTAR ITEM (MULTI-ITEM NOTA) -->
           <div class="receipt-items">
             <div class="receipt-item-header">
-              <span>RINCIAN / DAFTAR BARANG ${multiItems.length > 1 ? `(${multiItems.length} ITEM)` : ''}</span>
+              <span>PRODUK (${itemsList.length} ITEM)</span>
               <span class="align-right">TOTAL</span>
             </div>
             <div class="receipt-divider-dash"></div>
-            ${multiItems.length > 0 ? multiItems.map((it, idx) => `
-              <div class="receipt-item-line" style="${idx > 0 ? 'margin-top: 8px;' : ''}">
-                <div class="receipt-item-name">
-                  ${multiItems.length > 1 ? `<span style="color:#777; font-weight:600; margin-right:4px;">${idx + 1}.</span>` : ''}
-                  <strong>${escapeHtml(it.name || 'Produk')}</strong>
-                </div>
-                <div class="receipt-item-sub">
-                  <span>${typeof it.qty === 'number' ? `${formatQuantity(it.qty)} ${escapeHtml(it.unit || '')}` : escapeHtml(it.qty || '1')} ${it.price ? ` @ ${typeof it.price === 'number' ? formatMoney(it.price) : escapeHtml(it.price)}` : ''}</span>
-                  <span class="receipt-item-total" style="font-weight:700; color:#187554;">${typeof it.total === 'number' ? formatMoney(it.total) : escapeHtml(it.total || formatMoney(totalAmount))}</span>
-                </div>
-              </div>
-            `).join('') : `
+            
+            ${itemsList.map((item, idx) => `
               <div class="receipt-item-line">
-                <div class="receipt-item-name">${escapeHtml(itemName)}</div>
+                <div class="receipt-item-name">${itemsList.length > 1 ? `${idx + 1}. ` : ''}${escapeHtml(item.name)}</div>
                 <div class="receipt-item-sub">
-                  <span>${escapeHtml(itemQtyText)}${itemPriceText ? ` @ ${escapeHtml(itemPriceText)}` : ''}</span>
-                  <span class="receipt-item-total">${formatMoney(totalAmount)}</span>
+                  <span>${formatQuantity(item.qty)} ${escapeHtml(item.unit)}${item.unitPrice > 0 ? ` @ ${formatMoney(item.unitPrice)}` : ''}</span>
+                  <span class="receipt-item-total">${formatMoney(item.subtotal)}</span>
                 </div>
               </div>
-            `}
+            `).join('')}
           </div>
+
           <div class="receipt-divider"></div>
+
           <div class="receipt-summary">
             <div class="receipt-row">
-              <span>Total Transaksi:</span>
+              <span>Total Transaksi (${itemsList.length} Item):</span>
               <strong>${formatMoney(totalAmount)}</strong>
             </div>
             ${isDP ? `
@@ -1154,8 +1156,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
-                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px; display:inline-flex; align-items:center; gap:4px;">
-                  ${Icons.cash('icon-svg', 11)} Lunasi
+                <button type="button" class="btn btn-primary btn-xs" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7;">
+                  💳 Lunasi
                 </button>
               </div>
             </div>` : ''}
@@ -1169,14 +1171,18 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span>${escapeHtml(extraNotes)}</span>
             </div>` : ''}
           </div>
+
           <div class="receipt-divider-double"></div>
+
           <div class="receipt-footer">
             <p class="receipt-thankyou">*** TERIMA KASIH ***</p>
             <p class="receipt-disclaimer">Simpan struk ini sebagai bukti transaksi sah.</p>
           </div>
+
         </div>
+
         <details class="nota-audit-details">
-          <summary style="display:inline-flex; align-items:center; gap:6px;">${Icons.reports('icon-svg', 13)} Rincian Akuntansi & Pembukuan Kas</summary>
+          <summary>📊 Rincian Akuntansi & Pembukuan Kas</summary>
           <div class="nota-audit-content">
             <div class="slip-row"><span>Kategori Pos:</span> <strong>${escapeHtml(rec.category)}</strong></div>
             <div class="slip-row"><span>Klasifikasi Akuntansi:</span> <strong>${financialRole}</strong></div>
@@ -1184,17 +1190,18 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           </div>
         </details>
       </div>
+
       <div class="dialog-actions nota-dialog-actions">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
         ${remainingAmount > 0 ? `
-        <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
-          <span>${Icons.cash('icon-svg', 13)}</span> Lunasi ${isIncome ? 'Piutang' : 'Utang'} (${formatMoney(remainingAmount)})
+        <button type="button" class="btn btn-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
+          <span>💰</span> Lunasi ${isIncome ? 'Piutang' : 'Utang'} (${formatMoney(remainingAmount)})
         </button>` : ''}
-        <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
-          <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
+        <button type="button" class="btn btn-default" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
+          <span>📋</span> Salin Teks Struk
         </button>
-        <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak dokumen nota atau simpan sebagai PDF">
-          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota / Faktur
+        <button type="button" class="btn btn-success" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
+          <span>🖨️</span> Cetak Nota (Bluetooth)
         </button>
       </div>
     `);
@@ -1214,13 +1221,13 @@ export function openReportDetailModal(type, id, month = currentMonth) {
     }
     const prod = state.products.find((p) => p.id === rec.product_id) || rec.products;
     const isIn = rec.direction === 'in';
+    const notaId = extractNotaId(notes);
     const isProduction = isIn && (notes.includes('Hasil Produksi') || notes.toLowerCase().includes('produksi'));
     const isUsage = !isIn && (notes.includes('Pemakaian') || notes.toLowerCase().includes('internal') || notes.toLowerCase().includes('reject'));
     const purchasePrice = Number(prod?.purchase_price) || 0;
     const sellingPrice = Number(prod?.selling_price) || 0;
     const qty = Number(rec.quantity) || 0;
     const unitPrice = isIn ? purchasePrice : sellingPrice;
-    const totalAmount = Math.round(qty * unitPrice);
 
     const buyerName = (notes.match(/Pembeli:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
     const supplierName = (notes.match(/Supplier:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
@@ -1229,8 +1236,56 @@ export function openReportDetailModal(type, id, month = currentMonth) {
     let paymentStatusText = 'Lunas';
     let paymentStatusClass = 'lunas';
     let isDP = false;
-    let paidAmount = totalAmount;
     let remainingAmount = 0;
+
+    // Check if there is a matching cash record
+    const matchingCash = notaId
+      ? state.cash.find((c) => extractNotaId(c.description) === notaId)
+      : state.cash.find((c) => c.occurred_on === rec.occurred_on && (buyerName ? (c.description || '').includes(buyerName) : true));
+
+    // MULTI-ITEM SUPPORT
+    let itemsList = [];
+    if (notaId) {
+      const matchingInvs = state.inventory.filter((inv) => extractNotaId(inv.notes) === notaId);
+      if (matchingInvs.length > 0) {
+        itemsList = matchingInvs.map((inv) => {
+          const p = state.products.find((prodItem) => prodItem.id === inv.product_id) || inv.products;
+          const q = Number(inv.quantity) || 0;
+          const u = p?.unit || 'unit';
+          const priceMatch = (inv.notes || '').match(/@\s*(?:Rp\s*)?([\d.,]+)/i);
+          let up = 0;
+          if (priceMatch) {
+            up = Number(priceMatch[1].replace(/[.,]/g, '')) || 0;
+          } else {
+            up = (inv.direction === 'in') ? (Number(p?.purchase_price) || 0) : (Number(p?.selling_price) || 0);
+          }
+          const sub = Math.round(q * up);
+          return {
+            name: p?.name || 'Produk',
+            qty: q,
+            unit: u,
+            unitPrice: up,
+            subtotal: sub,
+          };
+        });
+      }
+    }
+
+    let totalAmount = Math.round(qty * unitPrice);
+    if (itemsList.length > 0) {
+      const calculatedTotal = itemsList.reduce((sum, it) => sum + it.subtotal, 0);
+      if (calculatedTotal > 0) totalAmount = calculatedTotal;
+    } else {
+      itemsList = [{
+        name: prod?.name || 'Produk',
+        qty,
+        unit: prod?.unit || 'unit',
+        unitPrice,
+        subtotal: totalAmount,
+      }];
+    }
+
+    let paidAmount = totalAmount;
 
     if (notes.includes('Lunas') && !notes.includes('Sisa Piutang') && !notes.includes('Sisa Utang') && !notes.includes('Sisa Tagihan')) {
       paymentStatusText = 'Lunas';
@@ -1246,6 +1301,10 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       const remMatch = notes.match(/(?:Sisa Tagihan|Sisa Piutang|Sisa Utang)[:\s]+(?:Rp\s*)?([\d.,]+)/i);
       if (dpMatch) paidAmount = Number(dpMatch[1].replace(/[.,]/g, '')) || 0;
       if (remMatch) remainingAmount = Number(remMatch[1].replace(/[.,]/g, '')) || 0;
+      if (matchingCash) paidAmount = Number(matchingCash.amount) || paidAmount;
+      if (remainingAmount === 0 && totalAmount > paidAmount) {
+        remainingAmount = Math.max(0, totalAmount - paidAmount);
+      }
     } else if (notes.includes('Tempo') || notes.includes('Piutang') || notes.includes('Utang')) {
       paymentStatusText = isIn ? 'Tempo / Utang' : 'Tempo / Piutang';
       paymentStatusClass = 'tempo';
@@ -1263,12 +1322,14 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       ? 'BUKTI HASIL PRODUKSI'
       : (isUsage ? 'BUKTI PEMAKAIAN INTERNAL' : (isIn ? 'NOTA PEMBELIAN BARANG' : 'NOTA PENJUALAN PRODUK'));
 
-    const receiptNumber = `INV-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
+    const receiptNumber = notaId ? `#${notaId}` : `INV-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
 
+    // Extra notes
     const parts = notes.split('·').map((p) => p.trim());
     const extraParts = parts.filter((p) =>
       !p.match(/^\[.*\]/i) &&
-      !p.match(/^(Pembeli|Supplier|Produksi|Keperluan):/i)
+      !p.match(/^(Pembeli|Supplier|Produksi|Keperluan):/i) &&
+      !p.match(/^(Total Nota|Item):/i)
     );
     const extraNotes = extraParts.join(' · ');
 
@@ -1276,15 +1337,13 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       shopName: 'JAYA WIJAYA',
       shopSub: 'PRODUKSI • DISTRIBUSI • GROSIR',
       title: receiptTitle,
-      receiptNumber,
+      receiptNumber: receiptNumber.replace(/^#/, ''),
       date: formatDate(rec.occurred_on),
       buyer: buyerName,
       supplier: supplierName,
       team: teamName,
       paymentStatus: paymentStatusText,
-      itemName: prod?.name || 'Produk',
-      qtyText: `${formatQuantity(qty)} ${prod?.unit || 'unit'}`,
-      priceText: unitPrice > 0 ? formatMoney(unitPrice) : '',
+      items: itemsList,
       totalAmount,
       paidAmount,
       remainingAmount,
@@ -1308,58 +1367,72 @@ export function openReportDetailModal(type, id, month = currentMonth) {
     openDialog(`Nota Transaksi — ${receiptTitle}`, `
       <div class="nota-card-container">
         <div id="receipt-paper" class="receipt-paper" data-raw-text="${escapeHtml(rawText)}">
+          
           <div class="receipt-header">
             <div class="receipt-shop-name">JAYA WIJAYA</div>
             <div class="receipt-shop-sub">PRODUKSI • DISTRIBUSI • GROSIR</div>
             <div class="receipt-title">${escapeHtml(receiptTitle)}</div>
             <div class="receipt-divider-double"></div>
           </div>
+
           <div class="receipt-meta">
             <div class="receipt-row">
               <span>No. Bukti / Nota:</span>
-              <strong>#${escapeHtml(receiptNumber)}</strong>
+              <strong>${escapeHtml(receiptNumber)}</strong>
             </div>
             <div class="receipt-row">
               <span>Tanggal:</span>
               <strong>${formatDate(rec.occurred_on)}</strong>
             </div>
           </div>
+
+          <!-- NAMA PIHAK TERKAIT -->
           ${buyerName ? `
           <div class="receipt-party-box party-buyer">
             <div class="receipt-party-label">PEMBELI / PELANGGAN:</div>
             <div class="receipt-party-name">${escapeHtml(buyerName)}</div>
             <div class="receipt-party-badge badge-${paymentStatusClass}">${escapeHtml(paymentStatusText)}</div>
           </div>` : ''}
+
           ${supplierName ? `
           <div class="receipt-party-box party-supplier">
             <div class="receipt-party-label">SUPPLIER / TEMPAT BELI:</div>
             <div class="receipt-party-name">${escapeHtml(supplierName)}</div>
             <div class="receipt-party-badge badge-${paymentStatusClass}">${escapeHtml(paymentStatusText)}</div>
           </div>` : ''}
+
           ${teamName ? `
           <div class="receipt-party-box party-prod">
             <div class="receipt-party-label">TIM / SHIFT PRODUKSI:</div>
             <div class="receipt-party-name">${escapeHtml(teamName)}</div>
           </div>` : ''}
+
           <div class="receipt-divider"></div>
+
+          <!-- DAFTAR ITEM (MULTI-ITEM NOTA) -->
           <div class="receipt-items">
             <div class="receipt-item-header">
-              <span>PRODUK / SATUAN</span>
+              <span>PRODUK (${itemsList.length} ITEM)</span>
               <span class="align-right">TOTAL</span>
             </div>
             <div class="receipt-divider-dash"></div>
-            <div class="receipt-item-line">
-              <div class="receipt-item-name">${escapeHtml(prod?.name || 'Produk')}</div>
-              <div class="receipt-item-sub">
-                <span>${formatQuantity(qty)} ${escapeHtml(prod?.unit || 'unit')}${unitPrice > 0 ? ` @ ${formatMoney(unitPrice)}` : ''}</span>
-                <span class="receipt-item-total">${formatMoney(totalAmount)}</span>
+            
+            ${itemsList.map((item, idx) => `
+              <div class="receipt-item-line">
+                <div class="receipt-item-name">${itemsList.length > 1 ? `${idx + 1}. ` : ''}${escapeHtml(item.name)}</div>
+                <div class="receipt-item-sub">
+                  <span>${formatQuantity(item.qty)} ${escapeHtml(item.unit)}${item.unitPrice > 0 ? ` @ ${formatMoney(item.unitPrice)}` : ''}</span>
+                  <span class="receipt-item-total">${formatMoney(item.subtotal)}</span>
+                </div>
               </div>
-            </div>
+            `).join('')}
           </div>
+
           <div class="receipt-divider"></div>
+
           <div class="receipt-summary">
             <div class="receipt-row">
-              <span>Total Nilai Barang:</span>
+              <span>Total Nilai Barang (${itemsList.length} Item):</span>
               <strong>${formatMoney(totalAmount)}</strong>
             </div>
             ${isDP ? `
@@ -1380,8 +1453,8 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span style="color:#0284c7; font-weight:700;">Status Pelunasan:</span>
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="color:#dc2626; font-size:11px; font-weight:700;">Sisa ${formatMoney(remainingAmount)}</span>
-                <button type="button" class="button button-small button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7; font-size:10px; padding:2px 8px; height:24px; min-height:24px; display:inline-flex; align-items:center; gap:4px;">
-                  ${Icons.cash('icon-svg', 11)} Lunasi
+                <button type="button" class="btn btn-primary btn-xs" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="background:#0284c7;">
+                  💳 Lunasi
                 </button>
               </div>
             </div>` : ''}
@@ -1395,14 +1468,18 @@ export function openReportDetailModal(type, id, month = currentMonth) {
               <span>${escapeHtml(extraNotes)}</span>
             </div>` : ''}
           </div>
+
           <div class="receipt-divider-double"></div>
+
           <div class="receipt-footer">
             <p class="receipt-thankyou">*** TERIMA KASIH ***</p>
             <p class="receipt-disclaimer">Simpan struk ini sebagai bukti transaksi sah.</p>
           </div>
+
         </div>
+
         <details class="nota-audit-details">
-          <summary style="display:inline-flex; align-items:center; gap:6px;">${Icons.inventory('icon-svg', 13)} Rincian Operasional & Mutasi Stok</summary>
+          <summary>📦 Rincian Operasional & Mutasi Stok</summary>
           <div class="nota-audit-content">
             <div class="slip-row"><span>Kode SKU:</span> <strong>${escapeHtml(prod?.sku || '—')}</strong></div>
             <div class="slip-row"><span>Arah Stok:</span> <strong>${isIn ? 'Masuk (+)' : 'Keluar (−)'}</strong></div>
@@ -1410,29 +1487,28 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           </div>
         </details>
       </div>
+
       <div class="dialog-actions nota-dialog-actions">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
         ${remainingAmount > 0 ? `
-        <button type="button" class="button button-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
-          <span>${Icons.cash('icon-svg', 13)}</span> Lunasi ${isIn ? 'Utang' : 'Piutang'} (${formatMoney(remainingAmount)})
+        <button type="button" class="btn btn-primary" data-action="open-settlement-modal" data-type="${type}" data-id="${escapeHtml(rec.id)}" style="display:inline-flex; align-items:center; gap:6px; background:#0284c7;" title="Catat pembayaran pelunasan tagihan ini">
+          <span>💰</span> Lunasi ${isIn ? 'Utang' : 'Piutang'} (${formatMoney(remainingAmount)})
         </button>` : ''}
-        <button type="button" class="button button-outline" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
-          <span>${Icons.clipboard('icon-svg', 13)}</span> Salin Teks Struk
+        <button type="button" class="btn btn-default" data-action="copy-receipt-text" style="display:inline-flex; align-items:center; gap:5px;" title="Salin format teks monospaced untuk dicetak lewat aplikasi Bluetooth atau dikirim ke WhatsApp">
+          <span>📋</span> Salin Teks Struk
         </button>
-        <button type="button" class="button button-primary" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px; background:#187554;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
-          <span>${Icons.printer('icon-svg', 13)}</span> Cetak Nota / Faktur
+        <button type="button" class="btn btn-success" data-action="print-thermal-receipt" style="display:inline-flex; align-items:center; gap:6px;" title="Cetak nota langsung ke printer Bluetooth (58mm / 80mm)">
+          <span>🖨️</span> Cetak Nota (Bluetooth)
         </button>
       </div>
     `);
-  } else if (type === 'payroll' || type === 'employee') {
-    const emp = state.employees.find((e) => e.id === id);
-    if (!emp) return;
-    payMonthlySalaryModal(emp.id, month);
   }
 }
 
 export function openSettlementModal(targetType, targetId) {
   let rec, isSale, partyName = '', itemName = 'Produk', itemQtyText = '1 unit', totalAmount = 0, paidAmount = 0, remainingAmount = 0;
+  let notaId = null;
+  let matchingInvs = [];
 
   if (targetType === 'inventory') {
     rec = state.inventory.find((i) => i.id === targetId);
@@ -1441,10 +1517,33 @@ export function openSettlementModal(targetType, targetId) {
     const isIn = rec.direction === 'in';
     isSale = !isIn;
     const notes = rec.notes || '';
+    notaId = extractNotaId(notes);
     partyName = (notes.match(/Pembeli:\s*([^·\r\n]+)/i) || notes.match(/Supplier:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
-    const qty = Number(rec.quantity) || 0;
-    const unitPrice = isIn ? (Number(prod?.purchase_price) || 0) : (Number(prod?.selling_price) || 0);
-    totalAmount = Math.round(qty * unitPrice);
+
+    if (notaId) {
+      matchingInvs = state.inventory.filter((i) => extractNotaId(i.notes) === notaId);
+    } else {
+      matchingInvs = [rec];
+    }
+
+    // Calculate total from all matching items in this nota
+    totalAmount = matchingInvs.reduce((sum, inv) => {
+      const p = state.products.find((prodItem) => prodItem.id === inv.product_id) || inv.products;
+      const q = Number(inv.quantity) || 0;
+      const priceMatch = (inv.notes || '').match(/@\s*(?:Rp\s*)?([\d.,]+)/i);
+      let up = 0;
+      if (priceMatch) {
+        up = Number(priceMatch[1].replace(/[.,]/g, '')) || 0;
+      } else {
+        up = isIn ? (Number(p?.purchase_price) || 0) : (Number(p?.selling_price) || 0);
+      }
+      return sum + Math.round(q * up);
+    }, 0);
+
+    if (totalAmount === 0) {
+      totalAmount = Math.round((Number(rec.quantity) || 0) * (isIn ? (Number(prod?.purchase_price) || 0) : (Number(prod?.selling_price) || 0)));
+    }
+
     paidAmount = totalAmount;
     remainingAmount = 0;
 
@@ -1461,16 +1560,23 @@ export function openSettlementModal(targetType, targetId) {
       remainingAmount = totalAmount;
     }
 
-    itemName = prod?.name || 'Produk';
-    itemQtyText = `${formatQuantity(qty)} ${prod?.unit || 'unit'}`;
+    if (matchingInvs.length > 1) {
+      itemName = `${matchingInvs.length} jenis produk (${matchingInvs.map((i) => (state.products.find((p) => p.id === i.product_id)?.name || 'Produk')).join(', ')})`;
+      itemQtyText = `${matchingInvs.reduce((sum, i) => sum + Number(i.quantity), 0)} unit total`;
+    } else {
+      itemName = prod?.name || 'Produk';
+      itemQtyText = `${formatQuantity(rec.quantity)} ${prod?.unit || 'unit'}`;
+    }
   } else if (targetType === 'cash') {
     rec = state.cash.find((c) => c.id === targetId);
     if (!rec) return;
     const isIncome = rec.direction === 'in';
     isSale = isIncome;
     const desc = rec.description || '';
+    notaId = extractNotaId(desc);
     partyName = (desc.match(/Pembeli:\s*([^·\r\n]+)/i) || desc.match(/Supplier:\s*([^·\r\n]+)/i) || [])[1]?.trim() || '';
     paidAmount = Number(rec.amount) || 0;
+
     remainingAmount = 0;
     const remMatch = desc.match(/(?:Sisa Tagihan|Sisa Piutang|Sisa Utang)[:\s]+(?:Rp\s*)?([\d.,]+)/i);
     if (remMatch) {
@@ -1478,17 +1584,32 @@ export function openSettlementModal(targetType, targetId) {
     }
     totalAmount = paidAmount + remainingAmount;
 
-    const matchingInv = state.inventory.find((inv) => {
-      if (inv.occurred_on !== rec.occurred_on) return false;
-      if (isSale && inv.direction === 'out' && partyName && (inv.notes || '').includes(partyName)) return true;
-      if (!isSale && inv.direction === 'in' && partyName && (inv.notes || '').includes(partyName)) return true;
-      return false;
-    });
+    if (notaId) {
+      matchingInvs = state.inventory.filter((inv) => extractNotaId(inv.notes) === notaId);
+    } else {
+      matchingInvs = state.inventory.filter((inv) => {
+        if (inv.occurred_on !== rec.occurred_on) return false;
+        if (isSale && inv.direction === 'out' && partyName && (inv.notes || '').includes(partyName)) return true;
+        if (!isSale && inv.direction === 'in' && partyName && (inv.notes || '').includes(partyName)) return true;
+        return false;
+      });
+    }
 
-    if (matchingInv) {
-      const prod = state.products.find((p) => p.id === matchingInv.product_id) || matchingInv.products;
+    if (matchingInvs.length > 1) {
+      itemName = `${matchingInvs.length} jenis produk (${matchingInvs.map((i) => (state.products.find((p) => p.id === i.product_id)?.name || 'Produk')).join(', ')})`;
+      itemQtyText = `${matchingInvs.reduce((sum, i) => sum + Number(i.quantity), 0)} unit total`;
+      const calculatedTotal = matchingInvs.reduce((sum, inv) => {
+        const p = state.products.find((prodItem) => prodItem.id === inv.product_id) || inv.products;
+        const q = Number(inv.quantity) || 0;
+        const priceMatch = (inv.notes || '').match(/@\s*(?:Rp\s*)?([\d.,]+)/i);
+        const up = priceMatch ? Number(priceMatch[1].replace(/[.,]/g, '')) : (isSale ? Number(p?.selling_price) : Number(p?.purchase_price)) || 0;
+        return sum + Math.round(q * up);
+      }, 0);
+      if (calculatedTotal > 0) totalAmount = calculatedTotal;
+    } else if (matchingInvs.length === 1) {
+      const prod = state.products.find((p) => p.id === matchingInvs[0].product_id) || matchingInvs[0].products;
       itemName = prod?.name || 'Produk';
-      itemQtyText = `${formatQuantity(matchingInv.quantity)} ${prod?.unit || 'unit'}`;
+      itemQtyText = `${formatQuantity(matchingInvs[0].quantity)} ${prod?.unit || 'unit'}`;
     } else {
       const itemMatch = desc.match(/(?:Penjualan|DP Penjualan|Belanja|DP Belanja)\s+([\d.,]+)\s+([a-zA-Z]+)\s+([^·\r\n(]+)/i);
       if (itemMatch) {
@@ -1557,8 +1678,8 @@ export function openSettlementModal(targetType, targetId) {
       </label>
 
       <div class="dialog-actions">
-        <button type="button" class="button button-quiet" data-action="back-to-nota" data-type="${targetType}" data-id="${escapeHtml(targetId)}">Kembali</button>
-        <button type="submit" class="button button-primary" style="background:#187554;">Simpan Pembayaran Pelunasan</button>
+        <button type="button" class="btn btn-default" data-action="back-to-nota" data-type="${targetType}" data-id="${escapeHtml(targetId)}">Kembali</button>
+        <button type="submit" class="btn btn-success" style="background:#187554;">Simpan Pembayaran Pelunasan</button>
       </div>
     </form>
   `);
@@ -1599,30 +1720,40 @@ export function openSettlementModal(targetType, targetId) {
     }
 
     await runMutation(async () => {
-      if (targetType === 'inventory') {
+      // 1. Update inventory movements
+      if (matchingInvs && matchingInvs.length > 0) {
+        for (const invItem of matchingInvs) {
+          let cleanNote = invItem.notes || '';
+          if (isFullSettlement) {
+            cleanNote = cleanNote.replace(/\[(Penjualan|Beli)\s+[^\]]+\]/i, isSale ? `[Penjualan Lunas - Dilunasi ${formatDate(settleDate)}]` : `[Beli Lunas - Dilunasi ${formatDate(settleDate)}]`);
+          } else {
+            cleanNote = cleanNote.replace(/\[(Penjualan|Beli)\s+[^\]]+\]/i, isSale ? `[Penjualan DP ${formatMoney(newPaidAmount)} · Sisa Piutang ${formatMoney(newRemaining)}]` : `[Beli DP ${formatMoney(newPaidAmount)} · Sisa Utang ${formatMoney(newRemaining)}]`);
+          }
+          await db.from('inventory_movements').update({ notes: cleanNote }).eq('id', invItem.id);
+        }
+      } else if (targetType === 'inventory') {
         const { error: invErr } = await db.from('inventory_movements').update({ notes: updatedNote }).eq('id', targetId);
         if (invErr) return invErr;
-      } else if (targetType === 'cash') {
-        const updatedCashDesc = isFullSettlement
-          ? `${rec.category} (Lunas - Dilunasi ${formatDate(settleDate)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}${settleNotes ? ' · ' + settleNotes : ''}`
-          : `${rec.category} (DP Diterima ${formatMoney(newPaidAmount)} · Sisa Tagihan: ${formatMoney(newRemaining)}) · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}`;
-
-        const { error: cashErr } = await db.from('cash_transactions').update({ description: updatedCashDesc }).eq('id', targetId);
-        if (cashErr) return cashErr;
-
-        const origInv = state.inventory.find((i) =>
-          i.occurred_on === rec.occurred_on &&
-          i.notes &&
-          i.notes.includes(partyName || '')
-        );
-        if (origInv) {
-          await db.from('inventory_movements').update({ notes: updatedNote }).eq('id', origInv.id);
-        }
       }
 
+      // 2. Update cash transactions if existing
+      const matchingCash = notaId
+        ? state.cash.find((c) => extractNotaId(c.description) === notaId)
+        : (targetType === 'cash' ? rec : null);
+
+      if (matchingCash) {
+        const updatedCashDesc = isFullSettlement
+          ? `${matchingCash.category} (Lunas - Dilunasi ${formatDate(settleDate)})${notaId ? ` [Nota #${notaId}]` : ''} · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}${settleNotes ? ' · ' + settleNotes : ''}`
+          : `${matchingCash.category} (DP Diterima ${formatMoney(newPaidAmount)} · Sisa Tagihan: ${formatMoney(newRemaining)})${notaId ? ` [Nota #${notaId}]` : ''} · ${partyName ? `${isSale ? 'Pembeli' : 'Supplier'}: ${partyName}` : ''}`;
+
+        const { error: cashErr } = await db.from('cash_transactions').update({ description: updatedCashDesc }).eq('id', matchingCash.id);
+        if (cashErr) return cashErr;
+      }
+
+      // 3. Insert new cash settlement record
       if (syncCash && settleAmount > 0) {
         const cashCategory = isSale ? 'Pelunasan Piutang Penjualan' : 'Pelunasan Utang Pembelian';
-        const cashDesc = `Pelunasan ${isSale ? 'piutang penjualan' : 'utang pembelian'} ${itemName} (${itemQtyText}) · ${isSale ? 'Pembeli' : 'Supplier'}: ${partyName || 'Pelanggan'}${isFullSettlement ? ' (LUNAS)' : ` (Sisa Tagihan: ${formatMoney(newRemaining)})`}${settleNotes ? ` · ${settleNotes}` : ''}`;
+        const cashDesc = `Pelunasan ${isSale ? 'piutang penjualan' : 'utang pembelian'} ${itemName} (${itemQtyText})${notaId ? ` [Nota #${notaId}]` : ''} · ${isSale ? 'Pembeli' : 'Supplier'}: ${partyName || 'Pelanggan'}${isFullSettlement ? ' (LUNAS)' : ` (Sisa Tagihan: ${formatMoney(newRemaining)})`}${settleNotes ? ` · ${settleNotes}` : ''}`;
 
         const cashPayload = {
           direction: isSale ? 'in' : 'out',

@@ -75,3 +75,9 @@ export const ATTENDANCE_LABELS = {
   sick: { label: 'Sakit', class: 'status-sick', rate: 0 },
   absent: { label: 'Alpa', class: 'status-absent', rate: 0 },
 };
+
+export function extractNotaId(str) {
+  if (!str) return null;
+  const m = String(str).match(/\[Nota\s*#?([A-Za-z0-9\-_]+)\]/i);
+  return m ? m[1] : null;
+}

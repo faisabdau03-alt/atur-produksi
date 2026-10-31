@@ -1,7 +1,8 @@
 export function openDialog(title, body, size = 'default') {
+  const isWide = size === 'wide' || size === 'lg' || size === true;
   const dialog = document.querySelector('#app-dialog');
   if (!dialog) return;
-  if (size === 'wide' || size === 'lg') {
+  if (isWide) {
     dialog.classList.add('dialog-wide');
   } else {
     dialog.classList.remove('dialog-wide');
