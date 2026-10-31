@@ -30,33 +30,50 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
   const dateAttr = options.date ? ` data-date="${options.date}"` : '';
   const idAttr = options.id ? ` data-id="${options.id}"` : '';
   const titleHint = options.hint ? ` title="${escapeHtml(options.hint)}"` : '';
-  const activeStyle = options.active ? ' box-shadow: 0 0 0 3px #ffffff, 0 0 0 6px rgba(0,0,0,0.35); transform: translateY(-2px);' : '';
 
-  // Map tone to AdminLTE classic bg colors
-  let bgClass = 'bg-aqua';
-  if (tone.includes('green') || tone.includes('success')) bgClass = 'bg-green';
-  else if (tone.includes('orange') || tone.includes('yellow') || tone.includes('warning')) bgClass = 'bg-yellow';
-  else if (tone.includes('red') || tone.includes('danger')) bgClass = 'bg-red';
-  else if (tone.includes('purple')) bgClass = 'bg-purple';
-  else if (tone.includes('blue')) bgClass = 'bg-blue';
+  // Tone styling for modern SaaS industrial style
+  let toneIconClass = 'icon-tone-blue';
+  let toneBadgeClass = 'badge-info';
+  let valueColorStyle = '';
 
+  const toneLower = String(tone).toLowerCase();
+  if (toneLower.includes('green') || toneLower.includes('success')) {
+    toneIconClass = 'icon-tone-green';
+    toneBadgeClass = 'badge-success';
+  } else if (toneLower.includes('orange') || toneLower.includes('yellow') || toneLower.includes('warning')) {
+    toneIconClass = 'icon-tone-amber';
+    toneBadgeClass = 'badge-warning';
+  } else if (toneLower.includes('red') || toneLower.includes('danger')) {
+    toneIconClass = 'icon-tone-rose';
+    toneBadgeClass = 'badge-danger';
+    valueColorStyle = ' style="color: #e11d48;"';
+  } else if (toneLower.includes('purple')) {
+    toneIconClass = 'icon-tone-purple';
+    toneBadgeClass = 'badge-info';
+    valueColorStyle = ' style="color: #7c3aed;"';
+  } else if (toneLower.includes('blue')) {
+    toneIconClass = 'icon-tone-blue';
+    toneBadgeClass = 'badge-info';
+  }
+
+  const activeClass = options.active ? ' is-active' : '';
   const allAttrs = isClickable ? `${actionAttr}${filterAttr}${statAttr}${pageAttr}${targetAttr}${monthAttr}${dateAttr}${idAttr}` : '';
 
   return `
-    <div class="small-box ${bgClass}"${allAttrs}${titleHint} style="${isClickable ? 'cursor:pointer;' : ''}${activeStyle}">
-      <div class="inner">
-        <h3>${value}</h3>
-        <p>${escapeHtml(label)}</p>
-        <small class="small-box-note">${escapeHtml(note)}</small>
+    <div class="modern-kpi-card${activeClass}"${allAttrs}${titleHint} style="${isClickable ? 'cursor:pointer;' : ''}">
+      <div class="kpi-card-header">
+        <span class="kpi-card-title">${escapeHtml(label)}</span>
+        <div class="kpi-card-icon ${toneIconClass}">
+          ${iconSvg}
+        </div>
       </div>
-      <div class="icon">
-        ${iconSvg}
+      <div class="kpi-card-value"${valueColorStyle}>${value}</div>
+      <div class="kpi-card-footer">
+        <span class="kpi-badge ${toneBadgeClass}">${escapeHtml(note)}</span>
+        ${showFooter ? `
+          <span class="kpi-link-arrow">Lihat rincian →</span>
+        ` : ''}
       </div>
-      ${showFooter ? `
-        <a href="#" class="small-box-footer"${allAttrs}>
-          Lihat rincian <span aria-hidden="true">→</span>
-        </a>
-      ` : ''}
     </div>
   `;
 }

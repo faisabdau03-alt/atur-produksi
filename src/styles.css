@@ -2390,6 +2390,23 @@ dialog#app-dialog::backdrop {
   color: #e11d48;
 }
 
+.kpi-card-icon.icon-tone-purple {
+  background: #faf5ff;
+  color: #7c3aed;
+}
+
+.kpi-card-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.modern-kpi-card.is-active {
+  border-color: #2563eb !important;
+  background: #f8faff !important;
+  box-shadow: 0 0 0 2px #2563eb, 0 4px 12px rgba(37, 99, 235, 0.12) !important;
+  transform: translateY(-2px);
+}
+
 .kpi-card-value {
   font-size: 24px;
   font-weight: 800;
