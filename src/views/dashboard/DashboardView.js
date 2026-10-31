@@ -1,5 +1,5 @@
 import { heading } from '../../components/Header.js';
-import { formatMoney, formatQuantity, formatDate, monthRecords, currentMonth } from '../../utils/formatters.js';
+import { formatMoney, formatQuantity, formatDate, monthRecords, currentMonth, localDate } from '../../utils/formatters.js';
 import { cashBalance, stockFor, state as appState } from '../../store/state.js';
 import { Icons } from '../../components/Icons.js';
 import { escapeHtml } from '../../utils/sanitize.js';
@@ -10,6 +10,51 @@ export function renderDashboard(state = appState) {
   const netMonthCash = cashBalance(monthCash);
   const monthIn = monthCash.filter((r) => r.direction === 'in').reduce((sum, r) => sum + Number(r.amount), 0);
   const monthInCount = monthCash.filter((r) => r.direction === 'in').length;
+
+  // Hitung Absensi Karyawan Hari Ini (Dinamis)
+  const activeEmployees = (state.employees || []).filter((e) => e.is_active);
+  const totalEmployees = activeEmployees.length;
+
+  const todayRecords = (state.payroll || []).filter((r) => r.work_date === localDate);
+  const presentCount = todayRecords.filter((r) => r.attendance_status === 'present' || r.attendance_status === 'half_day').length;
+  const permitCount = todayRecords.filter((r) => r.attendance_status === 'permit').length;
+  const sickCount = todayRecords.filter((r) => r.attendance_status === 'sick').length;
+  const absentCount = todayRecords.filter((r) => r.attendance_status === 'absent').length;
+  const markedCount = todayRecords.length;
+
+  let attendanceRatioText = '0 / 0 Hadir';
+  let attendanceBadgeText = 'Belum Ada Data';
+  let badgeBgClass = 'bg-emerald-50 text-emerald-700';
+
+  if (totalEmployees === 0) {
+    attendanceRatioText = '0 Karyawan';
+    attendanceBadgeText = 'Data Kosong';
+    badgeBgClass = 'bg-gray-100 text-gray-600';
+  } else if (markedCount > 0) {
+    attendanceRatioText = `${presentCount} / ${totalEmployees} Hadir`;
+    const notPresent = totalEmployees - presentCount;
+
+    if (notPresent === 0) {
+      attendanceBadgeText = 'Semua Hadir';
+      badgeBgClass = 'bg-emerald-50 text-emerald-700';
+    } else {
+      const details = [];
+      if (permitCount > 0) details.push(`${permitCount} Izin`);
+      if (sickCount > 0) details.push(`${sickCount} Sakit`);
+      if (absentCount > 0) details.push(`${absentCount} Alpa`);
+      
+      const unrecorded = Math.max(0, totalEmployees - markedCount);
+      if (unrecorded > 0 && details.length === 0) details.push(`${unrecorded} Belum Catat`);
+
+      attendanceBadgeText = details.length > 0 ? details.join(' · ') : `${notPresent} Tidak Hadir`;
+      badgeBgClass = (sickCount > 0 || absentCount > 0) ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700';
+    }
+  } else {
+    // Belum presensi hari ini
+    attendanceRatioText = `0 / ${totalEmployees} Hadir`;
+    attendanceBadgeText = `${totalEmployees} Belum Presensi`;
+    badgeBgClass = 'bg-amber-50 text-amber-700';
+  }
 
   // 1. Hitung Piutang Pelanggan (Tempo / DP)
   const pendingReceivables = [];
@@ -88,22 +133,20 @@ export function renderDashboard(state = appState) {
         </div>
       </div>
 
-      <!-- 3. Piutang Pelanggan -->
-      <div class="modern-kpi-card" data-page="reports" title="Buka laporan keuangan dan piutang">
-        <div class="kpi-card-header">
-          <span class="kpi-card-title">Piutang Pelanggan</span>
-          <div class="kpi-card-icon icon-tone-amber">
-            ${Icons.receipt('icon-svg', 20)}
+      <!-- 3. ABSENSI KARYAWAN (Sesuai Spesifikasi UI/UX HTML & Tailwind CSS) -->
+      <div class="modern-kpi-card rounded-2xl" data-page="payroll" title="Buka data presensi dan absensi karyawan">
+        <div class="kpi-card-header flex items-center justify-between mb-3">
+          <span class="kpi-card-title text-xs font-semibold text-gray-500 uppercase tracking-wider">ABSENSI KARYAWAN</span>
+          <div class="kpi-card-icon rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+            ${Icons.userCheck ? Icons.userCheck('icon-svg', 20) : Icons.users('icon-svg', 20)}
           </div>
         </div>
-        <div class="kpi-card-value" style="color: ${totalReceivables > 0 ? '#b45309' : '#0f172a'};">
-          ${formatMoney(totalReceivables)}
-        </div>
-        <div class="kpi-card-footer">
-          <span class="kpi-badge ${pendingReceivables.length > 0 ? 'badge-warning' : 'badge-success'}">
-            ${pendingReceivables.length > 0 ? `${pendingReceivables.length} tagihan tempo` : 'Semua lunas'}
+        <div class="kpi-card-value text-3xl font-bold text-gray-900">${attendanceRatioText}</div>
+        <div class="kpi-card-footer flex items-center justify-between pt-3">
+          <span class="kpi-badge ${badgeBgClass} rounded-md px-2 py-0.5 text-xs font-medium inline-flex items-center gap-1">
+            ${attendanceBadgeText}
           </span>
-          <span class="kpi-link-arrow">Laporan →</span>
+          <span class="kpi-link-arrow text-gray-400 hover:text-gray-600 text-xs font-medium transition-colors">Lihat Presensi →</span>
         </div>
       </div>
 
