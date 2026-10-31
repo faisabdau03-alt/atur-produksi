@@ -104,7 +104,7 @@ export function renderPayroll() {
           <label style="font-size:12px; margin-right:4px;">Periode:</label>
           <input type="month" id="payroll-month-picker" value="${escapeHtml(selectedMonth)}" style="height:30px; font-size:12px; padding:2px 8px; border:1px solid #ccc; border-radius:3px;" />
           <button type="button" class="btn btn-success btn-sm" data-action="download-payroll-report" data-month="${escapeHtml(selectedMonth)}">
-            ${Icons.download('icon-svg', 13)} Unduh Excel/CSV
+            ${Icons.download('icon-svg', 13)} Unduh Excel
           </button>
         </div>
       </div>

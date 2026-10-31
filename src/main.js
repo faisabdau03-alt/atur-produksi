@@ -466,6 +466,12 @@ async function handlePageAction(event) {
   } else if (action === 'download-single-employee-attendance') {
     const month = button.dataset.month || state.selectedPayrollMonth || currentMonth;
     downloadSingleEmployeeAttendance(id, month);
+  } else if (action === 'export-products-excel' || action === 'export-products-csv') {
+    exportProducts('excel');
+  } else if (action === 'export-inventory-excel' || action === 'export-inventory-csv') {
+    exportInventory('excel');
+  } else if (action === 'export-cash-excel' || action === 'export-cash-csv') {
+    exportCash('excel');
   } else if (action === 'filter-report') {
     state.selectedReportFilter = button.dataset.filter || 'all';
     renderPage();

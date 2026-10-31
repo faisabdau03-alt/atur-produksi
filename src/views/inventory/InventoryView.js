@@ -99,9 +99,6 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
           <button type="button" class="btn btn-info btn-sm" data-action="add-product">
             ${Icons.plus('icon-svg', 13)} Tambah Barang Baru
           </button>
-          <button type="button" class="btn btn-default btn-sm" data-action="export-products-csv" title="Unduh data katalog barang format CSV">
-            ${Icons.download('icon-svg', 13)} Unduh CSV
-          </button>
           <button type="button" class="btn btn-default btn-sm" data-action="export-products-excel" title="Unduh data katalog barang format Excel (.xlsx)">
             ${Icons.download('icon-svg', 13)} Unduh Excel
           </button>
@@ -204,15 +201,11 @@ function renderMovementsSection(invRecords) {
           <button type="button" class="btn btn-warning btn-sm" data-action="add-sale" style="background:#e07b00; border-color:#c46b00; color:#fff; font-weight:600;">
             ${Icons.receipt('icon-svg', 13)} Penjualan (Nota)
           </button>
-          </button>
           <button type="button" class="btn btn-info btn-sm" data-action="add-inventory">
             ${Icons.plus('icon-svg', 13)} Catat Pergerakan
           </button>
           <button type="button" class="btn btn-success btn-sm" data-action="add-production">
             ${Icons.factory('icon-svg', 13)} Hasil Produksi
-          </button>
-          <button type="button" class="btn btn-default btn-sm" data-action="export-inventory-csv" title="Unduh mutasi persediaan format CSV">
-            ${Icons.download('icon-svg', 13)} Unduh CSV
           </button>
           <button type="button" class="btn btn-default btn-sm" data-action="export-inventory-excel" title="Unduh mutasi persediaan format Excel (.xlsx)">
             ${Icons.download('icon-svg', 13)} Unduh Excel

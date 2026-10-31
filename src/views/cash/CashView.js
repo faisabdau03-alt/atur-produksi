@@ -38,9 +38,6 @@ export function renderCash(state = appState) {
           <button type="button" class="btn btn-info btn-sm" data-action="add-cash">
             ${Icons.plus('icon-svg', 13)} Tambah Transaksi Kas
           </button>
-          <button type="button" class="btn btn-default btn-sm" data-action="export-cash-csv" title="Unduh catatan buku kas format CSV">
-            ${Icons.download('icon-svg', 13)} Unduh CSV
-          </button>
           <button type="button" class="btn btn-default btn-sm" data-action="export-cash-excel" title="Unduh catatan buku kas format Excel (.xlsx)">
             ${Icons.download('icon-svg', 13)} Unduh Excel
           </button>
