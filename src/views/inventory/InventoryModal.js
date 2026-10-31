@@ -31,6 +31,12 @@ export function openInventoryModal(state, initialType = 'in_production', initial
           <option value="out_usage" ${initialType === 'out_usage' ? 'selected' : ''}>Barang Keluar: Pemakaian Internal / Reject (Rusak)</option>
         </select>
       </label>
+      <div id="inv-multi-sale-hint" style="display:none; margin: 4px 0 8px; padding: 7px 12px; border-radius: 6px; background: #e8f5e9; border: 1px solid #c8e6c9; font-size: 11.5px; color: #1b5e20;">
+        <span style="vertical-align: middle;">${Icons.receipt('icon-svg', 13)}</span> Pembeli pesan <strong>lebih dari 1 jenis barang</strong> dalam 1 nota? 
+        <button type="button" class="btn btn-xs btn-success" data-action="open-sale-invoice-modal" style="margin-left: 6px; font-weight: 700; padding: 2px 8px; background: #187554;">
+          Buka Form Nota Multi-Barang →
+        </button>
+      </div>
 
       <label>Produk yang dicatat<select name="product_id" id="inv-product" required>${options}</select></label>
       

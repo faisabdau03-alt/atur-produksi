@@ -11,6 +11,7 @@ import { renderProducts } from './views/products/ProductsView.js';
 import { openProductModal } from './views/products/ProductModal.js';
 import { renderInventory } from './views/inventory/InventoryView.js';
 import { openMovementModal } from './views/inventory/InventoryModal.js';
+import { openSaleInvoiceModal } from './views/inventory/SaleInvoiceModal.js';
 import { renderCash } from './views/cash/CashView.js';
 import { openCashModal } from './views/cash/CashModal.js';
 import { renderPayroll } from './views/payroll/PayrollView.js';
@@ -237,6 +238,7 @@ async function handlePageAction(event) {
     handleSignOut();
   } else if (action === 'quick-entry') {
     openDialog('Catat transaksi', `<div class="quick-actions">
+      <button class="quick-action-card" data-action="open-sale-invoice-modal"><span class="quick-action-icon" style="background:#e8f5e9; color:#187554;">${Icons.receipt('icon-svg', 20)}</span><strong>Buat Nota Penjualan</strong><small>Kirim / jual beberapa barang sekaligus</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-production"><span class="quick-action-icon">${Icons.factory('icon-svg', 20)}</span><strong>Hasil produksi</strong><small>Tambah stok barang jadi pabrik</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-inventory"><span class="quick-action-icon icon-blue">${Icons.inventory('icon-svg', 20)}</span><strong>Pergerakan barang</strong><small>Beli dari supplier / kirim penjualan</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-cash"><span class="quick-action-icon icon-green">${Icons.cash('icon-svg', 20)}</span><strong>Transaksi kas</strong><small>Catat uang masuk atau keluar</small><span class="quick-action-arrow">→</span></button>
@@ -281,6 +283,9 @@ async function handlePageAction(event) {
     await refreshData();
     renderShell();
     notify('Produk berhasil dihapus.');
+  } else if (action === 'open-sale-invoice-modal' || action === 'add-sale-invoice') {
+    closeDialog();
+    openSaleInvoiceModal(button.dataset.productId || null, () => renderShell());
   } else if (action === 'add-production') {
     closeDialog();
     openMovementModal(null, 'in', 'Produksi');

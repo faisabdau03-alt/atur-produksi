@@ -1,6 +1,11 @@
-export function openDialog(title, body) {
+export function openDialog(title, body, size = 'default') {
   const dialog = document.querySelector('#app-dialog');
   if (!dialog) return;
+  if (size === 'wide' || size === 'lg') {
+    dialog.classList.add('dialog-wide');
+  } else {
+    dialog.classList.remove('dialog-wide');
+  }
   document.querySelector('#dialog-content').innerHTML = `
     <div class="modal-dialog-inner">
       <div class="modal-dialog-header">
@@ -17,5 +22,8 @@ export function openDialog(title, body) {
 
 export function closeDialog() {
   const dialog = document.querySelector('#app-dialog');
-  if (dialog) dialog.close();
+  if (dialog) {
+    dialog.close();
+    dialog.classList.remove('dialog-wide');
+  }
 }

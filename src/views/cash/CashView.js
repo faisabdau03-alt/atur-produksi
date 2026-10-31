@@ -32,6 +32,9 @@ export function renderCash(state = appState) {
       <div class="box-header">
         <h3 class="box-title">${Icons.cash('icon-svg', 18)} Buku Arus Kas Masuk & Keluar</h3>
         <div class="box-tools">
+          <button type="button" class="btn btn-primary btn-sm" data-action="open-sale-invoice-modal" style="background: #187554; border-color: #12583f; font-weight: 600;">
+            ${Icons.receipt('icon-svg', 13)} + Nota Penjualan
+          </button>
           <button type="button" class="btn btn-info btn-sm" data-action="add-cash">
             ${Icons.plus('icon-svg', 13)} Tambah Transaksi Kas
           </button>

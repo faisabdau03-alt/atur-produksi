@@ -27,6 +27,7 @@ export function buildReceiptRawText({
   supplier = '',
   team = '',
   paymentStatus = 'Lunas',
+  items = [],
   itemName = 'Produk',
   qtyText = '',
   priceText = '',
@@ -80,9 +81,21 @@ export function buildReceiptRawText({
   }
 
   lines.push(divDash);
-  lines.push('RINCIAN:');
-  lines.push(itemName);
-  lines.push(row(qtyText + (priceText ? ' @ ' + priceText : ''), formatMoney(totalAmount)));
+  if (items && items.length > 0) {
+    lines.push(items.length > 1 ? `DAFTAR BARANG (${items.length} ITEM):` : 'RINCIAN BARANG:');
+    items.forEach((it, idx) => {
+      const numPrefix = items.length > 1 ? `${idx + 1}. ` : '';
+      lines.push(numPrefix + (it.name || 'Produk'));
+      const qText = typeof it.qty === 'number' ? `${formatQuantity(it.qty)} ${it.unit || ''}`.trim() : String(it.qty || '1');
+      const pText = it.price ? `@ ${typeof it.price === 'number' ? formatMoney(it.price) : it.price}` : '';
+      const tText = typeof it.total === 'number' ? formatMoney(it.total) : String(it.total || '');
+      lines.push(row(`${qText} ${pText}`.trim(), tText));
+    });
+  } else {
+    lines.push('RINCIAN:');
+    lines.push(itemName);
+    lines.push(row(qtyText + (priceText ? ' @ ' + priceText : ''), formatMoney(totalAmount)));
+  }
   lines.push(divDash);
 
   lines.push(row('Total Belanja :', formatMoney(totalAmount)));
@@ -976,7 +989,42 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       receiptTitle = 'BUKTI PEMBAYARAN GAJI';
     }
 
-    const receiptNumber = `TRX-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
+    let receiptNumber = `TRX-${rec.occurred_on.replace(/-/g, '')}-${rec.id.slice(0, 4).toUpperCase()}`;
+    let multiItems = [];
+
+    // Check if this cash transaction is a multi-item sale invoice
+    const itemsJsonMatch = desc.match(/\[ITEMS_JSON:(.*?)\]/s);
+    if (itemsJsonMatch) {
+      try {
+        const meta = JSON.parse(itemsJsonMatch[1]);
+        if (Array.isArray(meta.items) && meta.items.length > 0) {
+          multiItems = meta.items;
+          if (meta.buyer) buyerName = meta.buyer;
+          if (meta.ref) receiptNumber = meta.ref;
+          if (meta.totalAmount !== undefined) totalAmount = meta.totalAmount;
+          if (meta.paidAmount !== undefined) paidAmount = meta.paidAmount;
+          if (meta.remainingAmount !== undefined) remainingAmount = meta.remainingAmount;
+          if (meta.status === 'dp') {
+            paymentStatusText = 'Uang Muka (DP)';
+            paymentStatusClass = 'dp';
+            isDP = true;
+          } else if (meta.status === 'unpaid') {
+            paymentStatusText = 'Tempo / Piutang';
+            paymentStatusClass = 'tempo';
+            isDP = false;
+          } else {
+            paymentStatusText = 'Lunas';
+            paymentStatusClass = 'lunas';
+            isDP = false;
+          }
+          if (meta.notes) {
+            extraNotes = meta.notes;
+          }
+        }
+      } catch (e) {
+        console.warn('Gagal membaca meta items:', e);
+      }
+    }
 
     const rawText = buildReceiptRawText({
       shopName: 'JAYA WIJAYA',
@@ -988,6 +1036,7 @@ export function openReportDetailModal(type, id, month = currentMonth) {
       supplier: supplierName,
       team: teamName,
       paymentStatus: paymentStatusText,
+      items: multiItems.length > 0 ? multiItems : [{ name: itemName, qty: itemQtyText, price: itemPriceText, total: totalAmount }],
       itemName,
       qtyText: itemQtyText,
       priceText: itemPriceText,
@@ -1056,17 +1105,30 @@ export function openReportDetailModal(type, id, month = currentMonth) {
           <div class="receipt-divider"></div>
           <div class="receipt-items">
             <div class="receipt-item-header">
-              <span>RINCIAN / KETERANGAN</span>
+              <span>RINCIAN / DAFTAR BARANG ${multiItems.length > 1 ? `(${multiItems.length} ITEM)` : ''}</span>
               <span class="align-right">TOTAL</span>
             </div>
             <div class="receipt-divider-dash"></div>
-            <div class="receipt-item-line">
-              <div class="receipt-item-name">${escapeHtml(itemName)}</div>
-              <div class="receipt-item-sub">
-                <span>${escapeHtml(itemQtyText)}${itemPriceText ? ` @ ${escapeHtml(itemPriceText)}` : ''}</span>
-                <span class="receipt-item-total">${formatMoney(totalAmount)}</span>
+            ${multiItems.length > 0 ? multiItems.map((it, idx) => `
+              <div class="receipt-item-line" style="${idx > 0 ? 'margin-top: 8px;' : ''}">
+                <div class="receipt-item-name">
+                  ${multiItems.length > 1 ? `<span style="color:#777; font-weight:600; margin-right:4px;">${idx + 1}.</span>` : ''}
+                  <strong>${escapeHtml(it.name || 'Produk')}</strong>
+                </div>
+                <div class="receipt-item-sub">
+                  <span>${typeof it.qty === 'number' ? `${formatQuantity(it.qty)} ${escapeHtml(it.unit || '')}` : escapeHtml(it.qty || '1')} ${it.price ? ` @ ${typeof it.price === 'number' ? formatMoney(it.price) : escapeHtml(it.price)}` : ''}</span>
+                  <span class="receipt-item-total" style="font-weight:700; color:#187554;">${typeof it.total === 'number' ? formatMoney(it.total) : escapeHtml(it.total || formatMoney(totalAmount))}</span>
+                </div>
               </div>
-            </div>
+            `).join('') : `
+              <div class="receipt-item-line">
+                <div class="receipt-item-name">${escapeHtml(itemName)}</div>
+                <div class="receipt-item-sub">
+                  <span>${escapeHtml(itemQtyText)}${itemPriceText ? ` @ ${escapeHtml(itemPriceText)}` : ''}</span>
+                  <span class="receipt-item-total">${formatMoney(totalAmount)}</span>
+                </div>
+              </div>
+            `}
           </div>
           <div class="receipt-divider"></div>
           <div class="receipt-summary">
@@ -1139,9 +1201,19 @@ export function openReportDetailModal(type, id, month = currentMonth) {
   } else if (type === 'inventory') {
     const rec = state.inventory.find((i) => i.id === id);
     if (!rec) return;
+    const notes = rec.notes || '';
+
+    // If this inventory movement is part of a multi-item sale invoice, open the combined invoice!
+    const refMatch = notes.match(/Ref:\s*([A-Z0-9-]+)/i) || notes.match(/#([A-Z0-9-]+)/i);
+    if (refMatch) {
+      const refCode = refMatch[1];
+      const matchingCash = state.cash.find((c) => (c.description || '').includes(refCode));
+      if (matchingCash) {
+        return openReportDetailModal('cash', matchingCash.id, month);
+      }
+    }
     const prod = state.products.find((p) => p.id === rec.product_id) || rec.products;
     const isIn = rec.direction === 'in';
-    const notes = rec.notes || '';
     const isProduction = isIn && (notes.includes('Hasil Produksi') || notes.toLowerCase().includes('produksi'));
     const isUsage = !isIn && (notes.includes('Pemakaian') || notes.toLowerCase().includes('internal') || notes.toLowerCase().includes('reject'));
     const purchasePrice = Number(prod?.purchase_price) || 0;

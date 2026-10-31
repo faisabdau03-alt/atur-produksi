@@ -996,6 +996,11 @@ dialog#app-dialog {
   box-shadow: 0 5px 15px rgba(0,0,0,0.5);
   max-width: 600px;
   width: 95%;
+  transition: max-width 0.2s ease;
+}
+
+dialog#app-dialog.dialog-wide {
+  max-width: 860px;
 }
 
 dialog#app-dialog::backdrop {
