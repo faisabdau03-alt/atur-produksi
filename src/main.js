@@ -237,6 +237,7 @@ async function handlePageAction(event) {
     handleSignOut();
   } else if (action === 'quick-entry') {
     openDialog('Catat transaksi', `<div class="quick-actions">
+      <button class="quick-action-card" data-action="add-sale"><span class="quick-action-icon icon-orange">${Icons.truck('icon-svg', 20)}</span><strong>Penjualan (Nota)</strong><small>Catat pesanan multi-item ke pelanggan</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-production"><span class="quick-action-icon">${Icons.factory('icon-svg', 20)}</span><strong>Hasil produksi</strong><small>Tambah stok barang jadi pabrik</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-inventory"><span class="quick-action-icon icon-blue">${Icons.inventory('icon-svg', 20)}</span><strong>Pergerakan barang</strong><small>Beli dari supplier / kirim penjualan</small><span class="quick-action-arrow">→</span></button>
       <button class="quick-action-card" data-action="add-cash"><span class="quick-action-icon icon-green">${Icons.cash('icon-svg', 20)}</span><strong>Transaksi kas</strong><small>Catat uang masuk atau keluar</small><span class="quick-action-arrow">→</span></button>
@@ -281,6 +282,9 @@ async function handlePageAction(event) {
     await refreshData();
     renderShell();
     notify('Produk berhasil dihapus.');
+  } else if (action === 'add-sale') {
+    closeDialog();
+    openMovementModal(null, 'out', 'Penjualan');
   } else if (action === 'add-production') {
     closeDialog();
     openMovementModal(null, 'in', 'Produksi');

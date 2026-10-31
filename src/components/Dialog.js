@@ -1,4 +1,6 @@
-export function openDialog(title, body) {
+export function openDialog(title, body, isWide = false) {
+  const d = document.querySelector('#app-dialog');
+  if (d) { if (isWide) d.classList.add('dialog-wide'); else d.classList.remove('dialog-wide'); }
   const dialog = document.querySelector('#app-dialog');
   if (!dialog) return;
   document.querySelector('#dialog-content').innerHTML = `

@@ -527,7 +527,7 @@ export async function handleApiRequest(req, res) {
                 res.end(JSON.stringify({ ok: false, error: 'Data akun tidak lengkap.' }));
                 return;
               }
-              const id = body.id || `usr-${Date.now()}`;
+              const id = body.id || `usr-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               const hash = bcrypt.hashSync(password, 10);
               const userEmail = email || `${username}@jayawijaya.com`;
               const userRole = role === 'admin' ? 'admin' : (role === 'kasir' ? 'kasir' : 'operator');
@@ -607,7 +607,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `prod-${Date.now()}`;
+              const id = body.id || `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   'INSERT INTO products (id, name, sku, unit, purchase_price, selling_price) VALUES (?, ?, ?, ?, ?, ?)',
@@ -677,7 +677,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `inv-${Date.now()}`;
+              const id = body.id || `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   'INSERT INTO inventory_movements (id, product_id, direction, quantity, occurred_on, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -728,7 +728,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `cash-${Date.now()}`;
+              const id = body.id || `cash-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   'INSERT INTO cash_transactions (id, direction, amount, category, description, occurred_on, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -779,7 +779,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `emp-${Date.now()}`;
+              const id = body.id || `emp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   'INSERT INTO employees (id, full_name, position, daily_salary, overtime_rate, incentive_per_unit, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)',
@@ -838,7 +838,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `att-${Date.now()}`;
+              const id = body.id || `att-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   `INSERT INTO payroll_records (id, employee_id, work_date, period, attendance_status, daily_wage, overtime_hours, overtime_pay, base_salary, production_quantity, incentive_rate, incentive_amount, total_amount, status, notes)
@@ -899,7 +899,7 @@ export async function handleApiRequest(req, res) {
               return;
             }
             if (req.method === 'POST') {
-              const id = body.id || `pay-${Date.now()}`;
+              const id = body.id || `pay-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               if (db) {
                 await db.query(
                   `INSERT INTO payroll_payouts (id, employee_id, period, effective_days, present_days, half_days, overtime_hours, overtime_amount, base_amount, production_quantity, incentive_amount, total_amount, status, paid_at, notes)
