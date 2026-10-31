@@ -9,8 +9,11 @@ export function renderTopbar(state) {
     <header class="main-header">
       <!-- Logo -->
       <a href="#" class="logo" data-page="dashboard" title="Jaya Wijaya ERP">
-        <span class="logo-mini"><b>J</b>W</span>
-        <span class="logo-lg"><b>Jaya</b>Wijaya</span>
+        <span class="logo-mini"><img src="/images/logo-jaya-wijaya.png" alt="JW" style="width:28px; height:28px; border-radius:50%; vertical-align:middle; object-fit:cover;" onerror="this.onerror=null; this.src='/images/logo-jaya-wijaya.jpg';" /></span>
+        <span class="logo-lg" style="display:inline-flex; align-items:center; gap:8px;">
+          <img src="/images/logo-jaya-wijaya.png" alt="Logo" style="width:28px; height:28px; border-radius:50%; object-fit:cover; border:1.5px solid rgba(255,255,255,0.7); box-shadow:0 1px 3px rgba(0,0,0,0.2);" onerror="this.onerror=null; this.src='/images/logo-jaya-wijaya.jpg';" />
+          <span><b>Jaya</b>Wijaya</span>
+        </span>
       </a>
 
       <!-- Navbar -->

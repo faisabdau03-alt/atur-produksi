@@ -23,7 +23,7 @@ export function renderSidebar(state) {
     <aside class="main-sidebar" id="app-sidebar">
       <div class="user-panel">
         <div class="user-panel-avatar">
-          ${Icons.user('icon-svg', 22)}
+          <img src="/images/logo-jaya-wijaya.png" alt="Logo Jaya Wijaya" class="user-panel-logo-img" onerror="this.onerror=null; this.src='/images/logo-jaya-wijaya.jpg';" />
         </div>
         <div class="user-panel-info">
           <p class="user-panel-name">${escapeHtml(userDisplayId())}</p>
