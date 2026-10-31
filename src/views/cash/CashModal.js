@@ -4,18 +4,31 @@ import { localDate } from '../../utils/formatters.js';
 import { db } from '../../api/db.js';
 
 export function openCashModal(onSaved = null) {
-  openDialog('Catat transaksi kas', `
+  openDialog('Catat Transaksi Kas', `
     <form id="cash-form" class="form-stack">
-      <label>Jenis transaksi
-        <select name="direction" id="cash-direction" required>
-          <option value="out">Uang keluar (Pengeluaran)</option>
-          <option value="in">Uang masuk (Pemasukan)</option>
+      <div class="form-group">
+        <label class="form-label" for="cash-direction">
+          Jenis Transaksi Kas <span class="required">*</span>
+        </label>
+        <select class="form-control" name="direction" id="cash-direction" required>
+          <option value="out">Uang Keluar (Pengeluaran / Biaya Operasional)</option>
+          <option value="in">Uang Masuk (Pemasukan / Pembayaran Pelanggan)</option>
         </select>
-      </label>
-      <label>Jumlah (Rp)<input name="amount" type="number" min="1" step="1" placeholder="0" required /></label>
-      <div class="form-row">
-        <label>Kategori
-          <input name="category" list="cash-categories" maxlength="80" placeholder="Pilih atau ketik kategori" required />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cash-amount">
+          Nominal Uang (Rp) <span class="required">*</span>
+        </label>
+        <input class="form-control" id="cash-amount" name="amount" type="number" min="1" step="1" placeholder="Contoh: 150000" required />
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="cash-category">
+            Kategori Transaksi <span class="required">*</span>
+          </label>
+          <input class="form-control" id="cash-category" name="category" list="cash-categories" maxlength="80" placeholder="Pilih atau ketik kategori" required />
           <datalist id="cash-categories">
             <option value="Operasional Alat & Mesin" />
             <option value="Perawatan & Perbaikan" />
@@ -30,15 +43,27 @@ export function openCashModal(onSaved = null) {
             <option value="Pelunasan Utang Pembelian" />
             <option value="Lain-lain" />
           </datalist>
-        </label>
-        <label>Tanggal<input name="occurred_on" type="date" value="${localDate}" required /></label>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cash-date">
+            Tanggal Transaksi <span class="required">*</span>
+          </label>
+          <input class="form-control" id="cash-date" name="occurred_on" type="date" value="${localDate}" required />
+        </div>
       </div>
-      <label id="cash-desc-label">Catatan / Untuk Apa Uang Tersebut <span style="color: #c93b2b;">*</span>
-        <input name="description" id="cash-desc-input" maxlength="240" placeholder="Wajib diisi: contoh biaya oli mesin & ganti pisau potong" required />
-      </label>
-      <div class="dialog-actions">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
-        <button class="button button-primary" type="submit">Simpan transaksi</button>
+
+      <div class="form-group">
+        <label class="form-label" id="cash-desc-label" for="cash-desc-input">
+          Catatan / Rincian Keperluan <span class="required">*</span>
+        </label>
+        <input class="form-control" name="description" id="cash-desc-input" maxlength="240" placeholder="Wajib diisi: contoh biaya oli mesin & ganti pisau potong" required />
+      </div>
+
+      <div class="modal-form-actions">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Batal</button>
+        <button class="btn btn-primary" type="submit">
+          Simpan Transaksi Kas
+        </button>
       </div>
     </form>`);
 
@@ -49,11 +74,11 @@ export function openCashModal(onSaved = null) {
   if (dirSelect && descLabel && descInput) {
     dirSelect.addEventListener('change', () => {
       if (dirSelect.value === 'out') {
-        descLabel.childNodes[0].nodeValue = 'Catatan / Untuk Apa Uang Tersebut ';
-        descInput.placeholder = 'Wajib diisi: contoh operasional alat, listrik pabrik, dll.';
+        descLabel.innerHTML = 'Catatan / Rincian Keperluan <span class="required">*</span>';
+        descInput.placeholder = 'Wajib diisi: contoh biaya oli mesin & ganti pisau potong';
       } else {
-        descLabel.childNodes[0].nodeValue = 'Catatan Sumber Uang Masuk ';
-        descInput.placeholder = 'Wajib diisi: contoh penjualan barang, pelunasan nota, dll.';
+        descLabel.innerHTML = 'Catatan Sumber Uang Masuk <span class="required">*</span>';
+        descInput.placeholder = 'Wajib diisi: contoh penjualan produk, pelunasan nota, dll.';
       }
     });
   }
@@ -65,12 +90,11 @@ export function openCashModal(onSaved = null) {
       const fd = new FormData(form);
       const payload = {
         direction: fd.get('direction'),
-        amount: Number(fd.get('amount')),
+        amount: Number(fd.get('amount')) || 0,
         category: fd.get('category').trim(),
         description: fd.get('description').trim(),
-        occurred_on: fd.get('occurred_on'),
+        occurred_on: fd.get('occurred_on') || localDate,
       };
-
       await runMutation(async () => {
         const { error } = await db.from('cash_transactions').insert(payload);
         return error;

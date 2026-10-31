@@ -1017,17 +1017,41 @@ dialog#app-dialog::backdrop {
   background: rgba(0, 0, 0, 0.5);
 }
 
+dialog#app-dialog {
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  overflow: visible;
+  max-width: 540px;
+  width: 95vw;
+}
+
+dialog#app-dialog.dialog-wide {
+  max-width: 760px;
+}
+
+dialog#app-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
 .modal-dialog-inner {
   background: #ffffff;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(0,0,0,0.2);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-dialog-header {
-  padding: 14px 18px;
-  background-color: var(--color-primary);
-  color: #ffffff;
+  padding: 16px 20px;
+  background: #f8fafc;
+  color: #0f172a;
+  border-bottom: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1035,34 +1059,167 @@ dialog#app-dialog::backdrop {
 
 .modal-dialog-title {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
 .modal-dialog-close {
-  background: transparent;
-  border: none;
-  color: #ffffff;
-  font-size: 20px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
+  transition: all 0.15s ease;
+}
+
+.modal-dialog-close:hover {
+  background: #fee2e2;
+  color: #e11d48;
+  border-color: #fca5a5;
 }
 
 .modal-dialog-body {
-  padding: 18px;
+  padding: 20px 22px;
   max-height: 75vh;
   overflow-y: auto;
 }
 
 .modal-dialog-footer {
-  padding: 12px 18px;
-  background-color: #f4f4f4;
-  border-top: 1px solid #e5e5e5;
+  padding: 14px 20px;
+  background-color: #f8fafc;
+  border-top: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+}
+
+/* Modern Form Stack & Layouts */
+.form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.form-label .required {
+  color: #e11d48;
+}
+
+.form-label .optional {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+
+@media (max-width: 600px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.form-stack .form-control,
+.form-stack input,
+.form-stack select,
+.form-stack textarea {
+  width: 100%;
+  height: 40px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: #1e293b;
+  background-color: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.form-stack .form-control:focus,
+.form-stack input:focus,
+.form-stack select:focus,
+.form-stack textarea:focus {
+  border-color: #2563eb;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.modal-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 14px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.modal-form-actions .btn {
+  min-height: 38px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.modal-form-actions .btn-default {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  color: #475569;
+}
+
+.modal-form-actions .btn-default:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.modal-form-actions .btn-primary {
+  background: #2563eb;
+  border: 1.5px solid #1d4ed8;
+  color: #ffffff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.modal-form-actions .btn-primary:hover {
+  background: #1d4ed8;
 }
 
 /* Toast */
