@@ -13,8 +13,7 @@ export function renderSidebar(state) {
 
   if (state.isAdmin) {
     menu.push(
-      { page: 'payroll', label: 'PENGGAJIAN & ABSENSI', icon: Icons.payroll('icon-svg', 15) },
-      { page: 'users', label: 'DATA PENGGUNA', icon: Icons.users('icon-svg', 15) }
+      { page: 'payroll', label: 'PENGGAJIAN & ABSENSI', icon: Icons.payroll('icon-svg', 15) }
     );
   }
 

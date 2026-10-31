@@ -88,7 +88,7 @@ function renderPage() {
     reports: ['Laporan', () => renderReports(state.selectedReportMonth || currentMonth)],
   };
 
-  if (!pages[state.page] || ((state.page === 'payroll' || state.page === 'users') && !state.isAdmin)) {
+  if (!pages[state.page] || state.page === 'users' || (state.page === 'payroll' && !state.isAdmin)) {
     state.page = 'dashboard';
   }
 
