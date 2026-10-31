@@ -288,7 +288,7 @@ async function handlePageAction(event) {
     openMovementModal(button.dataset.productId || null, 'out', 'Penjualan');
   } else if (action === 'add-production') {
     closeDialog();
-    openMovementModal(null, 'in', 'Produksi');
+    openMovementModal(button.dataset.productId || null, 'in', 'Produksi');
   } else if (action === 'add-inventory') {
     closeDialog();
     openMovementModal(null, 'in', 'Pembelian');
