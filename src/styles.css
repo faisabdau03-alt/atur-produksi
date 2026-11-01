@@ -1104,10 +1104,63 @@ dialog#app-dialog::backdrop {
 }
 
 /* Modern Form Stack & Layouts */
+/* Checkbox & Radio Normalization */
+.form-stack input[type="checkbox"],
+.form-stack input[type="radio"],
+.checkbox-label input[type="checkbox"],
+.sync-cash-toggle input[type="checkbox"] {
+  width: 18px !important;
+  height: 18px !important;
+  min-width: 18px !important;
+  max-width: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  cursor: pointer;
+  accent-color: #187554 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Modern Sync Cash Card */
+.sync-cash-box {
+  margin: 6px 0 10px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+}
+
+.sync-cash-toggle {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  cursor: pointer !important;
+  margin: 0 !important;
+  user-select: none;
+}
+
+.sync-cash-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-cash-label strong {
+  font-size: 13px;
+  font-weight: 700;
+  color: #166534;
+  line-height: 1.3;
+}
+
+.sync-cash-sub {
+  font-size: 11px;
+  font-weight: 400;
+  color: #15803d;
+}
+
 .form-stack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 11px;
 }
 
 .form-group {
@@ -1152,7 +1205,7 @@ dialog#app-dialog::backdrop {
 }
 
 .form-stack .form-control,
-.form-stack input,
+.form-stack input:not([type="checkbox"]):not([type="radio"]),
 .form-stack select,
 .form-stack textarea {
   width: 100%;
@@ -1168,7 +1221,7 @@ dialog#app-dialog::backdrop {
 }
 
 .form-stack .form-control:focus,
-.form-stack input:focus,
+.form-stack input:not([type="checkbox"]):not([type="radio"]):focus,
 .form-stack select:focus,
 .form-stack textarea:focus {
   border-color: #2563eb;

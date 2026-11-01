@@ -40,58 +40,59 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
 
   openDialog(dialogTitle, `
     <form id="inventory-form" class="form-stack">
-      <label>Jenis pergerakan
-        <select name="movement_type" id="inv-movement-type" required>
-          <option value="out_sale" ${initialType === 'out_sale' ? 'selected' : ''}>Barang Keluar: Penjualan ke Pelanggan (Pesanan Kirim / Nota)</option>
+      <div class="form-group">
+        <label class="form-label" for="inv-movement-type">
+          Jenis Pergerakan Stok <span class="required">*</span>
+        </label>
+        <select class="form-control" name="movement_type" id="inv-movement-type" required>
           <option value="in_purchase" ${initialType === 'in_purchase' ? 'selected' : ''}>Barang Masuk: Belanja / Beli dari Supplier (Bahan Baku / Kulakan)</option>
           <option value="in_production" ${initialType === 'in_production' ? 'selected' : ''}>Barang Masuk: Hasil Produksi Sendiri (Barang Jadi)</option>
           <option value="out_usage" ${initialType === 'out_usage' ? 'selected' : ''}>Barang Keluar: Pemakaian Internal / Reject (Rusak)</option>
+          <option value="out_sale" ${initialType === 'out_sale' ? 'selected' : ''}>Barang Keluar: Penjualan / Pengiriman Pesanan Pelanggan</option>
         </select>
-      </label>
-      <div id="inv-multi-sale-hint" style="display:none; margin: 4px 0 8px; padding: 7px 12px; border-radius: 6px; background: #e8f5e9; border: 1px solid #c8e6c9; font-size: 11.5px; color: #1b5e20;">
-        <span style="vertical-align: middle;">${Icons.receipt('icon-svg', 13)}</span> Pembeli pesan <strong>lebih dari 1 jenis barang</strong> dalam 1 nota? 
-        <button type="button" class="btn btn-xs btn-success" data-action="open-sale-invoice-modal" style="margin-left: 6px; font-weight: 700; padding: 2px 8px; background: #187554;">
-          Buka Form Nota Multi-Barang →
-        </button>
       </div>
 
-      <div class="form-row">
-        <!-- Input Khusus Pihak Terkait (Nama Pembeli / Nama Supplier / Tim) -->
-        <label id="inv-party-wrap">
-          <span id="inv-party-label">Nama Pembeli / Pelanggan <span class="optional">(opsional)</span></span>
-          <input name="party_name" id="inv-party-name" maxlength="120" placeholder="Contoh: Toko Berkah, CV Mandiri, Pak Hendra" />
-        </label>
-        <label>Tanggal pergerakan
-          <input name="occurred_on" id="inv-date" type="date" value="${localDate}" required />
-        </label>
+      <div class="form-grid-2">
+        <div class="form-group" id="inv-party-wrap">
+          <label class="form-label" id="inv-party-label" for="inv-party-name">
+            Nama Supplier / Pihak Terkait <span class="optional">(opsional)</span>
+          </label>
+          <input class="form-control" name="party_name" id="inv-party-name" maxlength="120" placeholder="Contoh: PT Kertas Nusantara, Toko Bahan Abadi" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="inv-date">
+            Tanggal Pergerakan <span class="required">*</span>
+          </label>
+          <input class="form-control" name="occurred_on" id="inv-date" type="date" value="${localDate}" required />
+        </div>
       </div>
 
       <!-- Info Box Khusus Hasil Produksi -->
-      <div class="formula-note" id="inv-prod-info" style="display: none; margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #edf7f0; border-left: 4px solid #187554; color: #187554;">
+      <div class="formula-note" id="inv-prod-info" style="display: none; margin: 2px 0 6px; padding: 12px 14px; border-radius: 8px; background: #f0fdf4; border: 1.5px solid #bbf7d0; color: #166534;">
         <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
           <span>${Icons.factory('icon-svg', 14)}</span> Produksi Pabrik Sendiri
         </div>
-        <div style="font-size: 11px; line-height: 1.5; color: #205c3d;">
+        <div style="font-size: 11.5px; line-height: 1.5; color: #15803d;">
           Stok fisik barang jadi akan <strong>bertambah</strong> tanpa memotong kas belanja perusahaan. Biaya bahan baku dan gaji pekerja pabrik dicatat terpisah.
         </div>
       </div>
 
       <!-- Info Box Pemakaian Internal / Reject -->
-      <div class="formula-note" id="inv-usage-info" style="display: none; margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #fff8e1; border-left: 4px solid #fbc02d; color: #7f6000;">
+      <div class="formula-note" id="inv-usage-info" style="display: none; margin: 2px 0 6px; padding: 12px 14px; border-radius: 8px; background: #fffbeb; border: 1.5px solid #fde68a; color: #92400e;">
         <div style="font-weight: 700; margin-bottom: 3px; display: flex; align-items: center; gap: 6px;">
           <span>${Icons.box('icon-svg', 14)}</span> Pemakaian Internal / Reject (Rusak)
         </div>
-        <div style="font-size: 11px; line-height: 1.5; color: #6d4c00;">
+        <div style="font-size: 11.5px; line-height: 1.5; color: #b45309;">
           Stok fisik akan <strong>berkurang</strong> karena digunakan untuk internal pabrik, sampel, atau afkir (rusak). Transaksi kas tidak terpengaruh.
         </div>
       </div>
 
-      <!-- DAFTAR ITEM TRANSAKSI (MULTI-ITEM NOTA) -->
-      <div class="order-items-box" id="inv-items-box">
+      <!-- DAFTAR ITEM TRANSAKSI -->
+      <div class="order-items-box" id="inv-items-box" style="margin: 4px 0 6px;">
         <div class="order-items-header">
           <div class="order-items-title">
-            <span>${Icons.inventory('icon-svg', 14)}</span>
-            <span>Daftar Item Produk dalam Nota Transaksi</span>
+            <span>${Icons.inventory('icon-svg', 15)}</span>
+            <span>Daftar Barang Mutasi / Belanja</span>
           </div>
           <span class="order-items-hint">Bisa menambahkan lebih dari 1 jenis barang</span>
         </div>
@@ -101,7 +102,7 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
         </div>
 
         <div class="order-items-footer">
-          <button type="button" class="btn btn-default btn-sm" id="btn-add-item" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600; color: #145a42; border-color: #a3d4bb;">
+          <button type="button" class="btn btn-default btn-sm" id="btn-add-item" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 600; color: #187554; border-color: #cbd5e1; background: #ffffff; border-radius: 6px; height: 34px;">
             <span>＋</span> Tambah Item Produk Lain
           </button>
 
@@ -112,47 +113,53 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
         </div>
       </div>
 
-      <!-- Cash Box untuk Pembelian Supplier atau Penjualan Pelanggan -->
-      <div class="formula-note" id="inv-cash-box" style="margin: 3px 0 6px; padding: 12px 14px; border-radius: 8px; background: #f0fdf4; border: 1.5px solid #c2e7cc;">
-        <label class="checkbox-label" style="font-weight: 700; color: #187554; display: flex; align-items: center; gap: 8px; cursor: pointer; margin-bottom: 8px;">
+      <!-- Cash Box untuk Sinkronisasi Kas -->
+      <div class="sync-cash-box" id="inv-cash-box">
+        <label class="sync-cash-toggle">
           <input type="checkbox" name="sync_cash" id="inv-sync-cash" checked />
-          <span>Sinkronkan ke Keuangan Otomatis</span>
+          <span class="sync-cash-label">
+            <strong>Sinkronkan ke Buku Arus Kas Keuangan</strong>
+            <span class="sync-cash-sub">Otomatis catat transaksi pengeluaran/pemasukan riil ke kas</span>
+          </span>
         </label>
 
-        <div id="inv-cash-fields">
-          <!-- OPSI METODE / STATUS PEMBAYARAN -->
+        <div id="inv-cash-fields" style="margin-top: 12px; padding-top: 12px; border-top: 1px dashed #bbf7d0;">
           <div id="inv-payment-box">
-            <div class="form-row">
-              <label>Status / Metode Pembayaran
-                <select name="payment_status" id="inv-payment-status">
+            <div class="form-grid-2">
+              <div class="form-group">
+                <label class="form-label" for="inv-payment-status">Status / Metode Pembayaran</label>
+                <select class="form-control" name="payment_status" id="inv-payment-status">
                   <option value="paid">Lunas Langsung (Dibayar 100%)</option>
                   <option value="dp">Bayar Uang Muka / DP Dulu</option>
-                  <option value="unpaid">Belum Dibayar (Tempo / Piutang Penuh)</option>
+                  <option value="unpaid">Belum Dibayar (Tempo / Utang-Piutang Penuh)</option>
                 </select>
-              </label>
-              <label id="inv-paid-amount-wrap" style="display: none;">
-                <span id="inv-paid-amount-title">Nominal DP Diterima di Kas (Rp)</span>
-                <input name="paid_amount" id="inv-paid-amount" type="number" min="0" step="1" placeholder="0" />
-              </label>
+              </div>
+              <div class="form-group" id="inv-paid-amount-wrap" style="display: none;">
+                <label class="form-label" id="inv-paid-amount-title" for="inv-paid-amount">Nominal DP Dibayar di Kas (Rp)</label>
+                <input class="form-control" name="paid_amount" id="inv-paid-amount" type="number" min="0" step="1" placeholder="0" />
+              </div>
             </div>
-            <div id="inv-payment-summary" style="margin-top: 8px; padding: 8px 12px; border-radius: 6px; font-size: 11px; line-height: 1.5; background: #edf7f0; color: #187554;">
+            <div id="inv-payment-summary" style="margin-top: 8px; padding: 10px 14px; border-radius: 6px; font-size: 11.5px; line-height: 1.5; background: #edf7f0; color: #187554; border: 1px solid #c2e7cc;">
             </div>
           </div>
 
-          <div id="inv-cash-desc" style="font-size: 11px; color: #3a6850; margin-top: 6px; line-height: 1.5; display: flex; align-items: center; gap: 5px;">
+          <div id="inv-cash-desc" style="font-size: 11.5px; color: #3a6850; margin-top: 8px; line-height: 1.5; display: flex; align-items: center; gap: 6px;">
             ${Icons.info('icon-svg', 13)} Dicatat otomatis ke buku kas.
           </div>
         </div>
       </div>
 
-      <label>Catatan Tambahan Nota <span class="optional">(opsional)</span>
-        <input name="notes" id="inv-notes" maxlength="240" placeholder="Keterangan pengiriman, alamat, atau nomor PO" />
-      </label>
+      <div class="form-group">
+        <label class="form-label" for="inv-notes">
+          Catatan Tambahan <span class="optional">(opsional)</span>
+        </label>
+        <input class="form-control" name="notes" id="inv-notes" maxlength="240" placeholder="Keterangan pengiriman, kontak supplier, atau nomor PO / surat jalan" />
+      </div>
       
-      <div class="dialog-actions">
+      <div class="modal-form-actions">
         <button type="button" class="btn btn-default" data-action="close-dialog">Batal</button>
-        <button class="btn btn-success" type="submit" style="background: #187554; border-color: #145a42; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
-          <span>📝</span> Simpan & Terbitkan Nota
+        <button class="btn btn-primary" type="submit" id="btn-submit-inv" style="background: #187554; border-color: #145a42; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+          <span>✓</span> <span id="btn-submit-text">Simpan Pergerakan Stok</span>
         </button>
       </div>
     </form>
