@@ -49,70 +49,8 @@
       "selling_price": 17000
     }
   ],
-  "inventory": [
-    {
-      "id": "inv-001",
-      "product_id": "prod-001",
-      "direction": "in",
-      "quantity": 1200,
-      "occurred_on": "2026-10-29",
-      "notes": "Hasil perakitan sapu rayung batch #101",
-      "created_by": "usr-002",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    },
-    {
-      "id": "inv-002",
-      "product_id": "prod-001",
-      "direction": "out",
-      "quantity": 400,
-      "occurred_on": "2026-10-29",
-      "notes": "Pengiriman pesanan grosir Toko Berkah",
-      "created_by": "usr-002",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    },
-    {
-      "id": "inv-003",
-      "product_id": "prod-002",
-      "direction": "in",
-      "quantity": 800,
-      "occurred_on": "2026-10-29",
-      "notes": "Selesai produksi sapu ijuk super",
-      "created_by": "usr-002",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    }
-  ],
-  "cash": [
-    {
-      "id": "cash-001",
-      "direction": "in",
-      "amount": 14500000,
-      "category": "Penjualan",
-      "description": "Pelunasan faktur pesanan grosir INV-JW-2026-081",
-      "occurred_on": "2026-10-29",
-      "created_by": "usr-001",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    },
-    {
-      "id": "cash-002",
-      "direction": "out",
-      "amount": 5200000,
-      "category": "Bahan Baku",
-      "description": "Pengadaan kayu mahoni & serat rayung",
-      "occurred_on": "2026-10-29",
-      "created_by": "usr-001",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    },
-    {
-      "id": "cash-003",
-      "direction": "in",
-      "amount": 9200000,
-      "category": "Penjualan",
-      "description": "Pesanan kulakan sapu rayung & pel lantai",
-      "occurred_on": "2026-10-29",
-      "created_by": "usr-001",
-      "created_at": "2026-10-29T13:08:20.280Z"
-    }
-  ],
+  "inventory": [],
+  "cash": [],
   "employees": [
     {
       "id": "emp-001",

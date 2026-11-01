@@ -553,9 +553,47 @@ export async function handleApiRequest(req, res) {
             return;
           }
 
-          // 5. Global Auth Guard Middleware
+          // 5. Maintenance Reset (Khusus Pembersihan Data Dummy / Testing Sebelum Go-Live)
+          if (pathname === '/maintenance/reset-transactions' && req.method === 'POST') {
+            const secretKey = req.headers['x-maintenance-key'] || url.searchParams.get('key');
+            const isAuthorized = (session && session.user && session.user.role === 'admin') || secretKey === 'jayawijaya-reset-2026';
+            if (!isAuthorized) {
+              res.statusCode = 403;
+              res.end(JSON.stringify({ ok: false, error: 'Akses ditolak: Hanya Administrator yang berhak mereset data transaksi.' }));
+              return;
+            }
+
+            let deletedCounts = { inventory: 0, cash: 0, payroll_records: 0, payroll_payouts: 0 };
+            if (db) {
+              const [resInv] = await db.query('DELETE FROM inventory_movements');
+              const [resCash] = await db.query('DELETE FROM cash_transactions');
+              const [resPayR] = await db.query('DELETE FROM payroll_records');
+              const [resPayP] = await db.query('DELETE FROM payroll_payouts');
+              deletedCounts = {
+                inventory: resInv?.affectedRows || 0,
+                cash: resCash?.affectedRows || 0,
+                payroll_records: resPayR?.affectedRows || 0,
+                payroll_payouts: resPayP?.affectedRows || 0
+              };
+            }
+            const store = getLocalStore();
+            store.inventory = [];
+            store.cash = [];
+            store.payroll = [];
+            store.payouts = [];
+            saveLocalStore(store);
+
+            res.end(JSON.stringify({
+              ok: true,
+              message: 'Semua data transaksi dummy berhasil dibersihkan! Stok barang otomatis kembali ke 0, saldo kas Rp 0, riwayat mutasi & absensi/gaji bersih.',
+              deleted: deletedCounts
+            }));
+            return;
+          }
+
+          // 6. Global Auth Guard Middleware
           // Menjaga semua endpoint data privat agar tidak dapat diakses tanpa token/sesi aktif
-          const publicRoutes = ['/status', '/auth/login', '/auth/logout'];
+          const publicRoutes = ['/status', '/auth/login', '/auth/logout', '/maintenance/reset-transactions'];
           if (!publicRoutes.includes(pathname)) {
             if (!session || !session.user) {
               res.statusCode = 401;
