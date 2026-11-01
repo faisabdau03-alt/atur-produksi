@@ -890,6 +890,9 @@ export function exportCash(format = 'csv') {
 
 
 export function openReportDetailModal(type, id, month = currentMonth) {
+  if (type === 'payroll') {
+    return payMonthlySalaryModal(id, month);
+  }
   if (type === 'cash') {
     const rec = state.cash.find((c) => c.id === id);
     if (!rec) return;

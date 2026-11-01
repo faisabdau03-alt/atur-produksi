@@ -551,7 +551,8 @@ async function handlePageAction(event) {
     state.attendanceFilter = button.dataset.status || 'all';
     renderPage();
   } else if (action === 'view-report-detail') {
-    openReportDetailModal(button.dataset.type, button.dataset.id, state.selectedReportMonth || currentMonth);
+    const month = button.dataset.month || state.selectedReportMonth || currentMonth;
+    openReportDetailModal(button.dataset.type, button.dataset.id, month);
   } else if (action === 'print-thermal-receipt') {
     printThermalReceipt();
   } else if (action === 'copy-receipt-text') {

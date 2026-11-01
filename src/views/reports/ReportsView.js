@@ -250,7 +250,7 @@ export function renderReports(month = currentMonth) {
           ${filteredItems.map((item, idx) => {
             if (item.itemType === 'payroll') {
               return `
-                <tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Klik untuk melihat slip gaji pekerja">
+                <tr class="clickable-row" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" data-month="${escapeHtml(selectedMonth)}" title="Klik untuk melihat slip gaji pekerja">
                   <td class="align-center">${idx + 1}</td>
                   <td class="date-cell">${formatDate(item.occurred_on)}</td>
                   <td><strong>Gaji & Upah</strong></td>
@@ -259,7 +259,7 @@ export function renderReports(month = currentMonth) {
                   <td><span class="direction-pill pill-out">Keluar</span></td>
                   <td class="align-right amount-cell" style="font-weight: 700; color: #dd4b39;">−${formatMoney(item.amount)}</td>
                   <td class="align-center">
-                    <button type="button" class="btn btn-info btn-xs" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" title="Pratinjau slip gaji">
+                    <button type="button" class="btn btn-info btn-xs" data-action="view-report-detail" data-id="${escapeHtml(item.id)}" data-type="payroll" data-month="${escapeHtml(selectedMonth)}" title="Pratinjau slip gaji">
                       ${Icons.eye('icon-svg', 11)} Slip
                     </button>
                   </td>

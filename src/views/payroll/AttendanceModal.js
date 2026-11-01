@@ -385,14 +385,23 @@ export function attendanceForm(record = null, defaultEmpId = null, defaultDate =
   });
 }
 
-export function payMonthlySalaryModal(employeeId, month) {
-  const employee = state.employees.find((e) => e.id === employeeId);
-  if (!employee) return;
+export function payMonthlySalaryModal(employeeId, month = (state.selectedPayrollMonth || state.selectedReportMonth || currentMonth)) {
+  let employee = state.employees.find((e) => e.id === employeeId);
+  if (!employee) {
+    const rec = (state.payroll || []).find((p) => p.id === employeeId);
+    if (rec) {
+      employee = state.employees.find((e) => e.id === rec.employee_id);
+    }
+  }
+  if (!employee) {
+    showError('Data karyawan untuk slip gaji ini tidak ditemukan.');
+    return;
+  }
   const calc = calculateMonthlySalary(employee, month);
 
   const title = calc.isPaid
     ? `Rincian Slip Gaji — ${escapeHtml(employee.full_name)} (${escapeHtml(month)})`
-    : `Bayar Gaji Akhir Bulan — ${escapeHtml(employee.full_name)}`;
+    : `Slip & Pembayaran Gaji — ${escapeHtml(employee.full_name)} (${escapeHtml(month)})`;
 
   openDialog(title, `
     <div class="slip-box">
@@ -438,20 +447,28 @@ export function payMonthlySalaryModal(employeeId, month) {
       <div class="formula-note" style="margin: 12px 0 16px;">
         Mengonfirmasi pembayaran ini akan menandai status gaji pekerja menjadi <strong>Lunas</strong> dan otomatis mencatat transaksi <strong>Kas Keluar (Gaji & Upah Karyawan)</strong> sebesar <strong>${formatMoney(calc.totalSalary)}</strong>.
       </div>
-      <div class="dialog-actions">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Batal</button>
-        <button type="button" class="button button-primary" data-action="confirm-pay-monthly" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-          ${Icons.cash('icon-svg', 14)}
-          <span>Konfirmasi & Bayar Gaji (Potong Kas)</span>
-        </button>
+      <div class="modal-form-actions" style="margin-top: 16px; justify-content: space-between;">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Batal</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-info btn-sm" data-action="view-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}" style="display: inline-flex; align-items: center; gap: 5px;">
+            ${Icons.clipboard('icon-svg', 13)} Rincian Absensi
+          </button>
+          <button type="button" class="btn btn-success btn-sm" data-action="confirm-pay-monthly" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}" style="background: #187554; border-color: #145a42; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+            ${Icons.cash('icon-svg', 13)} Konfirmasi & Bayar Gaji
+          </button>
+        </div>
       </div>
     ` : `
-      <div class="dialog-actions" style="margin-top: 16px;">
-        <button type="button" class="button button-quiet" data-action="close-dialog">Tutup</button>
-        <button type="button" class="button button-outline" data-action="view-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}">
-          ${Icons.clipboard('icon-svg', 14)}
-          <span>Lihat Rincian Absensi</span>
-        </button>
+      <div class="modal-form-actions" style="margin-top: 16px; justify-content: space-between;">
+        <button type="button" class="btn btn-default" data-action="close-dialog">Tutup</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-info btn-sm" data-action="view-employee-attendance" data-id="${escapeHtml(employee.id)}" data-month="${escapeHtml(month)}" style="display: inline-flex; align-items: center; gap: 5px;">
+            ${Icons.clipboard('icon-svg', 13)} Rincian Absensi
+          </button>
+          <button type="button" class="btn btn-default btn-sm" onclick="window.print()" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 600;">
+            <span>🖨️</span> Cetak Slip
+          </button>
+        </div>
       </div>
     `}
   `);
