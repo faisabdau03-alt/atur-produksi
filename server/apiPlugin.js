@@ -555,8 +555,7 @@ export async function handleApiRequest(req, res) {
 
           // 5. Maintenance Reset (Khusus Pembersihan Data Dummy / Testing Sebelum Go-Live)
           if (pathname === '/maintenance/reset-transactions' && req.method === 'POST') {
-            const secretKey = req.headers['x-maintenance-key'] || url.searchParams.get('key');
-            const isAuthorized = (session && session.user && session.user.role === 'admin') || secretKey === 'jayawijaya-reset-2026';
+            const isAuthorized = session && session.user && session.user.role === 'admin';
             if (!isAuthorized) {
               res.statusCode = 403;
               res.end(JSON.stringify({ ok: false, error: 'Akses ditolak: Hanya Administrator yang berhak mereset data transaksi.' }));
@@ -593,7 +592,7 @@ export async function handleApiRequest(req, res) {
 
           // 6. Global Auth Guard Middleware
           // Menjaga semua endpoint data privat agar tidak dapat diakses tanpa token/sesi aktif
-          const publicRoutes = ['/status', '/auth/login', '/auth/logout', '/maintenance/reset-transactions'];
+          const publicRoutes = ['/status', '/auth/login', '/auth/logout'];
           if (!publicRoutes.includes(pathname)) {
             if (!session || !session.user) {
               res.statusCode = 401;
