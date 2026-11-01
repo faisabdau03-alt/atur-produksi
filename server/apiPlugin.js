@@ -128,11 +128,51 @@ function verifyBcrypt(inputPassword, storedHash) {
   if (!storedHash || !inputPassword) return false;
   try {
     const normalized = storedHash.replace(/^\$2y\$/, '$2a$');
-    if (bcrypt.compareSync(inputPassword, normalized)) return true;
-  } catch (_) {}
-  if (storedHash === inputPassword) return true;
-  if ((inputPassword === 'admin123' || inputPassword === 'password') && storedHash.includes('usr-001')) return true;
-  return false;
+    return bcrypt.compareSync(inputPassword, normalized);
+  } catch (_) {
+    return false;
+  }
+}
+
+// In-Memory Rate Limiting untuk mencegah Brute Force Password
+const loginAttempts = new Map();
+
+function checkLoginRateLimit(identifier) {
+  if (!identifier) return { allowed: true };
+  const key = String(identifier).trim().toLowerCase();
+  const entry = loginAttempts.get(key);
+  if (!entry) return { allowed: true };
+  const now = Date.now();
+  if (entry.lockedUntil && now < entry.lockedUntil) {
+    const remainingSec = Math.ceil((entry.lockedUntil - now) / 1000);
+    return {
+      allowed: false,
+      message: `Terlalu banyak percobaan login gagal untuk akun ini. Demi keamanan, silakan tunggu ${remainingSec} detik lagi.`
+    };
+  }
+  if (entry.lockedUntil && now >= entry.lockedUntil) {
+    loginAttempts.delete(key);
+    return { allowed: true };
+  }
+  return { allowed: true };
+}
+
+function recordLoginFailed(identifier) {
+  if (!identifier) return;
+  const key = String(identifier).trim().toLowerCase();
+  const now = Date.now();
+  const entry = loginAttempts.get(key) || { count: 0, firstAttempt: now };
+  entry.count += 1;
+  entry.lastAttempt = now;
+  if (entry.count >= 5) {
+    entry.lockedUntil = now + 5 * 60 * 1000; // Kunci 5 menit setelah 5x salah
+  }
+  loginAttempts.set(key, entry);
+}
+
+function recordLoginSuccess(identifier) {
+  if (!identifier) return;
+  loginAttempts.delete(String(identifier).trim().toLowerCase());
 }
 
 let pool = null;
@@ -338,6 +378,10 @@ async function ensureSchema(db) {
 
 export async function handleApiRequest(req, res) {
   res.setHeader('Content-Type', 'application/json');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -417,6 +461,13 @@ export async function handleApiRequest(req, res) {
               return;
             }
 
+            const rateLimit = checkLoginRateLimit(identifier);
+            if (!rateLimit.allowed) {
+              res.statusCode = 429;
+              res.end(JSON.stringify({ ok: false, error: rateLimit.message }));
+              return;
+            }
+
             let user = null;
             if (db) {
               try {
@@ -436,6 +487,7 @@ export async function handleApiRequest(req, res) {
             }
 
             if (!user) {
+              recordLoginFailed(identifier);
               res.statusCode = 401;
               res.end(JSON.stringify({ ok: false, error: 'ID Pengguna atau Email tidak ditemukan.' }));
               return;
@@ -443,10 +495,13 @@ export async function handleApiRequest(req, res) {
 
             const isValid = verifyBcrypt(password, user.password_hash);
             if (!isValid) {
+              recordLoginFailed(identifier);
               res.statusCode = 401;
               res.end(JSON.stringify({ ok: false, error: 'Kata sandi yang Anda masukkan salah.' }));
               return;
             }
+
+            recordLoginSuccess(identifier);
 
             const safeUser = {
               id: user.id,
@@ -498,8 +553,35 @@ export async function handleApiRequest(req, res) {
             return;
           }
 
-          // 5. Users Management (GET, POST, PUT, DELETE /users)
+          // 5. Global Auth Guard Middleware
+          // Menjaga semua endpoint data privat agar tidak dapat diakses tanpa token/sesi aktif
+          const publicRoutes = ['/status', '/auth/login', '/auth/logout'];
+          if (!publicRoutes.includes(pathname)) {
+            if (!session || !session.user) {
+              res.statusCode = 401;
+              res.end(JSON.stringify({
+                ok: false,
+                data: null,
+                error: {
+                  code: 'UNAUTHORIZED',
+                  message: 'Akses ditolak: Anda harus login untuk mengakses data ini.'
+                }
+              }));
+              return;
+            }
+          }
+
+          // 6. Users Management (Admin Only)
           if (pathname === '/users') {
+            if (session.user.role !== 'admin') {
+              res.statusCode = 403;
+              res.end(JSON.stringify({
+                ok: false,
+                error: 'Akses ditolak: Menu manajemen pengguna hanya dapat diakses oleh Administrator.'
+              }));
+              return;
+            }
+
             if (req.method === 'GET') {
               if (db) {
                 const [rows] = await db.query(
