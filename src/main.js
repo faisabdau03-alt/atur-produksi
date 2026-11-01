@@ -320,9 +320,42 @@ async function handlePageAction(event) {
     renderShell();
     notify('Transaksi kas dihapus.');
   } else if (action === 'add-employee') {
-    employeeForm();
+    employeeForm(null, () => renderShell());
   } else if (action === 'edit-employee') {
-    employeeForm(state.employees.find((emp) => emp.id === id));
+    employeeForm(state.employees.find((emp) => emp.id === id), () => renderShell());
+  } else if (action === 'delete-employee') {
+    const employee = state.employees.find((emp) => emp.id === id);
+    if (!employee) return;
+
+    const hasPayrollHistory = (state.payroll || []).some((p) => p.employee_id === id);
+    const confirmMsg = hasPayrollHistory
+      ? `Karyawan "${employee.full_name}" tercatat memiliki riwayat absensi/gaji di sistem.\n\nMenghapus permanen mungkin ditolak demi menjaga data pembukuan.\n\nApakah Anda tetap ingin mencoba menghapus data ini?`
+      : `Hapus karyawan "${employee.full_name}" dari daftar master? Tindakan ini tidak dapat dibatalkan.`;
+
+    if (!window.confirm(confirmMsg)) return;
+
+    const { error } = await db.from('employees').delete().eq('id', id);
+    if (error) {
+      if (error.code === 'FK_RESTRICT' || (error.message && (error.message.includes('riwayat absensi') || error.message.includes('foreign key')))) {
+        const setInactive = window.confirm(
+          `Gagal menghapus permanen: Karyawan "${employee.full_name}" memiliki riwayat absensi/gaji.\n\nApakah Anda ingin mengubah statusnya menjadi NON-AKTIF agar tidak muncul di absensi harian?`
+        );
+        if (setInactive) {
+          await db.from('employees').update({ is_active: false }).eq('id', id);
+          await refreshData();
+          renderShell();
+          notify(`Status karyawan "${employee.full_name}" diubah menjadi NON-AKTIF.`);
+        }
+      } else {
+        showError(`Gagal menghapus karyawan: ${error.message}`);
+      }
+      return;
+    }
+
+    closeDialog();
+    await refreshData();
+    renderShell();
+    notify(`Karyawan "${employee.full_name}" berhasil dihapus.`);
   } else if (action === 'open-attendance-modal' || action === 'add-payroll') {
     attendanceForm(null, id || null, state.selectedPayrollDate);
   } else if (action === 'edit-attendance') {

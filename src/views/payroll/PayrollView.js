@@ -314,7 +314,7 @@ export function renderPayroll() {
                   <th class="align-right">TARIF LEMBUR / JAM</th>
                   <th class="align-right">INSENTIF / UNIT</th>
                   <th class="align-center">STATUS</th>
-                  <th style="width: 60px;" class="align-center">OPSI</th>
+                  <th style="width: 80px;" class="align-center">OPSI</th>
                 </tr>
               </thead>
               <tbody>

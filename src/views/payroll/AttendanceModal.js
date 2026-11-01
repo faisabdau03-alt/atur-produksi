@@ -9,18 +9,114 @@ import { calculateMonthlySalary } from './salaryCalc.js';
 import { emptyState } from '../../components/Table.js';
 import { Icons } from '../../components/Icons.js';
 
-export function employeeForm(employee = null) {
-  openDialog(employee ? 'Ubah data karyawan' : 'Tambah karyawan baru', `<form id="employee-form" class="form-stack">
-    <label>Nama lengkap<input name="full_name" maxlength="120" value="${escapeHtml(employee?.full_name || '')}" placeholder="Nama lengkap karyawan" required /></label>
-    <label>Jabatan<input name="position" maxlength="80" value="${escapeHtml(employee?.position || 'Produksi')}" placeholder="Contoh: Operator Mesin Cetak, Finishing, QC" required /></label>
-    <div class="form-row">
-      <label>Upah pokok per hari (Rp)<input name="daily_salary" type="number" min="0" step="1" value="${escapeHtml(employee?.daily_salary ?? '')}" placeholder="Contoh: 120000" required /></label>
-      <label>Tarif lembur per jam (Rp)<input name="overtime_rate" type="number" min="0" step="1" value="${escapeHtml(employee?.overtime_rate ?? '0')}" placeholder="Contoh: 20000" required /></label>
-    </div>
-    <label>Insentif per unit produksi (Rp)<input name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="Contoh: 150" required /></label>
-    ${employee ? `<label class="checkbox-label"><input name="is_active" type="checkbox" ${employee.is_active ? 'checked' : ''} /> Karyawan aktif</label>` : ''}
-    <div class="dialog-actions"><button type="button" class="button button-quiet" data-action="close-dialog">Batal</button><button class="button button-primary" type="submit">${employee ? 'Simpan perubahan' : 'Simpan karyawan'}</button></div>
-  </form>`);
+export function employeeForm(employee = null, onSaved = null) {
+  openDialog(employee ? 'Ubah Data Karyawan' : 'Tambah Karyawan Baru', `
+    <form id="employee-form" class="form-stack">
+      <div class="form-group">
+        <label class="form-label" for="emp-fullname">
+          Nama Lengkap <span class="required">*</span>
+        </label>
+        <input class="form-control" id="emp-fullname" name="full_name" maxlength="120" value="${escapeHtml(employee?.full_name || '')}" placeholder="Contoh: Budi Santoso" required autofocus />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="emp-position">
+          Posisi / Bagian Kerja <span class="required">*</span>
+        </label>
+        <input class="form-control" id="emp-position" name="position" maxlength="80" value="${escapeHtml(employee?.position || 'Produksi')}" placeholder="Contoh: Operator Mesin Bubut, Perakitan, QC" required />
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="emp-daily">
+            Upah Harian (Rp) <span class="required">*</span>
+          </label>
+          <input class="form-control" id="emp-daily" name="daily_salary" type="number" min="0" step="1" value="${escapeHtml(employee?.daily_salary ?? '')}" placeholder="Contoh: 125000" required />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="emp-overtime">
+            Tarif Lembur / Jam (Rp) <span class="required">*</span>
+          </label>
+          <input class="form-control" id="emp-overtime" name="overtime_rate" type="number" min="0" step="1" value="${escapeHtml(employee?.overtime_rate ?? '0')}" placeholder="Contoh: 20000" required />
+        </div>
+      </div>
+
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="emp-incentive">
+            Insentif per Unit Produksi (Rp)
+          </label>
+          <input class="form-control" id="emp-incentive" name="incentive_per_unit" type="number" min="0" step="1" value="${escapeHtml(employee?.incentive_per_unit ?? '0')}" placeholder="Contoh: 150" required />
+        </div>
+        <div class="form-group" style="justify-content: flex-end;">
+          ${employee ? `
+            <label class="checkbox-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer; height: 40px; margin: 0; user-select: none;">
+              <input name="is_active" type="checkbox" ${employee.is_active ? 'checked' : ''} />
+              <span style="font-size: 13px; font-weight: 600; color: #1e293b;">Status: Karyawan Aktif</span>
+            </label>
+          ` : `
+            <div style="font-size: 11.5px; color: #64748b; line-height: 1.4; display: flex; align-items: center; height: 40px;">
+              Karyawan baru otomatis berstatus aktif.
+            </div>
+          `}
+        </div>
+      </div>
+
+      <div class="modal-form-actions" style="justify-content: ${employee ? 'space-between' : 'flex-end'};">
+        ${employee ? `
+          <button type="button" class="btn btn-danger btn-sm" id="btn-delete-emp-from-modal" data-id="${escapeHtml(employee.id)}" style="background: #fff1f2; border-color: #fecdd3; color: #e11d48; font-weight: 600; height: 38px; padding: 0 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px;">
+            ${Icons.trash('icon-svg', 13)} Hapus Karyawan
+          </button>
+        ` : ''}
+        <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn btn-default" data-action="close-dialog">Batal</button>
+          <button class="btn btn-primary" type="submit" style="background: #187554; border-color: #145a42; font-weight: 700;">
+            ${employee ? 'Simpan Perubahan' : '+ Simpan Karyawan'}
+          </button>
+        </div>
+      </div>
+    </form>
+  `);
+
+  const deleteBtn = document.querySelector('#btn-delete-emp-from-modal');
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', async () => {
+      const empId = deleteBtn.dataset.id;
+      const targetEmp = state.employees.find((e) => e.id === empId);
+      if (!targetEmp) return;
+
+      const hasHistory = (state.payroll || []).some((p) => p.employee_id === empId);
+      const msg = hasHistory
+        ? `Karyawan "${targetEmp.full_name}" tercatat memiliki riwayat absensi/gaji di sistem.\n\nMenghapus permanen mungkin ditolak demi menjaga data pembukuan.\n\nTetap coba hapus?`
+        : `Hapus karyawan "${targetEmp.full_name}" dari daftar master? Tindakan ini tidak dapat dibatalkan.`;
+
+      if (!window.confirm(msg)) return;
+
+      const { error } = await db.from('employees').delete().eq('id', empId);
+      if (error) {
+        if (error.code === 'FK_RESTRICT' || (error.message && (error.message.includes('riwayat absensi') || error.message.includes('foreign key')))) {
+          const setInactive = window.confirm(
+            `Gagal menghapus permanen: Karyawan "${targetEmp.full_name}" memiliki riwayat absensi/gaji.\n\nApakah Anda ingin mengubah statusnya menjadi NON-AKTIF agar tidak muncul di absensi harian?`
+          );
+          if (setInactive) {
+            await db.from('employees').update({ is_active: false }).eq('id', empId);
+            closeDialog();
+            await refreshData();
+            if (typeof onSaved === 'function') onSaved();
+            notify(`Status karyawan "${targetEmp.full_name}" diubah menjadi NON-AKTIF.`);
+          }
+        } else {
+          showError(`Gagal menghapus karyawan: ${error.message}`);
+        }
+        return;
+      }
+
+      closeDialog();
+      await refreshData();
+      if (typeof onSaved === 'function') onSaved();
+      notify(`Karyawan "${targetEmp.full_name}" berhasil dihapus.`);
+    });
+  }
 
   document.querySelector('#employee-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -40,7 +136,7 @@ export function employeeForm(employee = null) {
         ? await db.from('employees').update(payload).eq('id', employee.id)
         : await db.from('employees').insert(payload);
       return result.error;
-    }, employee ? 'Data karyawan diperbarui.' : 'Karyawan berhasil ditambahkan.');
+    }, employee ? 'Data karyawan diperbarui.' : 'Karyawan berhasil ditambahkan.', onSaved);
   });
 }
 

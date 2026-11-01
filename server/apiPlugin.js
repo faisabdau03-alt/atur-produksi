@@ -807,6 +807,37 @@ export async function handleApiRequest(req, res) {
               res.end(JSON.stringify({ data: { id, ...body }, error: null }));
               return;
             }
+            if (req.method === 'DELETE') {
+              const id = url.searchParams.get('id');
+              if (!id) {
+                res.statusCode = 400;
+                res.end(JSON.stringify({ data: null, error: { message: 'ID karyawan tidak valid.' } }));
+                return;
+              }
+              if (db) {
+                try {
+                  await db.query('DELETE FROM employees WHERE id = ?', [id]);
+                } catch (err) {
+                  if (err.code === 'ER_ROW_IS_REFERENCED_2' || (err.message && (err.message.includes('foreign key') || err.message.includes('REFERENCE constraint')))) {
+                    res.statusCode = 400;
+                    res.end(JSON.stringify({
+                      data: null,
+                      error: {
+                        code: 'FK_RESTRICT',
+                        message: 'Karyawan tidak dapat dihapus permanen karena memiliki riwayat absensi atau pembayaran gaji. Silakan ubah statusnya menjadi NON-AKTIF agar tidak muncul di absensi.'
+                      }
+                    }));
+                    return;
+                  }
+                  throw err;
+                }
+              }
+              const store = getLocalStore();
+              store.employees = (store.employees || []).filter((e) => e.id !== id);
+              saveLocalStore(store);
+              res.end(JSON.stringify({ data: { id }, error: null }));
+              return;
+            }
           }
 
           // 10. Payroll records
