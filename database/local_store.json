@@ -47,6 +47,16 @@
       "unit": "pcs",
       "purchase_price": 10500,
       "selling_price": 17000
+    },
+    {
+      "id": "prod-test-1795337692342",
+      "name": "Produk Uji Coba Multi Tier",
+      "sku": "TEST-TIER-01",
+      "unit": "pcs",
+      "purchase_price": 10000,
+      "selling_price": 15000,
+      "price_sales": 13000,
+      "price_wholesale": 11500
     }
   ],
   "inventory": [],

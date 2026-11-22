@@ -84,12 +84,12 @@ function getLocalStore() {
   } catch (_) {}
   const initial = {
     products: [
-      { id: 'prod-001', name: 'Sapu Rayung Premium Gagang Kayu Mahoni', sku: 'JW-SR-01', unit: 'pcs', purchase_price: 11500, selling_price: 18500 },
-      { id: 'prod-002', name: 'Sapu Ijuk Super Tebal Gagang Kayu Halus', sku: 'JW-SI-02', unit: 'pcs', purchase_price: 13500, selling_price: 21500 },
-      { id: 'prod-003', name: 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', sku: 'JW-GK-03', unit: 'batang', purchase_price: 4000, selling_price: 7000 },
-      { id: 'prod-004', name: 'Sapu Lidi Taman Gagang Kayu Panjang', sku: 'JW-SL-04', unit: 'pcs', purchase_price: 9000, selling_price: 15000 },
-      { id: 'prod-005', name: 'Pel Strip Katun Gagang Kayu Kokoh', sku: 'JW-PL-05', unit: 'pcs', purchase_price: 16500, selling_price: 26000 },
-      { id: 'prod-006', name: 'Pengki Serokan Sampah Gagang Kayu', sku: 'JW-PK-06', unit: 'pcs', purchase_price: 10500, selling_price: 17000 }
+      { id: 'prod-001', name: 'Sapu Rayung Premium Gagang Kayu Mahoni', sku: 'JW-SR-01', unit: 'pcs', purchase_price: 11500, selling_price: 18500, price_sales: 17000, price_wholesale: 15700 },
+      { id: 'prod-002', name: 'Sapu Ijuk Super Tebal Gagang Kayu Halus', sku: 'JW-SI-02', unit: 'pcs', purchase_price: 13500, selling_price: 21500, price_sales: 19800, price_wholesale: 18300 },
+      { id: 'prod-003', name: 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', sku: 'JW-GK-03', unit: 'batang', purchase_price: 4000, selling_price: 7000, price_sales: 6400, price_wholesale: 6000 },
+      { id: 'prod-004', name: 'Sapu Lidi Taman Gagang Kayu Panjang', sku: 'JW-SL-04', unit: 'pcs', purchase_price: 9000, selling_price: 15000, price_sales: 13800, price_wholesale: 12800 },
+      { id: 'prod-005', name: 'Pel Strip Katun Gagang Kayu Kokoh', sku: 'JW-PL-05', unit: 'pcs', purchase_price: 16500, selling_price: 26000, price_sales: 23900, price_wholesale: 22100 },
+      { id: 'prod-006', name: 'Pengki Serokan Sampah Gagang Kayu', sku: 'JW-PK-06', unit: 'pcs', purchase_price: 10500, selling_price: 17000, price_sales: 15600, price_wholesale: 14500 }
     ],
     inventory: [
       { id: 'inv-001', product_id: 'prod-001', direction: 'in', quantity: 1200, occurred_on: new Date().toISOString().slice(0, 10), notes: 'Hasil perakitan sapu rayung batch #101', created_by: 'usr-002', created_at: new Date().toISOString() },
@@ -250,6 +250,8 @@ async function ensureSchema(db) {
           unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
           purchase_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
           selling_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          price_sales DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+          price_wholesale DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
           created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (id),
           UNIQUE KEY uk_product_name (name)
@@ -370,6 +372,24 @@ async function ensureSchema(db) {
       `);
       console.log('[Auto-Schema] Inisialisasi tabel dan data awal selesai!');
     }
+
+    // Auto-migrate new columns for products if they don't exist yet
+    try {
+      const [cols] = await db.query("SHOW COLUMNS FROM products LIKE 'price_sales'");
+      if (!cols || cols.length === 0) {
+        await db.query("ALTER TABLE products ADD COLUMN price_sales DECIMAL(16, 2) NOT NULL DEFAULT 0.00 AFTER selling_price");
+        console.log('[Auto-Schema] Kolom price_sales ditambahkan ke tabel products');
+      }
+    } catch (_) {}
+
+    try {
+      const [cols] = await db.query("SHOW COLUMNS FROM products LIKE 'price_wholesale'");
+      if (!cols || cols.length === 0) {
+        await db.query("ALTER TABLE products ADD COLUMN price_wholesale DECIMAL(16, 2) NOT NULL DEFAULT 0.00 AFTER price_sales");
+        console.log('[Auto-Schema] Kolom price_wholesale ditambahkan ke tabel products');
+      }
+    } catch (_) {}
+
     schemaChecked = true;
   } catch (err) {
     console.warn('[Auto-Schema] Notice:', err.message);
@@ -398,11 +418,13 @@ export async function handleApiRequest(req, res) {
 
     let body = req.body || null;
     if (!body && ['POST', 'PUT', 'DELETE'].includes(req.method)) {
-      const buffers = [];
-      for await (const chunk of req) buffers.push(chunk);
-      const rawBody = Buffer.concat(buffers).toString();
-      if (rawBody) {
-        try { body = JSON.parse(rawBody); } catch (_) { body = {}; }
+      if (typeof req[Symbol.asyncIterator] === 'function') {
+        const buffers = [];
+        for await (const chunk of req) buffers.push(chunk);
+        const rawBody = Buffer.concat(buffers).toString();
+        if (rawBody) {
+          try { body = JSON.parse(rawBody); } catch (_) { body = {}; }
+        }
       }
     }
 
@@ -727,31 +749,38 @@ export async function handleApiRequest(req, res) {
             }
             if (req.method === 'POST') {
               const id = body.id || `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+              const pSales = Number(body.price_sales) || 0;
+              const pWholesale = Number(body.price_wholesale) || 0;
               if (db) {
                 await db.query(
-                  'INSERT INTO products (id, name, sku, unit, purchase_price, selling_price) VALUES (?, ?, ?, ?, ?, ?)',
-                  [id, body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0]
+                  'INSERT INTO products (id, name, sku, unit, purchase_price, selling_price, price_sales, price_wholesale) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                  [id, body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale]
                 );
               }
               const store = getLocalStore();
-              store.products.push({ id, ...body });
+              const newProd = { ...body, id, price_sales: pSales, price_wholesale: pWholesale };
+              store.products.push(newProd);
               saveLocalStore(store);
-              res.end(JSON.stringify({ data: { id, ...body }, error: null }));
+              res.end(JSON.stringify({ data: newProd, error: null }));
               return;
             }
             if (req.method === 'PUT') {
               const id = url.searchParams.get('id') || body.id;
+              const pSales = Number(body.price_sales) || 0;
+              const pWholesale = Number(body.price_wholesale) || 0;
               if (db) {
                 await db.query(
-                  'UPDATE products SET name = ?, sku = ?, unit = ?, purchase_price = ?, selling_price = ? WHERE id = ?',
-                  [body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, id]
+                  'UPDATE products SET name = ?, sku = ?, unit = ?, purchase_price = ?, selling_price = ?, price_sales = ?, price_wholesale = ? WHERE id = ?',
+                  [body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale, id]
                 );
               }
               const store = getLocalStore();
               const idx = store.products.findIndex((p) => p.id === id);
-              if (idx !== -1) store.products[idx] = { ...store.products[idx], ...body, id };
+              if (idx !== -1) {
+                store.products[idx] = { ...store.products[idx], ...body, id, price_sales: pSales, price_wholesale: pWholesale };
+              }
               saveLocalStore(store);
-              res.end(JSON.stringify({ data: { id, ...body }, error: null }));
+              res.end(JSON.stringify({ data: { id, ...body, price_sales: pSales, price_wholesale: pWholesale }, error: null }));
               return;
             }
             if (req.method === 'DELETE') {
@@ -772,14 +801,21 @@ export async function handleApiRequest(req, res) {
             if (req.method === 'GET') {
               if (db) {
                 const [rows] = await db.query(`
-                  SELECT m.*, p.name AS product_name, p.unit AS product_unit, p.purchase_price, p.selling_price
+                  SELECT m.*, p.name AS product_name, p.unit AS product_unit, p.purchase_price, p.selling_price, p.price_sales, p.price_wholesale
                   FROM inventory_movements m
                   LEFT JOIN products p ON m.product_id = p.id
                   ORDER BY m.occurred_on DESC, m.created_at DESC
                 `);
                 const formatted = rows.map((r) => ({
                   ...r,
-                  products: { name: r.product_name, unit: r.product_unit, purchase_price: r.purchase_price, selling_price: r.selling_price }
+                  products: {
+                    name: r.product_name,
+                    unit: r.product_unit,
+                    purchase_price: r.purchase_price,
+                    selling_price: r.selling_price,
+                    price_sales: r.price_sales,
+                    price_wholesale: r.price_wholesale
+                  }
                 }));
                 res.end(JSON.stringify({ data: formatted, error: null }));
               } else {
@@ -788,7 +824,14 @@ export async function handleApiRequest(req, res) {
                   const p = store.products.find((prod) => prod.id === m.product_id) || {};
                   return {
                     ...m,
-                    products: { name: p.name || 'Produk', unit: p.unit || 'pcs', purchase_price: p.purchase_price || 0, selling_price: p.selling_price || 0 }
+                    products: {
+                      name: p.name || 'Produk',
+                      unit: p.unit || 'pcs',
+                      purchase_price: p.purchase_price || 0,
+                      selling_price: p.selling_price || 0,
+                      price_sales: p.price_sales || 0,
+                      price_wholesale: p.price_wholesale || 0
+                    }
                   };
                 });
                 res.end(JSON.stringify({ data: formatted, error: null }));

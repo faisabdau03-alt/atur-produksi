@@ -24,11 +24,19 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
   const defaultPid = initialProductId || availableProducts[0].id;
   const defaultProd = availableProducts.find((p) => p.id === defaultPid) || availableProducts[0];
 
+  function getTierPrice(prod, tier = 'retail') {
+    if (!prod) return 0;
+    if (tier === 'sales') return Number(prod.price_sales) || Number(prod.selling_price) || 0;
+    if (tier === 'wholesale') return Number(prod.price_wholesale) || Number(prod.selling_price) || 0;
+    return Number(prod.selling_price) || 0;
+  }
+
   let rowsState = [
     {
       id: Date.now(),
       productId: defaultProd.id,
       qty: 1,
+      tier: 'retail',
       price: Number(defaultProd.selling_price) || 0,
     },
   ];
@@ -37,7 +45,7 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
     return availableProducts.map((p) => {
       const stock = stockFor(p.id);
       const isSelected = p.id === selectedId;
-      return `<option value="${escapeHtml(p.id)}" data-price="${p.selling_price || 0}" data-unit="${escapeHtml(p.unit || 'unit')}" data-stock="${stock}" ${isSelected ? 'selected' : ''}>
+      return `<option value="${escapeHtml(p.id)}" data-price="${p.selling_price || 0}" data-sales="${p.price_sales || 0}" data-wholesale="${p.price_wholesale || 0}" data-unit="${escapeHtml(p.unit || 'unit')}" data-stock="${stock}" ${isSelected ? 'selected' : ''}>
         ${escapeHtml(p.name)} · Stok: ${formatQuantity(stock)} ${escapeHtml(p.unit || 'unit')} · Rp ${Number(p.selling_price || 0).toLocaleString('id-ID')}
       </option>`;
     }).join('');
@@ -70,7 +78,14 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
               ${isOverStock ? `⚠ Melebihi stok (Tersedia: ${formatQuantity(stock)})` : `Sisa stok: ${formatQuantity(stock)}`}
             </div>
           </td>
-          <td style="width: 145px;">
+          <td style="width: 175px;">
+            <div style="display: flex; gap: 4px; align-items: center; margin-bottom: 4px;">
+              <select class="item-tier-select form-control" data-row-id="${row.id}" style="font-size: 11px; height: 26px; padding: 0 4px; font-weight: 600; background: #f8fafc; border-color: #cbd5e1;">
+                <option value="retail" ${(!row.tier || row.tier === 'retail') ? 'selected' : ''}>Satuan (Eceran)</option>
+                <option value="sales" ${row.tier === 'sales' ? 'selected' : ''}>Sales</option>
+                <option value="wholesale" ${row.tier === 'wholesale' ? 'selected' : ''}>Grosir</option>
+              </select>
+            </div>
             <input type="number" class="item-price-input form-control" data-row-id="${row.id}" min="0" step="1" value="${row.price}" style="font-weight: 600; text-align: right;" required />
           </td>
           <td class="align-right" style="vertical-align: middle; width: 140px;">
@@ -178,7 +193,12 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
         <label style="margin: 0; font-size: 13.5px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 6px;">
           <span>${Icons.products('icon-svg', 15)}</span> Daftar Barang yang Dipesan / Dikirim
         </label>
-        <span style="font-size: 11px; color: #64748b;">Pilih barang dan jumlah unit yang dijual</span>
+        <div style="display: flex; align-items: center; gap: 4px; font-size: 11.5px;">
+          <span style="color: #64748b; font-weight: 600;">Tier Harga:</span>
+          <button type="button" class="btn btn-xs btn-default btn-invoice-set-tier" data-tier="retail" title="Set semua baris ke harga eceran/satuan" style="font-size: 10px; padding: 1px 7px; font-weight: 600; background: #fff;">Satuan</button>
+          <button type="button" class="btn btn-xs btn-default btn-invoice-set-tier" data-tier="sales" title="Set semua baris ke harga sales" style="font-size: 10px; padding: 1px 7px; font-weight: 600; color: #1d4ed8; background: #fff;">Sales</button>
+          <button type="button" class="btn btn-xs btn-default btn-invoice-set-tier" data-tier="wholesale" title="Set semua baris ke harga grosir" style="font-size: 10px; padding: 1px 7px; font-weight: 600; color: #b45309; background: #fff;">Grosir</button>
+        </div>
       </div>
 
       <div class="table-responsive" style="border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; background: #fff;">
@@ -188,7 +208,7 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
               <th style="width: 35px;" class="align-center">NO</th>
               <th>PRODUK / BARANG</th>
               <th style="width: 140px;">JUMLAH (QTY)</th>
-              <th style="width: 145px;" class="align-right">HARGA SATUAN (RP)</th>
+              <th style="width: 175px;" class="align-right">TIER & HARGA (RP)</th>
               <th style="width: 140px;" class="align-right">SUBTOTAL</th>
               <th style="width: 45px;" class="align-center">#</th>
             </tr>
@@ -270,6 +290,7 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
       id: Date.now() + Math.random(),
       productId: nextProd.id,
       qty: 1,
+      tier: 'retail',
       price: Number(nextProd.selling_price) || 0,
     });
     renderTableRows();
@@ -282,14 +303,39 @@ export function openSaleInvoiceModal(initialProductId = null, onSaved = null) {
     const row = rowsState.find((r) => String(r.id) === String(rowId));
     if (!row) return;
 
+    if (target.classList.contains('item-tier-select')) {
+      row.tier = target.value;
+      const prod = availableProducts.find((p) => p.id === row.productId);
+      if (prod) {
+        row.price = getTierPrice(prod, row.tier);
+      }
+      renderTableRows();
+      return;
+    }
+
     if (target.classList.contains('item-product-select')) {
       const selectedPid = target.value;
       const prod = availableProducts.find((p) => p.id === selectedPid);
       row.productId = selectedPid;
       if (prod) {
-        row.price = Number(prod.selling_price) || 0;
+        row.price = getTierPrice(prod, row.tier || 'retail');
       }
       renderTableRows();
+    }
+  });
+
+  // Event: Set tier for all rows
+  form?.addEventListener('click', (e) => {
+    const tierBtn = e.target.closest('.btn-invoice-set-tier');
+    if (tierBtn) {
+      const chosenTier = tierBtn.dataset.tier || 'retail';
+      rowsState.forEach((r) => {
+        r.tier = chosenTier;
+        const prod = availableProducts.find((p) => p.id === r.productId);
+        r.price = getTierPrice(prod, chosenTier);
+      });
+      renderTableRows();
+      notify(`Semua baris nota diset ke harga ${chosenTier === 'retail' ? 'Satuan' : (chosenTier === 'sales' ? 'Sales' : 'Grosir')}.`, 'info');
     }
   });
 

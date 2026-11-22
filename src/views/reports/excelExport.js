@@ -733,24 +733,27 @@ export function exportProducts(format = 'csv') {
     ['Tanggal Ekspor', formatDate(dateStr)],
     ['Total Produk', `${products.length} SKU`],
     [],
-    ['NO', 'KODE SKU', 'NAMA BARANG', 'KATEGORI', 'SATUAN', 'HARGA BELI (RP)', 'HARGA JUAL (RP)', 'ESTIMASI LABA/SATUAN (RP)', 'STOK FISIK', 'STATUS STOK']
+    ['NO', 'KODE SKU', 'NAMA BARANG', 'SATUAN', 'HARGA BELI / HPP (RP)', 'HARGA JUAL SATUAN (RP)', 'HARGA JUAL SALES (RP)', 'HARGA JUAL GROSIR (RP)', 'ESTIMASI LABA SATUAN (RP)', 'STOK FISIK', 'STATUS STOK']
   ];
 
   products.forEach((p, idx) => {
     const stock = stockFor(p.id);
     const purchase = Number(p.purchase_price) || 0;
-    const sale = Number(p.sale_price) || 0;
+    const sale = Number(p.selling_price) || 0;
+    const salesPrice = Number(p.price_sales) || 0;
+    const wholesalePrice = Number(p.price_wholesale) || 0;
     const margin = sale - purchase;
-    const status = stock <= 0 ? 'Habis / Kritis' : (stock <= (p.min_stock || 5) ? 'Menipis' : 'Tersedia');
+    const status = stock <= 0 ? 'Habis / Kritis' : (stock <= 10 ? 'Menipis' : 'Tersedia');
 
     rows.push([
       idx + 1,
       p.sku || `PRD-${p.id}`,
       p.name,
-      p.category || 'Umum',
-      p.unit || 'Pcs',
+      p.unit || 'pcs',
       purchase,
       sale,
+      salesPrice,
+      wholesalePrice,
       margin,
       stock,
       status
@@ -1894,7 +1897,11 @@ export function openStatDetailModal(statType) {
                       ${isZero ? '<span style="font-size:8px; background:#fee2e2; color:#b91c1c; padding:1px 4px; border-radius:3px; margin-left:3px;">Habis</span>' : ''}
                     </td>
                     <td>${formatMoney(p.purchase_price || 0)}</td>
-                    <td><strong style="color:#187554;">${formatMoney(p.selling_price || 0)}</strong></td>
+                    <td style="font-size: 11px; line-height: 1.35;">
+                      <div style="color:#187554; font-weight:700;">${formatMoney(p.selling_price || 0)} <span style="font-size:9px; font-weight:normal; color:#64748b;">(Satuan)</span></div>
+                      ${Number(p.price_sales) > 0 ? `<div style="color:#2563eb; font-size:10px; font-weight:600;">${formatMoney(p.price_sales)} <span style="font-size:9px; font-weight:normal; color:#64748b;">(Sales)</span></div>` : ''}
+                      ${Number(p.price_wholesale) > 0 ? `<div style="color:#d97706; font-size:10px; font-weight:600;">${formatMoney(p.price_wholesale)} <span style="font-size:9px; font-weight:normal; color:#64748b;">(Grosir)</span></div>` : ''}
+                    </td>
                     <td class="align-right">
                       <button type="button" class="button button-small button-outline" data-action="product-movement" data-id="${escapeHtml(p.id)}" style="font-size:10px; padding:2px 7px;">
                         ± Gerak

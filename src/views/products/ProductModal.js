@@ -28,18 +28,43 @@ export function openProductModal(product = null, onSaved = null) {
         </div>
       </div>
 
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label class="form-label" for="prod-purchase">
-            Harga Beli / HPP Modal (Rp) <span class="optional">(saat belanja)</span>
-          </label>
-          <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
+      <div class="form-group">
+        <label class="form-label" for="prod-purchase">
+          Harga Beli / HPP Modal (Rp) <span class="optional">(saat belanja modal)</span>
+        </label>
+        <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
+      </div>
+
+      <!-- TINGKAT HARGA JUAL (SATUAN, SALES, GROSIR) -->
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-bottom: 6px;">
+        <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 6px;">
+            <span>🏷️</span> TINGKAT HARGA JUAL PRODUK
+          </span>
+          <span style="font-size: 11px; font-weight: normal; color: #64748b;">3 Tingkatan Harga</span>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="prod-sale">
-            Harga Jual Satuan (Rp) <span class="optional">(saat keluar)</span>
-          </label>
-          <input class="form-control" id="prod-sale" name="selling_price" type="number" min="0" step="1" value="${escapeHtml(product?.selling_price ?? '')}" placeholder="0" />
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="prod-sale" style="color: #166534; font-weight: 600; font-size: 11.5px;">
+              Harga Jual Satuan (Rp) <span class="required">*</span>
+            </label>
+            <input class="form-control" id="prod-sale" name="selling_price" type="number" min="0" step="1" value="${escapeHtml(product?.selling_price ?? '')}" placeholder="0" required />
+            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Eceran umum</span>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="prod-sales" style="color: #1d4ed8; font-weight: 600; font-size: 11.5px;">
+              Harga Jual Sales (Rp)
+            </label>
+            <input class="form-control" id="prod-sales" name="price_sales" type="number" min="0" step="1" value="${escapeHtml(product?.price_sales ?? '')}" placeholder="0" />
+            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Reseller / agen</span>
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" for="prod-wholesale" style="color: #b45309; font-weight: 600; font-size: 11.5px;">
+              Harga Jual Grosir (Rp)
+            </label>
+            <input class="form-control" id="prod-wholesale" name="price_wholesale" type="number" min="0" step="1" value="${escapeHtml(product?.price_wholesale ?? '')}" placeholder="0" />
+            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Partai besar</span>
+          </div>
         </div>
       </div>
 
@@ -62,6 +87,8 @@ export function openProductModal(product = null, onSaved = null) {
         unit: fd.get('unit').trim(),
         purchase_price: Number(fd.get('purchase_price')) || 0,
         selling_price: Number(fd.get('selling_price')) || 0,
+        price_sales: Number(fd.get('price_sales')) || 0,
+        price_wholesale: Number(fd.get('price_wholesale')) || 0,
       };
       await runMutation(async () => {
         const result = product

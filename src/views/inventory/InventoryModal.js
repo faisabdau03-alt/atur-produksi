@@ -17,11 +17,18 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
 
   const defaultPid = initialProductId || state.products[0]?.id;
 
+  function getTierPrice(prod, tier = 'retail') {
+    if (!prod) return 0;
+    if (tier === 'sales') return Number(prod.price_sales) || Number(prod.selling_price) || 0;
+    if (tier === 'wholesale') return Number(prod.price_wholesale) || Number(prod.selling_price) || 0;
+    return Number(prod.selling_price) || 0;
+  }
+
   function getProductOptions(selectedId) {
     return state.products.map((p) => {
       const stock = stockFor(p.id);
       const isSel = p.id === selectedId;
-      return `<option value="${escapeHtml(p.id)}" data-purchase="${p.purchase_price || 0}" data-selling="${p.selling_price || 0}" data-unit="${escapeHtml(p.unit)}" data-stock="${stock}" ${isSel ? 'selected' : ''}>${escapeHtml(p.name)} · stok ${formatQuantity(stock)} ${escapeHtml(p.unit)}</option>`;
+      return `<option value="${escapeHtml(p.id)}" data-purchase="${p.purchase_price || 0}" data-selling="${p.selling_price || 0}" data-sales="${p.price_sales || 0}" data-wholesale="${p.price_wholesale || 0}" data-unit="${escapeHtml(p.unit)}" data-stock="${stock}" ${isSel ? 'selected' : ''}>${escapeHtml(p.name)} · stok ${formatQuantity(stock)} ${escapeHtml(p.unit)}</option>`;
     }).join('');
   }
 
@@ -30,6 +37,7 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
       id: 1,
       productId: defaultPid,
       quantity: 1,
+      tier: 'retail',
       unitPrice: Number(state.products.find((p) => p.id === defaultPid)?.selling_price) || 0,
     },
   ];
@@ -94,7 +102,12 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
             <span>${Icons.inventory('icon-svg', 15)}</span>
             <span>Daftar Barang Mutasi / Belanja</span>
           </div>
-          <span class="order-items-hint">Bisa menambahkan lebih dari 1 jenis barang</span>
+          <div id="inv-tier-quick-bar" style="display: flex; align-items: center; gap: 4px; font-size: 11px;">
+            <span style="color: #475569; font-weight: 600;">Tier Harga:</span>
+            <button type="button" class="btn btn-xs btn-default btn-set-tier-all" data-tier="retail" title="Set semua item ke harga satuan / eceran" style="padding: 1px 7px; font-size: 10px; font-weight: 600; background: #fff;">Satuan</button>
+            <button type="button" class="btn btn-xs btn-default btn-set-tier-all" data-tier="sales" title="Set semua item ke harga sales" style="padding: 1px 7px; font-size: 10px; font-weight: 600; color: #1d4ed8; background: #fff;">Sales</button>
+            <button type="button" class="btn btn-xs btn-default btn-set-tier-all" data-tier="wholesale" title="Set semua item ke harga grosir" style="padding: 1px 7px; font-size: 10px; font-weight: 600; color: #b45309; background: #fff;">Grosir</button>
+          </div>
         </div>
 
         <div id="order-items-list">
@@ -218,7 +231,16 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
           </div>
           ${hasPrice ? `
           <div class="order-item-col-price">
-            <span class="item-field-label">Harga Satuan (Rp)</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
+              <span class="item-field-label" style="margin-bottom: 0;">Harga (Rp)</span>
+              ${isSale ? `
+                <select class="item-tier-select" data-id="${item.id}" style="font-size: 9.5px !important; height: 18px !important; min-height: 18px !important; line-height: 18px !important; padding: 0 4px !important; border-radius: 4px; border: 1px solid #94a3b8; background: #f8fafc; font-weight: 700; color: #1e293b; cursor: pointer;">
+                  <option value="retail" ${(!item.tier || item.tier === 'retail') ? 'selected' : ''}>Satuan</option>
+                  <option value="sales" ${item.tier === 'sales' ? 'selected' : ''}>Sales</option>
+                  <option value="wholesale" ${item.tier === 'wholesale' ? 'selected' : ''}>Grosir</option>
+                </select>
+              ` : ''}
+            </div>
             <input type="number" class="item-price-input" data-id="${item.id}" min="0" step="1" value="${item.unitPrice}" placeholder="0" required />
           </div>
           <div class="order-item-col-subtotal">
@@ -356,8 +378,13 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
       // Refresh default prices for all rows according to current type (selling vs purchase)
       orderItems.forEach((it) => {
         const p = state.products.find((prod) => prod.id === it.productId);
-        it.unitPrice = isPurchase ? (Number(p?.purchase_price) || 0) : (Number(p?.selling_price) || 0);
+        it.unitPrice = isPurchase ? (Number(p?.purchase_price) || 0) : getTierPrice(p, it.tier || 'retail');
       });
+    }
+
+    const tierQuickBar = form.querySelector('#inv-tier-quick-bar');
+    if (tierQuickBar) {
+      tierQuickBar.style.display = isSale ? 'flex' : 'none';
     }
 
     renderOrderItems();
@@ -365,6 +392,19 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
 
   // Event Listeners for dynamic item row events
   itemsContainer.addEventListener('change', (e) => {
+    const tierSel = e.target.closest('.item-tier-select');
+    if (tierSel) {
+      const id = Number(tierSel.dataset.id);
+      const item = orderItems.find((it) => it.id === id);
+      if (item) {
+        item.tier = tierSel.value;
+        const p = state.products.find((prod) => prod.id === item.productId);
+        item.unitPrice = getTierPrice(p, item.tier);
+        renderOrderItems();
+      }
+      return;
+    }
+
     const sel = e.target.closest('.item-product-select');
     if (sel) {
       const id = Number(sel.dataset.id);
@@ -373,7 +413,7 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
         item.productId = sel.value;
         const p = state.products.find((prod) => prod.id === sel.value);
         const isPurchase = moveTypeSelect.value === 'in_purchase';
-        item.unitPrice = isPurchase ? (Number(p?.purchase_price) || 0) : (Number(p?.selling_price) || 0);
+        item.unitPrice = isPurchase ? (Number(p?.purchase_price) || 0) : getTierPrice(p, item.tier || 'retail');
         renderOrderItems();
       }
     }
@@ -419,16 +459,32 @@ export function openInventoryModal(state, initialType = 'out_sale', initialProdu
   btnAddItem.addEventListener('click', () => {
     const isPurchase = moveTypeSelect.value === 'in_purchase';
     const firstProd = state.products[0];
-    const newPrice = isPurchase ? (Number(firstProd?.purchase_price) || 0) : (Number(firstProd?.selling_price) || 0);
+    const newPrice = isPurchase ? (Number(firstProd?.purchase_price) || 0) : getTierPrice(firstProd, 'retail');
 
     orderItems.push({
       id: nextItemId++,
       productId: firstProd?.id || '',
       quantity: 1,
+      tier: 'retail',
       unitPrice: newPrice,
     });
 
     renderOrderItems();
+  });
+
+  // Handler for quick tier apply to all items
+  form.addEventListener('click', (e) => {
+    const tierBtn = e.target.closest('.btn-set-tier-all');
+    if (tierBtn) {
+      const chosenTier = tierBtn.dataset.tier || 'retail';
+      orderItems.forEach((it) => {
+        it.tier = chosenTier;
+        const p = state.products.find((prod) => prod.id === it.productId);
+        it.unitPrice = getTierPrice(p, chosenTier);
+      });
+      renderOrderItems();
+      notify(`Semua item diset ke harga ${chosenTier === 'retail' ? 'Satuan' : (chosenTier === 'sales' ? 'Sales' : 'Grosir')}.`, 'info');
+    }
   });
 
   moveTypeSelect.addEventListener('change', updateTypeState);

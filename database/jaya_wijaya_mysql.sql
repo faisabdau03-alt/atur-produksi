@@ -54,6 +54,8 @@ CREATE TABLE `products` (
   `unit` VARCHAR(20) NOT NULL DEFAULT 'pcs',
   `purchase_price` DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
   `selling_price` DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+  `price_sales` DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
+  `price_wholesale` DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_product_name` (`name`)
@@ -202,14 +204,14 @@ INSERT INTO `users` (`id`, `username`, `email`, `password_hash`, `full_name`, `r
 ON DUPLICATE KEY UPDATE `full_name` = VALUES(`full_name`);
 
 -- Master Produk Sapu & Alat Kebersihan Kayu
-INSERT INTO `products` (`id`, `name`, `sku`, `unit`, `purchase_price`, `selling_price`) VALUES
-('prod-001', 'Sapu Rayung Premium Gagang Kayu Mahoni', 'JW-SR-01', 'pcs', 11500.00, 18500.00),
-('prod-002', 'Sapu Ijuk Super Tebal Gagang Kayu Halus', 'JW-SI-02', 'pcs', 13500.00, 21500.00),
-('prod-003', 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', 'JW-GK-03', 'batang', 4000.00, 7000.00),
-('prod-004', 'Sapu Lidi Taman Gagang Kayu Panjang', 'JW-SL-04', 'pcs', 9000.00, 15000.00),
-('prod-005', 'Pel Strip Katun Gagang Kayu Kokoh', 'JW-PL-05', 'pcs', 16500.00, 26000.00),
-('prod-006', 'Pengki Serokan Sampah Gagang Kayu', 'JW-PK-06', 'pcs', 10500.00, 17000.00)
-ON DUPLICATE KEY UPDATE `selling_price` = VALUES(`selling_price`);
+INSERT INTO `products` (`id`, `name`, `sku`, `unit`, `purchase_price`, `selling_price`, `price_sales`, `price_wholesale`) VALUES
+('prod-001', 'Sapu Rayung Premium Gagang Kayu Mahoni', 'JW-SR-01', 'pcs', 11500.00, 18500.00, 17000.00, 15700.00),
+('prod-002', 'Sapu Ijuk Super Tebal Gagang Kayu Halus', 'JW-SI-02', 'pcs', 13500.00, 21500.00, 19800.00, 18300.00),
+('prod-003', 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', 'JW-GK-03', 'batang', 4000.00, 7000.00, 6400.00, 6000.00),
+('prod-004', 'Sapu Lidi Taman Gagang Kayu Panjang', 'JW-SL-04', 'pcs', 9000.00, 15000.00, 13800.00, 12800.00),
+('prod-005', 'Pel Strip Katun Gagang Kayu Kokoh', 'JW-PL-05', 'pcs', 16500.00, 26000.00, 23900.00, 22100.00),
+('prod-006', 'Pengki Serokan Sampah Gagang Kayu', 'JW-PK-06', 'pcs', 10500.00, 17000.00, 15600.00, 14500.00)
+ON DUPLICATE KEY UPDATE `selling_price` = VALUES(`selling_price`), `price_sales` = VALUES(`price_sales`), `price_wholesale` = VALUES(`price_wholesale`);
 
 -- Data Karyawan Produksi
 INSERT INTO `employees` (`id`, `full_name`, `position`, `daily_salary`, `overtime_rate`, `incentive_per_unit`, `is_active`) VALUES

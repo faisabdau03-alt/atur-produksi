@@ -129,7 +129,7 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
                   <th style="width: 120px;">KODE / SKU</th>
                   <th>NAMA BARANG</th>
                   <th class="align-right">HARGA BELI / HPP</th>
-                  <th class="align-right">HARGA JUAL</th>
+                  <th class="align-right" style="min-width: 175px;">HARGA JUAL (3 TIER)</th>
                   <th class="align-right">STOK FISIK</th>
                   <th style="width: 80px;" class="align-center">SATUAN</th>
                   <th style="width: 120px;" class="align-center">OPSI</th>
@@ -149,7 +149,21 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
                         <strong>${escapeHtml(product.name)}</strong>
                       </td>
                       <td class="align-right amount-cell">${formatMoney(product.purchase_price || 0)}</td>
-                      <td class="align-right amount-cell" style="font-weight: 700; color: #00a65a;">${formatMoney(product.selling_price || 0)}</td>
+                      <td class="align-right amount-cell" style="font-size: 12px; line-height: 1.45;">
+                        <div style="font-weight: 700; color: #00a65a;" title="Harga Jual Satuan (Eceran)">
+                          <span style="font-size: 10px; color: #777; font-weight: normal;">Satuan: </span>${formatMoney(product.selling_price || 0)}
+                        </div>
+                        ${Number(product.price_sales) > 0 ? `
+                          <div style="color: #2563eb; font-weight: 600;" title="Harga Jual Sales / Reseller">
+                            <span style="font-size: 10px; color: #777; font-weight: normal;">Sales: </span>${formatMoney(product.price_sales)}
+                          </div>
+                        ` : ''}
+                        ${Number(product.price_wholesale) > 0 ? `
+                          <div style="color: #d97706; font-weight: 600;" title="Harga Jual Grosir / Partai">
+                            <span style="font-size: 10px; color: #777; font-weight: normal;">Grosir: </span>${formatMoney(product.price_wholesale)}
+                          </div>
+                        ` : ''}
+                      </td>
                       <td class="align-right qty-cell">
                         <strong style="color: ${isNegative || isZero ? '#dd4b39' : '#333333'};">
                           ${formatQuantity(stock)}
