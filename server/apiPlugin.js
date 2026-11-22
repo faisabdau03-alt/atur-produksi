@@ -751,15 +751,38 @@ export async function handleApiRequest(req, res) {
               const id = body.id || `prod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
               const pSales = Number(body.price_sales) || 0;
               const pWholesale = Number(body.price_wholesale) || 0;
+              const initStock = Number(body.initial_stock) || 0;
               if (db) {
                 await db.query(
                   'INSERT INTO products (id, name, sku, unit, purchase_price, selling_price, price_sales, price_wholesale) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
                   [id, body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale]
                 );
+                if (initStock > 0) {
+                  const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                  const today = new Date().toISOString().slice(0, 10);
+                  await db.query(
+                    'INSERT INTO inventory_movements (id, product_id, direction, quantity, occurred_on, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [invId, id, 'in', initStock, today, 'Stok awal saat input produk baru', session?.user?.id || 'usr-001']
+                  );
+                }
               }
               const store = getLocalStore();
               const newProd = { ...body, id, price_sales: pSales, price_wholesale: pWholesale };
               store.products.push(newProd);
+              if (initStock > 0) {
+                const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const today = new Date().toISOString().slice(0, 10);
+                store.inventory.push({
+                  id: invId,
+                  product_id: id,
+                  direction: 'in',
+                  quantity: initStock,
+                  occurred_on: today,
+                  notes: 'Stok awal saat input produk baru',
+                  created_by: session?.user?.id || 'usr-001',
+                  created_at: new Date().toISOString()
+                });
+              }
               saveLocalStore(store);
               res.end(JSON.stringify({ data: newProd, error: null }));
               return;
@@ -768,16 +791,43 @@ export async function handleApiRequest(req, res) {
               const id = url.searchParams.get('id') || body.id;
               const pSales = Number(body.price_sales) || 0;
               const pWholesale = Number(body.price_wholesale) || 0;
+              const adjustStock = Number(body.adjust_stock) || 0;
               if (db) {
                 await db.query(
                   'UPDATE products SET name = ?, sku = ?, unit = ?, purchase_price = ?, selling_price = ?, price_sales = ?, price_wholesale = ? WHERE id = ?',
                   [body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale, id]
                 );
+                if (adjustStock !== 0) {
+                  const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                  const today = new Date().toISOString().slice(0, 10);
+                  const dir = adjustStock > 0 ? 'in' : 'out';
+                  const notes = adjustStock > 0 ? 'Penambahan stok dari ubah produk' : 'Pengurangan stok dari ubah produk';
+                  await db.query(
+                    'INSERT INTO inventory_movements (id, product_id, direction, quantity, occurred_on, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    [invId, id, dir, Math.abs(adjustStock), today, notes, session?.user?.id || 'usr-001']
+                  );
+                }
               }
               const store = getLocalStore();
               const idx = store.products.findIndex((p) => p.id === id);
               if (idx !== -1) {
                 store.products[idx] = { ...store.products[idx], ...body, id, price_sales: pSales, price_wholesale: pWholesale };
+              }
+              if (adjustStock !== 0) {
+                const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+                const today = new Date().toISOString().slice(0, 10);
+                const dir = adjustStock > 0 ? 'in' : 'out';
+                const notes = adjustStock > 0 ? 'Penambahan stok dari ubah produk' : 'Pengurangan stok dari ubah produk';
+                store.inventory.push({
+                  id: invId,
+                  product_id: id,
+                  direction: dir,
+                  quantity: Math.abs(adjustStock),
+                  occurred_on: today,
+                  notes,
+                  created_by: session?.user?.id || 'usr-001',
+                  created_at: new Date().toISOString()
+                });
               }
               saveLocalStore(store);
               res.end(JSON.stringify({ data: { id, ...body, price_sales: pSales, price_wholesale: pWholesale }, error: null }));

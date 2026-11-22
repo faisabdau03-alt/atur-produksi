@@ -1,9 +1,13 @@
 import { openDialog } from '../../components/Dialog.js';
 import { escapeHtml } from '../../utils/sanitize.js';
 import { runMutation } from '../../utils/mutation.js';
+import { formatQuantity } from '../../utils/formatters.js';
+import { stockFor } from '../../store/state.js';
 import { db } from '../../api/db.js';
 
 export function openProductModal(product = null, onSaved = null) {
+  const currentStock = product ? stockFor(product.id) : 0;
+
   openDialog(product ? 'Ubah Produk' : 'Tambah Produk Baru', `
     <form id="product-form" class="form-stack">
       <div class="form-group">
@@ -28,11 +32,27 @@ export function openProductModal(product = null, onSaved = null) {
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="prod-purchase">
-          Harga Beli / HPP Modal (Rp) <span class="optional">(saat belanja modal)</span>
-        </label>
-        <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="prod-purchase">
+            Harga Beli / HPP Modal (Rp) <span class="optional">(biaya modal)</span>
+          </label>
+          <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="prod-stock" style="font-weight: 600; color: #166534;">
+            ${product ? 'Tambah / Koreksi Stok (+ / -)' : 'Stok Awal Fisik (Jumlah)'} <span class="optional">(opsional)</span>
+          </label>
+          <div style="position: relative; display: flex; align-items: center;">
+            <input class="form-control" id="prod-stock" name="${product ? 'adjust_stock' : 'initial_stock'}" type="number" ${product ? 'step="any"' : 'min="0" step="any"'} value="${product ? '' : '0'}" placeholder="0" style="padding-right: 56px; font-weight: 700; color: #166534;" />
+            <span id="prod-stock-unit-badge" style="position: absolute; right: 8px; font-size: 11px; font-weight: 700; color: #166534; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 2px 7px; border-radius: 4px; pointer-events: none;">${escapeHtml(product?.unit || 'pcs')}</span>
+          </div>
+          <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">
+            ${product 
+              ? `Stok saat ini: <strong style="color: #0f172a;">${formatQuantity(currentStock)} ${escapeHtml(product.unit)}</strong>. Masukkan angka untuk menambah (+).` 
+              : 'Jumlah fisik stok awal yang langsung tercatat di gudang'}
+          </span>
+        </div>
       </div>
 
       <!-- TINGKAT HARGA JUAL (SATUAN, SALES, GROSIR) -->
@@ -78,9 +98,20 @@ export function openProductModal(product = null, onSaved = null) {
 
   const form = document.querySelector('#product-form');
   if (form) {
+    const unitInput = form.querySelector('#prod-unit');
+    const unitBadge = form.querySelector('#prod-stock-unit-badge');
+    if (unitInput && unitBadge) {
+      unitInput.addEventListener('input', () => {
+        unitBadge.textContent = unitInput.value.trim() || 'pcs';
+      });
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const fd = new FormData(form);
+      const initialStock = Number(fd.get('initial_stock')) || 0;
+      const adjustStock = Number(fd.get('adjust_stock')) || 0;
+
       const payload = {
         name: fd.get('name').trim(),
         sku: fd.get('sku').trim() || null,
@@ -89,7 +120,10 @@ export function openProductModal(product = null, onSaved = null) {
         selling_price: Number(fd.get('selling_price')) || 0,
         price_sales: Number(fd.get('price_sales')) || 0,
         price_wholesale: Number(fd.get('price_wholesale')) || 0,
+        initial_stock: initialStock,
+        adjust_stock: adjustStock,
       };
+
       await runMutation(async () => {
         const result = product
           ? await db.from('products').update(payload).eq('id', product.id)
