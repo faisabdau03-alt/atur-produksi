@@ -11,51 +11,41 @@ export function openProductModal(product = null, onSaved = null) {
 
   openDialog(product ? 'Ubah Produk' : 'Tambah Produk Baru', `
     <form id="product-form" class="form-stack">
-      <div class="form-group" style="margin-bottom: 12px;">
-        <label class="form-label" style="font-weight: 700; color: #1e293b; margin-bottom: 6px; display: block;">
-          Asal / Sumber Barang <span class="required">*</span>
+      <!-- OPSI ASAL BARANG (SLIM & MINIMALIS SEGMENTED CONTROL) -->
+      <div class="form-group" style="margin-bottom: 10px;">
+        <label class="form-label" style="font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 5px; display: flex; justify-content: space-between; align-items: center;">
+          <span>Asal / Sumber Barang <span class="required">*</span></span>
+          <span id="source-subtitle-hint" style="font-size: 11px; font-weight: 500; color: ${!isPurchase ? '#047857' : '#1d4ed8'};">
+            ${!isPurchase ? '🏭 Buatan bengkel/pabrik sendiri' : '🛒 Kulakan/beli dari supplier luar'}
+          </span>
         </label>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-          <label id="card-source-production" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 2px solid ${!isPurchase ? '#10b981' : '#e2e8f0'}; background: ${!isPurchase ? '#f0fdf4' : '#ffffff'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <input type="radio" name="source_type" value="production" ${!isPurchase ? 'checked' : ''} style="margin-top: 3px; accent-color: #10b981;" />
-            <div>
-              <div style="font-weight: 700; font-size: 13px; color: ${!isPurchase ? '#065f46' : '#1e293b'};">
-                🏭 Produksi Sendiri / Gudang
-              </div>
-              <div style="font-size: 11px; color: #64748b; line-height: 1.35; margin-top: 2px;">
-                Barang dibuat/dirakit di bengkel pabrik atau ada stok di gudang sendiri
-              </div>
-            </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; background: #f1f5f9; padding: 3px; border-radius: 8px; border: 1px solid #e2e8f0; gap: 4px;">
+          <label id="card-source-production" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; font-size: 12.5px; font-weight: 600; border-radius: 6px; transition: all 0.15s ease; ${!isPurchase ? 'background: #ffffff; color: #047857; box-shadow: 0 1px 2px rgba(0,0,0,0.06); border: 1px solid #a7f3d0;' : 'background: transparent; color: #64748b; border: 1px solid transparent;'} user-select: none; margin: 0;">
+            <input type="radio" name="source_type" value="production" ${!isPurchase ? 'checked' : ''} style="display: none;" />
+            <span>🏭 Produksi Sendiri / Gudang</span>
           </label>
-          <label id="card-source-purchase" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 2px solid ${isPurchase ? '#3b82f6' : '#e2e8f0'}; background: ${isPurchase ? '#eff6ff' : '#ffffff'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
-            <input type="radio" name="source_type" value="purchase" ${isPurchase ? 'checked' : ''} style="margin-top: 3px; accent-color: #3b82f6;" />
-            <div>
-              <div style="font-weight: 700; font-size: 13px; color: ${isPurchase ? '#1e40af' : '#1e293b'};">
-                🛒 Beli Luar / Kulakan (Supplier)
-              </div>
-              <div style="font-size: 11px; color: #64748b; line-height: 1.35; margin-top: 2px;">
-                Barang jadi kulakan dibeli dari supplier luar, distributor, atau reseller
-              </div>
-            </div>
+          <label id="card-source-purchase" style="cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 10px; font-size: 12.5px; font-weight: 600; border-radius: 6px; transition: all 0.15s ease; ${isPurchase ? 'background: #ffffff; color: #1d4ed8; box-shadow: 0 1px 2px rgba(0,0,0,0.06); border: 1px solid #bfdbfe;' : 'background: transparent; color: #64748b; border: 1px solid transparent;'} user-select: none; margin: 0;">
+            <input type="radio" name="source_type" value="purchase" ${isPurchase ? 'checked' : ''} style="display: none;" />
+            <span>🛒 Beli Luar / Kulakan</span>
           </label>
         </div>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" style="margin-bottom: 10px;">
         <label class="form-label" for="prod-name">
           Nama Produk <span class="required">*</span>
         </label>
         <input class="form-control" id="prod-name" name="name" maxlength="120" value="${escapeHtml(product?.name || '')}" placeholder="Contoh: Pel Lantai Katun Putih Gagang Kayu" required />
       </div>
 
-      <div class="form-grid-2">
-        <div class="form-group">
+      <div class="form-grid-2" style="gap: 10px; margin-bottom: 10px;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="prod-sku">
             Kode SKU <span class="optional">(opsional)</span>
           </label>
           <input class="form-control" id="prod-sku" name="sku" maxlength="60" value="${escapeHtml(product?.sku || '')}" placeholder="Contoh: PL-KTN-01" />
         </div>
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="prod-unit">
             Satuan Barang <span class="required">*</span>
           </label>
@@ -63,15 +53,15 @@ export function openProductModal(product = null, onSaved = null) {
         </div>
       </div>
 
-      <div class="form-grid-2">
-        <div class="form-group">
+      <div class="form-grid-2" style="gap: 10px; margin-bottom: 10px;">
+        <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="prod-purchase">
             <span id="label-cost-title">${!isPurchase ? 'HPP Modal Produksi (Rp)' : 'Harga Beli / Kulakan (Rp)'}</span>
-            <span id="label-cost-sub" class="optional">${!isPurchase ? '(biaya modal bahan & tukang)' : '(saat belanja supplier)'}</span>
+            <span id="label-cost-sub" class="optional">${!isPurchase ? '(biaya bahan & tukang)' : '(saat belanja)'}</span>
           </label>
           <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
         </div>
-        <div class="form-group">
+        <div class="form-group" style="margin-bottom: 0;">
           <label class="form-label" for="prod-stock">
             <span id="label-stock-title">${product ? 'Tambah / Koreksi Stok' : (!isPurchase ? 'Stok Awal di Gudang' : 'Stok Awal Kulakan')}</span>
             <span class="optional">(opsional)</span>
@@ -84,34 +74,34 @@ export function openProductModal(product = null, onSaved = null) {
       </div>
 
       <!-- TINGKAT HARGA JUAL (SATUAN, SALES, GROSIR) -->
-      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-bottom: 6px;">
-        <div style="font-size: 12px; font-weight: 700; color: #334155; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between;">
-          <span style="display: flex; align-items: center; gap: 6px;">
+      <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;">
+        <div style="font-size: 11.5px; font-weight: 700; color: #334155; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+          <span style="display: flex; align-items: center; gap: 5px;">
             <span>🏷️</span> TINGKAT HARGA JUAL PRODUK
           </span>
-          <span style="font-size: 11px; font-weight: normal; color: #64748b;">3 Tingkatan Harga</span>
+          <span style="font-size: 10.5px; font-weight: normal; color: #64748b;">3 Tingkatan Harga</span>
         </div>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="prod-sale" style="color: #166534; font-weight: 600; font-size: 11.5px;">
+            <label class="form-label" for="prod-sale" style="color: #166534; font-weight: 600; font-size: 11px; margin-bottom: 3px;">
               Harga Jual Satuan (Rp) <span class="required">*</span>
             </label>
             <input class="form-control" id="prod-sale" name="selling_price" type="number" min="0" step="1" value="${escapeHtml(product?.selling_price ?? '')}" placeholder="0" required />
-            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Eceran umum</span>
+            <span style="font-size: 9.5px; color: #64748b; margin-top: 2px; display: block;">Eceran umum</span>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="prod-sales" style="color: #1d4ed8; font-weight: 600; font-size: 11.5px;">
+            <label class="form-label" for="prod-sales" style="color: #1d4ed8; font-weight: 600; font-size: 11px; margin-bottom: 3px;">
               Harga Jual Sales (Rp)
             </label>
             <input class="form-control" id="prod-sales" name="price_sales" type="number" min="0" step="1" value="${escapeHtml(product?.price_sales ?? '')}" placeholder="0" />
-            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Reseller / agen</span>
+            <span style="font-size: 9.5px; color: #64748b; margin-top: 2px; display: block;">Reseller / agen</span>
           </div>
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label" for="prod-wholesale" style="color: #b45309; font-weight: 600; font-size: 11.5px;">
+            <label class="form-label" for="prod-wholesale" style="color: #b45309; font-weight: 600; font-size: 11px; margin-bottom: 3px;">
               Harga Jual Grosir (Rp)
             </label>
             <input class="form-control" id="prod-wholesale" name="price_wholesale" type="number" min="0" step="1" value="${escapeHtml(product?.price_wholesale ?? '')}" placeholder="0" />
-            <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">Partai besar</span>
+            <span style="font-size: 9.5px; color: #64748b; margin-top: 2px; display: block;">Partai besar</span>
           </div>
         </div>
       </div>
@@ -130,6 +120,7 @@ export function openProductModal(product = null, onSaved = null) {
     const cardPurch = form.querySelector('#card-source-purchase');
     const radioProd = form.querySelector('input[name="source_type"][value="production"]');
     const radioPurch = form.querySelector('input[name="source_type"][value="purchase"]');
+    const hint = form.querySelector('#source-subtitle-hint');
     const labelCostTitle = form.querySelector('#label-cost-title');
     const labelCostSub = form.querySelector('#label-cost-sub');
     const labelStockTitle = form.querySelector('#label-stock-title');
@@ -137,22 +128,26 @@ export function openProductModal(product = null, onSaved = null) {
     function updateSourceUi(val) {
       const isP = val === 'production';
       if (cardProd) {
-        cardProd.style.borderColor = isP ? '#10b981' : '#e2e8f0';
-        cardProd.style.background = isP ? '#f0fdf4' : '#ffffff';
-        const title = cardProd.querySelector('div > div:first-child');
-        if (title) title.style.color = isP ? '#065f46' : '#1e293b';
+        cardProd.style.background = isP ? '#ffffff' : 'transparent';
+        cardProd.style.color = isP ? '#047857' : '#64748b';
+        cardProd.style.borderColor = isP ? '#a7f3d0' : 'transparent';
+        cardProd.style.boxShadow = isP ? '0 1px 2px rgba(0,0,0,0.06)' : 'none';
       }
       if (cardPurch) {
-        cardPurch.style.borderColor = !isP ? '#3b82f6' : '#e2e8f0';
-        cardPurch.style.background = !isP ? '#eff6ff' : '#ffffff';
-        const title = cardPurch.querySelector('div > div:first-child');
-        if (title) title.style.color = !isP ? '#1e40af' : '#1e293b';
+        cardPurch.style.background = !isP ? '#ffffff' : 'transparent';
+        cardPurch.style.color = !isP ? '#1d4ed8' : '#64748b';
+        cardPurch.style.borderColor = !isP ? '#bfdbfe' : 'transparent';
+        cardPurch.style.boxShadow = !isP ? '0 1px 2px rgba(0,0,0,0.06)' : 'none';
+      }
+      if (hint) {
+        hint.textContent = isP ? '🏭 Buatan bengkel/pabrik sendiri' : '🛒 Kulakan/beli dari supplier luar';
+        hint.style.color = isP ? '#047857' : '#1d4ed8';
       }
       if (labelCostTitle) {
         labelCostTitle.textContent = isP ? 'HPP Modal Produksi (Rp)' : 'Harga Beli / Kulakan (Rp)';
       }
       if (labelCostSub) {
-        labelCostSub.textContent = isP ? '(biaya modal bahan & tukang)' : '(saat belanja supplier)';
+        labelCostSub.textContent = isP ? '(biaya bahan & tukang)' : '(saat belanja)';
       }
       if (labelStockTitle) {
         if (product) {
@@ -163,14 +158,16 @@ export function openProductModal(product = null, onSaved = null) {
       }
     }
 
-    if (radioProd) {
-      radioProd.addEventListener('change', () => {
-        if (radioProd.checked) updateSourceUi('production');
+    if (cardProd) {
+      cardProd.addEventListener('click', () => {
+        if (radioProd) radioProd.checked = true;
+        updateSourceUi('production');
       });
     }
-    if (radioPurch) {
-      radioPurch.addEventListener('change', () => {
-        if (radioPurch.checked) updateSourceUi('purchase');
+    if (cardPurch) {
+      cardPurch.addEventListener('click', () => {
+        if (radioPurch) radioPurch.checked = true;
+        updateSourceUi('purchase');
       });
     }
 
