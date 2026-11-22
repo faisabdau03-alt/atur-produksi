@@ -82,7 +82,7 @@ export function renderInventory(state = appState) {
 
     ${activeTab === 'catalog' 
       ? renderCatalogSection(displayProducts, totalCount, currentFilter) 
-      : renderMovementsSection(invRecords)
+      : renderMovementsSection(invRecords, monthInv)
     }
   `;
 }
@@ -105,20 +105,26 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
       <div class="box-body">
         ${tableToolbar('search-products')}
 
-        ${currentFilter !== 'all' ? `
-          <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 14px; padding: 10px 14px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">🔍</span>
-              <span>
-                Menyaring tampilan: <strong>${currentFilter === 'in-stock' ? 'Stok Fisik Tersedia (> 0)' : 'Stok Habis / Kritis (≤ 0)'}</strong>
-                — Menampilkan <strong>${displayProducts.length}</strong> dari <strong>${totalCount}</strong> SKU
-              </span>
-            </div>
-            <button type="button" class="btn btn-default btn-xs" data-action="filter-products" data-filter="all" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;">
-              ✕ Tampilkan Semua
-            </button>
+        <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 14px; padding: 10px 14px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">${currentFilter === 'all' ? '📋' : '🔍'}</span>
+            <span>
+              ${currentFilter === 'all' 
+                ? `Menampilkan: <strong>Seluruh Katalog Barang (${totalCount} SKU)</strong> — Menampilkan semua jenis barang terdaftar dengan info modal HPP, 3 tier harga jual, dan sisa stok fisik riil di gudang.` 
+                : `Menyaring tampilan: <strong>${currentFilter === 'in-stock' ? 'Stok Fisik Tersedia (> 0)' : 'Stok Habis / Kritis (≤ 0)'}</strong> — Menampilkan <strong>${displayProducts.length}</strong> dari <strong>${totalCount}</strong> SKU.`}
+            </span>
           </div>
-        ` : ''}
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-default btn-xs" data-action="open-stat-detail" data-stat="products" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;" title="Buka ringkasan produk dalam jendela pop-up">
+              🔍 Rincian Pop-up
+            </button>
+            ${currentFilter !== 'all' ? `
+              <button type="button" class="btn btn-default btn-xs" data-action="filter-products" data-filter="all" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;">
+                ✕ Tampilkan Semua
+              </button>
+            ` : ''}
+          </div>
+        </div>
 
         ${displayProducts.length ? `
           <div class="table-responsive">
@@ -203,7 +209,7 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
   `;
 }
 
-function renderMovementsSection(invRecords) {
+function renderMovementsSection(invRecords, monthInv = []) {
   return `
     <div class="box box-primary">
       <div class="box-header">
@@ -223,6 +229,24 @@ function renderMovementsSection(invRecords) {
 
       <div class="box-body">
         ${tableToolbar('search-inventory')}
+
+        <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 14px; padding: 10px 14px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 16px;">🔄</span>
+            <span>
+              Menampilkan riwayat: <strong>Mutasi & Pergerakan Barang (${monthInv.length} Catatan Bulan Ini)</strong>
+              — Total <strong>${invRecords.length}</strong> aktivitas mutasi stok barang masuk (hasil produksi & belanja) serta stok keluar (penjualan nota & pemakaian internal).
+            </span>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-default btn-xs" data-action="open-stat-detail" data-stat="inventory-movements" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;" title="Buka ringkasan audit mutasi dalam jendela pop-up">
+              🔍 Rincian Pop-up
+            </button>
+            <button type="button" class="btn btn-default btn-xs" data-action="switch-inventory-tab" data-tab="catalog" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;">
+              ✕ Lihat Katalog Barang
+            </button>
+          </div>
+        </div>
 
         ${invRecords.length 
           ? movementTable(invRecords, invRecords.length) 

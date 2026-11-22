@@ -19,7 +19,7 @@ export function heading(eyebrow, title, description, actions = '') {
 
 export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', options = {}) {
   const showFooter = options.footer !== false && !options.hideFooter;
-  const isClickable = Boolean(showFooter && (options.clickable || options.action || options.filter || options.page || options.stat || options.statType || options.target));
+  const isClickable = Boolean(showFooter && (options.clickable || options.action || options.filter || options.page || options.stat || options.statType || options.target || options.tab));
   const action = options.action || (options.filter ? 'filter-report' : '');
   const actionAttr = action && isClickable ? ` data-action="${action}"` : '';
   const filterAttr = options.filter && isClickable ? ` data-filter="${options.filter}"` : '';
@@ -29,6 +29,7 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
   const monthAttr = options.month ? ` data-month="${options.month}"` : '';
   const dateAttr = options.date ? ` data-date="${options.date}"` : '';
   const idAttr = options.id ? ` data-id="${options.id}"` : '';
+  const tabAttr = options.tab ? ` data-tab="${options.tab}"` : '';
   const titleHint = options.hint ? ` title="${escapeHtml(options.hint)}"` : '';
 
   // Tone styling for modern SaaS industrial style
@@ -57,7 +58,7 @@ export function statCard(label, value, note, iconSvg = '', tone = 'icon-blue', o
   }
 
   const activeClass = options.active ? ' is-active' : '';
-  const allAttrs = isClickable ? `${actionAttr}${filterAttr}${statAttr}${pageAttr}${targetAttr}${monthAttr}${dateAttr}${idAttr}` : '';
+  const allAttrs = isClickable ? `${actionAttr}${filterAttr}${statAttr}${pageAttr}${targetAttr}${monthAttr}${dateAttr}${idAttr}${tabAttr}` : '';
 
   return `
     <div class="modern-kpi-card${activeClass}"${allAttrs}${titleHint} style="${isClickable ? 'cursor:pointer;' : ''}">

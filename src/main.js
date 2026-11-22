@@ -509,12 +509,25 @@ async function handlePageAction(event) {
     state.selectedReportFilter = button.dataset.filter || 'all';
     renderPage();
   } else if (action === 'switch-inventory-tab') {
-    state.inventoryTab = button.dataset.tab || 'catalog';
-    renderPage();
+    if (button.dataset.dismissDialog === 'true') {
+      closeDialog();
+    }
+    const targetTab = button.dataset.tab || 'catalog';
+    if (state.inventoryTab === targetTab && targetTab === 'movements') {
+      openStatDetailModal('inventory-movements');
+    } else {
+      state.inventoryTab = targetTab;
+      renderPage();
+    }
   } else if (action === 'filter-products') {
-    state.inventoryTab = 'catalog';
-    state.productsFilter = button.dataset.filter || 'all';
-    renderPage();
+    const targetFilter = button.dataset.filter || 'all';
+    if (state.inventoryTab === 'catalog' && state.productsFilter === targetFilter && targetFilter === 'all') {
+      openStatDetailModal('products');
+    } else {
+      state.inventoryTab = 'catalog';
+      state.productsFilter = targetFilter;
+      renderPage();
+    }
   } else if (action === 'filter-cash') {
     state.cashFilter = button.dataset.filter || 'all';
     renderPage();
