@@ -733,7 +733,7 @@ export function exportProducts(format = 'csv') {
     ['Tanggal Ekspor', formatDate(dateStr)],
     ['Total Produk', `${products.length} SKU`],
     [],
-    ['NO', 'KODE SKU', 'NAMA BARANG', 'SATUAN', 'HARGA BELI / HPP (RP)', 'HARGA JUAL SATUAN (RP)', 'HARGA JUAL SALES (RP)', 'HARGA JUAL GROSIR (RP)', 'ESTIMASI LABA SATUAN (RP)', 'STOK FISIK', 'STATUS STOK']
+    ['NO', 'KODE SKU', 'NAMA BARANG', 'ASAL BARANG', 'SATUAN', 'HARGA BELI / HPP (RP)', 'HARGA JUAL SATUAN (RP)', 'HARGA JUAL SALES (RP)', 'HARGA JUAL GROSIR (RP)', 'ESTIMASI LABA SATUAN (RP)', 'STOK FISIK', 'STATUS STOK']
   ];
 
   products.forEach((p, idx) => {
@@ -744,11 +744,13 @@ export function exportProducts(format = 'csv') {
     const wholesalePrice = Number(p.price_wholesale) || 0;
     const margin = sale - purchase;
     const status = stock <= 0 ? 'Habis / Kritis' : (stock <= 10 ? 'Menipis' : 'Tersedia');
+    const sourceLabel = p.source_type === 'purchase' ? 'Beli Supplier / Reseller' : 'Produksi Sendiri / Pabrik';
 
     rows.push([
       idx + 1,
       p.sku || `PRD-${p.id}`,
       p.name,
+      sourceLabel,
       p.unit || 'pcs',
       purchase,
       sale,

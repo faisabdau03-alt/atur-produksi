@@ -152,7 +152,13 @@ function renderCatalogSection(displayProducts, totalCount, currentFilter) {
                       <td class="align-center">${idx + 1}</td>
                       <td><code>${escapeHtml(product.sku || '—')}</code></td>
                       <td>
-                        <strong>${escapeHtml(product.name)}</strong>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <strong>${escapeHtml(product.name)}</strong>
+                          ${product.source_type === 'purchase'
+                            ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px; font-weight:600; padding: 2px 6px; border-radius: 4px;" title="Barang Kulakan / Beli dari Supplier Luar">🛒 Beli Luar</span>`
+                            : `<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:10px; font-weight:600; padding: 2px 6px; border-radius: 4px;" title="Produksi Sendiri Pabrik Jaya Wijaya">🏭 Produksi Pabrik</span>`
+                          }
+                        </div>
                       </td>
                       <td class="align-right amount-cell">${formatMoney(product.purchase_price || 0)}</td>
                       <td class="align-right amount-cell" style="font-size: 12px; line-height: 1.45;">

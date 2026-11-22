@@ -7,9 +7,40 @@ import { db } from '../../api/db.js';
 
 export function openProductModal(product = null, onSaved = null) {
   const currentStock = product ? stockFor(product.id) : 0;
+  const isPurchase = product?.source_type === 'purchase';
 
   openDialog(product ? 'Ubah Produk' : 'Tambah Produk Baru', `
     <form id="product-form" class="form-stack">
+      <div class="form-group" style="margin-bottom: 12px;">
+        <label class="form-label" style="font-weight: 700; color: #1e293b; margin-bottom: 6px; display: block;">
+          Asal / Sumber Barang <span class="required">*</span>
+        </label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <label id="card-source-production" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 2px solid ${!isPurchase ? '#10b981' : '#e2e8f0'}; background: ${!isPurchase ? '#f0fdf4' : '#ffffff'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <input type="radio" name="source_type" value="production" ${!isPurchase ? 'checked' : ''} style="margin-top: 3px; accent-color: #10b981;" />
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: ${!isPurchase ? '#065f46' : '#1e293b'};">
+                🏭 Produksi Sendiri / Gudang
+              </div>
+              <div style="font-size: 11px; color: #64748b; line-height: 1.35; margin-top: 2px;">
+                Barang dibuat/dirakit di bengkel pabrik atau ada stok di gudang sendiri
+              </div>
+            </div>
+          </label>
+          <label id="card-source-purchase" style="display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 2px solid ${isPurchase ? '#3b82f6' : '#e2e8f0'}; background: ${isPurchase ? '#eff6ff' : '#ffffff'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <input type="radio" name="source_type" value="purchase" ${isPurchase ? 'checked' : ''} style="margin-top: 3px; accent-color: #3b82f6;" />
+            <div>
+              <div style="font-weight: 700; font-size: 13px; color: ${isPurchase ? '#1e40af' : '#1e293b'};">
+                🛒 Beli Luar / Kulakan (Supplier)
+              </div>
+              <div style="font-size: 11px; color: #64748b; line-height: 1.35; margin-top: 2px;">
+                Barang jadi kulakan dibeli dari supplier luar, distributor, atau reseller
+              </div>
+            </div>
+          </label>
+        </div>
+      </div>
+
       <div class="form-group">
         <label class="form-label" for="prod-name">
           Nama Produk <span class="required">*</span>
@@ -35,13 +66,15 @@ export function openProductModal(product = null, onSaved = null) {
       <div class="form-grid-2">
         <div class="form-group">
           <label class="form-label" for="prod-purchase">
-            Harga Beli / HPP Modal (Rp) <span class="optional">(saat belanja)</span>
+            <span id="label-cost-title">${!isPurchase ? 'HPP Modal Produksi (Rp)' : 'Harga Beli / Kulakan (Rp)'}</span>
+            <span id="label-cost-sub" class="optional">${!isPurchase ? '(biaya modal bahan & tukang)' : '(saat belanja supplier)'}</span>
           </label>
           <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
         </div>
         <div class="form-group">
           <label class="form-label" for="prod-stock">
-            ${product ? 'Tambah / Koreksi Stok' : 'Stok Awal Fisik'} <span class="optional">(opsional)</span>
+            <span id="label-stock-title">${product ? 'Tambah / Koreksi Stok' : (!isPurchase ? 'Stok Awal di Gudang' : 'Stok Awal Kulakan')}</span>
+            <span class="optional">(opsional)</span>
           </label>
           <div style="position: relative; display: flex; align-items: center;">
             <input class="form-control" id="prod-stock" name="${product ? 'adjust_stock' : 'initial_stock'}" type="number" ${product ? 'step="any"' : 'min="0" step="any"'} value="${product ? '' : '0'}" placeholder="0" style="padding-right: 52px;" />
@@ -93,6 +126,54 @@ export function openProductModal(product = null, onSaved = null) {
 
   const form = document.querySelector('#product-form');
   if (form) {
+    const cardProd = form.querySelector('#card-source-production');
+    const cardPurch = form.querySelector('#card-source-purchase');
+    const radioProd = form.querySelector('input[name="source_type"][value="production"]');
+    const radioPurch = form.querySelector('input[name="source_type"][value="purchase"]');
+    const labelCostTitle = form.querySelector('#label-cost-title');
+    const labelCostSub = form.querySelector('#label-cost-sub');
+    const labelStockTitle = form.querySelector('#label-stock-title');
+
+    function updateSourceUi(val) {
+      const isP = val === 'production';
+      if (cardProd) {
+        cardProd.style.borderColor = isP ? '#10b981' : '#e2e8f0';
+        cardProd.style.background = isP ? '#f0fdf4' : '#ffffff';
+        const title = cardProd.querySelector('div > div:first-child');
+        if (title) title.style.color = isP ? '#065f46' : '#1e293b';
+      }
+      if (cardPurch) {
+        cardPurch.style.borderColor = !isP ? '#3b82f6' : '#e2e8f0';
+        cardPurch.style.background = !isP ? '#eff6ff' : '#ffffff';
+        const title = cardPurch.querySelector('div > div:first-child');
+        if (title) title.style.color = !isP ? '#1e40af' : '#1e293b';
+      }
+      if (labelCostTitle) {
+        labelCostTitle.textContent = isP ? 'HPP Modal Produksi (Rp)' : 'Harga Beli / Kulakan (Rp)';
+      }
+      if (labelCostSub) {
+        labelCostSub.textContent = isP ? '(biaya modal bahan & tukang)' : '(saat belanja supplier)';
+      }
+      if (labelStockTitle) {
+        if (product) {
+          labelStockTitle.textContent = isP ? 'Tambah / Koreksi Stok Pabrik' : 'Tambah / Koreksi Stok Kulakan';
+        } else {
+          labelStockTitle.textContent = isP ? 'Stok Awal di Gudang' : 'Stok Awal Kulakan';
+        }
+      }
+    }
+
+    if (radioProd) {
+      radioProd.addEventListener('change', () => {
+        if (radioProd.checked) updateSourceUi('production');
+      });
+    }
+    if (radioPurch) {
+      radioPurch.addEventListener('change', () => {
+        if (radioPurch.checked) updateSourceUi('purchase');
+      });
+    }
+
     const unitInput = form.querySelector('#prod-unit');
     const unitBadge = form.querySelector('#prod-stock-unit-badge');
     if (unitInput && unitBadge) {
@@ -106,11 +187,13 @@ export function openProductModal(product = null, onSaved = null) {
       const fd = new FormData(form);
       const initialStock = Number(fd.get('initial_stock')) || 0;
       const adjustStock = Number(fd.get('adjust_stock')) || 0;
+      const sourceType = fd.get('source_type') || 'production';
 
       const payload = {
         name: fd.get('name').trim(),
         sku: fd.get('sku').trim() || null,
         unit: fd.get('unit').trim(),
+        source_type: sourceType,
         purchase_price: Number(fd.get('purchase_price')) || 0,
         selling_price: Number(fd.get('selling_price')) || 0,
         price_sales: Number(fd.get('price_sales')) || 0,

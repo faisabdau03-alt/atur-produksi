@@ -84,12 +84,12 @@ function getLocalStore() {
   } catch (_) {}
   const initial = {
     products: [
-      { id: 'prod-001', name: 'Sapu Rayung Premium Gagang Kayu Mahoni', sku: 'JW-SR-01', unit: 'pcs', purchase_price: 11500, selling_price: 18500, price_sales: 17000, price_wholesale: 15700 },
-      { id: 'prod-002', name: 'Sapu Ijuk Super Tebal Gagang Kayu Halus', sku: 'JW-SI-02', unit: 'pcs', purchase_price: 13500, selling_price: 21500, price_sales: 19800, price_wholesale: 18300 },
-      { id: 'prod-003', name: 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', sku: 'JW-GK-03', unit: 'batang', purchase_price: 4000, selling_price: 7000, price_sales: 6400, price_wholesale: 6000 },
-      { id: 'prod-004', name: 'Sapu Lidi Taman Gagang Kayu Panjang', sku: 'JW-SL-04', unit: 'pcs', purchase_price: 9000, selling_price: 15000, price_sales: 13800, price_wholesale: 12800 },
-      { id: 'prod-005', name: 'Pel Strip Katun Gagang Kayu Kokoh', sku: 'JW-PL-05', unit: 'pcs', purchase_price: 16500, selling_price: 26000, price_sales: 23900, price_wholesale: 22100 },
-      { id: 'prod-006', name: 'Pengki Serokan Sampah Gagang Kayu', sku: 'JW-PK-06', unit: 'pcs', purchase_price: 10500, selling_price: 17000, price_sales: 15600, price_wholesale: 14500 }
+      { id: 'prod-001', name: 'Sapu Rayung Premium Gagang Kayu Mahoni', sku: 'JW-SR-01', unit: 'pcs', source_type: 'production', purchase_price: 11500, selling_price: 18500, price_sales: 17000, price_wholesale: 15700 },
+      { id: 'prod-002', name: 'Sapu Ijuk Super Tebal Gagang Kayu Halus', sku: 'JW-SI-02', unit: 'pcs', source_type: 'production', purchase_price: 13500, selling_price: 21500, price_sales: 19800, price_wholesale: 18300 },
+      { id: 'prod-003', name: 'Gagang Kayu Bubut Halus 120cm (Bahan Baku)', sku: 'JW-GK-03', unit: 'batang', source_type: 'production', purchase_price: 4000, selling_price: 7000, price_sales: 6400, price_wholesale: 6000 },
+      { id: 'prod-004', name: 'Sapu Lidi Taman Gagang Kayu Panjang', sku: 'JW-SL-04', unit: 'pcs', source_type: 'production', purchase_price: 9000, selling_price: 15000, price_sales: 13800, price_wholesale: 12800 },
+      { id: 'prod-005', name: 'Pel Strip Katun Gagang Kayu Kokoh', sku: 'JW-PL-05', unit: 'pcs', source_type: 'production', purchase_price: 16500, selling_price: 26000, price_sales: 23900, price_wholesale: 22100 },
+      { id: 'prod-006', name: 'Pengki Serokan Sampah Gagang Kayu', sku: 'JW-PK-06', unit: 'pcs', source_type: 'production', purchase_price: 10500, selling_price: 17000, price_sales: 15600, price_wholesale: 14500 }
     ],
     inventory: [
       { id: 'inv-001', product_id: 'prod-001', direction: 'in', quantity: 1200, occurred_on: new Date().toISOString().slice(0, 10), notes: 'Hasil perakitan sapu rayung batch #101', created_by: 'usr-002', created_at: new Date().toISOString() },
@@ -248,6 +248,7 @@ async function ensureSchema(db) {
           name VARCHAR(150) NOT NULL,
           sku VARCHAR(50) DEFAULT NULL,
           unit VARCHAR(20) NOT NULL DEFAULT 'pcs',
+          source_type VARCHAR(30) NOT NULL DEFAULT 'production',
           purchase_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
           selling_price DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
           price_sales DECIMAL(16, 2) NOT NULL DEFAULT 0.00,
@@ -374,6 +375,14 @@ async function ensureSchema(db) {
     }
 
     // Auto-migrate new columns for products if they don't exist yet
+    try {
+      const [cols] = await db.query("SHOW COLUMNS FROM products LIKE 'source_type'");
+      if (!cols || cols.length === 0) {
+        await db.query("ALTER TABLE products ADD COLUMN source_type VARCHAR(30) NOT NULL DEFAULT 'production' AFTER unit");
+        console.log('[Auto-Schema] Kolom source_type ditambahkan ke tabel products');
+      }
+    } catch (_) {}
+
     try {
       const [cols] = await db.query("SHOW COLUMNS FROM products LIKE 'price_sales'");
       if (!cols || cols.length === 0) {
@@ -752,22 +761,26 @@ export async function handleApiRequest(req, res) {
               const pSales = Number(body.price_sales) || 0;
               const pWholesale = Number(body.price_wholesale) || 0;
               const initStock = Number(body.initial_stock) || 0;
+              const sourceType = body.source_type === 'purchase' ? 'purchase' : 'production';
+              const stockNote = sourceType === 'purchase'
+                ? 'Belanja Supplier: Saldo stok awal barang kulakan'
+                : 'Hasil Produksi: Saldo stok awal barang jadi pabrik';
               if (db) {
                 await db.query(
-                  'INSERT INTO products (id, name, sku, unit, purchase_price, selling_price, price_sales, price_wholesale) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                  [id, body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale]
+                  'INSERT INTO products (id, name, sku, unit, source_type, purchase_price, selling_price, price_sales, price_wholesale) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                  [id, body.name, body.sku || null, body.unit || 'pcs', sourceType, body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale]
                 );
                 if (initStock > 0) {
                   const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                   const today = new Date().toISOString().slice(0, 10);
                   await db.query(
                     'INSERT INTO inventory_movements (id, product_id, direction, quantity, occurred_on, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                    [invId, id, 'in', initStock, today, 'Stok awal saat input produk baru', session?.user?.id || 'usr-001']
+                    [invId, id, 'in', initStock, today, stockNote, session?.user?.id || 'usr-001']
                   );
                 }
               }
               const store = getLocalStore();
-              const newProd = { ...body, id, price_sales: pSales, price_wholesale: pWholesale };
+              const newProd = { ...body, id, source_type: sourceType, price_sales: pSales, price_wholesale: pWholesale };
               store.products.push(newProd);
               if (initStock > 0) {
                 const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -778,7 +791,7 @@ export async function handleApiRequest(req, res) {
                   direction: 'in',
                   quantity: initStock,
                   occurred_on: today,
-                  notes: 'Stok awal saat input produk baru',
+                  notes: stockNote,
                   created_by: session?.user?.id || 'usr-001',
                   created_at: new Date().toISOString()
                 });
@@ -792,16 +805,27 @@ export async function handleApiRequest(req, res) {
               const pSales = Number(body.price_sales) || 0;
               const pWholesale = Number(body.price_wholesale) || 0;
               const adjustStock = Number(body.adjust_stock) || 0;
+              const sourceType = body.source_type ? (body.source_type === 'purchase' ? 'purchase' : 'production') : undefined;
               if (db) {
-                await db.query(
-                  'UPDATE products SET name = ?, sku = ?, unit = ?, purchase_price = ?, selling_price = ?, price_sales = ?, price_wholesale = ? WHERE id = ?',
-                  [body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale, id]
-                );
+                if (sourceType) {
+                  await db.query(
+                    'UPDATE products SET name = ?, sku = ?, unit = ?, source_type = ?, purchase_price = ?, selling_price = ?, price_sales = ?, price_wholesale = ? WHERE id = ?',
+                    [body.name, body.sku || null, body.unit || 'pcs', sourceType, body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale, id]
+                  );
+                } else {
+                  await db.query(
+                    'UPDATE products SET name = ?, sku = ?, unit = ?, purchase_price = ?, selling_price = ?, price_sales = ?, price_wholesale = ? WHERE id = ?',
+                    [body.name, body.sku || null, body.unit || 'pcs', body.purchase_price || 0, body.selling_price || 0, pSales, pWholesale, id]
+                  );
+                }
                 if (adjustStock !== 0) {
                   const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                   const today = new Date().toISOString().slice(0, 10);
                   const dir = adjustStock > 0 ? 'in' : 'out';
-                  const notes = adjustStock > 0 ? 'Penambahan stok dari ubah produk' : 'Pengurangan stok dari ubah produk';
+                  const isProd = (sourceType || 'production') === 'production';
+                  const notes = adjustStock > 0
+                    ? (isProd ? 'Hasil Produksi: Penambahan stok barang jadi pabrik' : 'Belanja Supplier: Penambahan stok barang kulakan')
+                    : 'Pengurangan stok dari ubah produk';
                   await db.query(
                     'INSERT INTO inventory_movements (id, product_id, direction, quantity, occurred_on, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
                     [invId, id, dir, Math.abs(adjustStock), today, notes, session?.user?.id || 'usr-001']
@@ -811,13 +835,23 @@ export async function handleApiRequest(req, res) {
               const store = getLocalStore();
               const idx = store.products.findIndex((p) => p.id === id);
               if (idx !== -1) {
-                store.products[idx] = { ...store.products[idx], ...body, id, price_sales: pSales, price_wholesale: pWholesale };
+                store.products[idx] = {
+                  ...store.products[idx],
+                  ...body,
+                  id,
+                  ...(sourceType ? { source_type: sourceType } : {}),
+                  price_sales: pSales,
+                  price_wholesale: pWholesale
+                };
               }
               if (adjustStock !== 0) {
                 const invId = `inv-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
                 const today = new Date().toISOString().slice(0, 10);
                 const dir = adjustStock > 0 ? 'in' : 'out';
-                const notes = adjustStock > 0 ? 'Penambahan stok dari ubah produk' : 'Pengurangan stok dari ubah produk';
+                const isProd = ((sourceType || store.products[idx]?.source_type) || 'production') === 'production';
+                const notes = adjustStock > 0
+                  ? (isProd ? 'Hasil Produksi: Penambahan stok barang jadi pabrik' : 'Belanja Supplier: Penambahan stok barang kulakan')
+                  : 'Pengurangan stok dari ubah produk';
                 store.inventory.push({
                   id: invId,
                   product_id: id,
@@ -830,7 +864,7 @@ export async function handleApiRequest(req, res) {
                 });
               }
               saveLocalStore(store);
-              res.end(JSON.stringify({ data: { id, ...body, price_sales: pSales, price_wholesale: pWholesale }, error: null }));
+              res.end(JSON.stringify({ data: { id, ...body, ...(sourceType ? { source_type: sourceType } : {}), price_sales: pSales, price_wholesale: pWholesale }, error: null }));
               return;
             }
             if (req.method === 'DELETE') {
