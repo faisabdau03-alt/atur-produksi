@@ -16,16 +16,48 @@ export function renderCash(state = appState) {
     cashRecords = state.cash.filter((r) => r.direction === 'in');
   } else if (currentFilter === 'out') {
     cashRecords = state.cash.filter((r) => r.direction === 'out');
+  } else if (currentFilter === 'month') {
+    cashRecords = monthCash;
+  } else if (currentFilter === 'balance') {
+    cashRecords = state.cash;
   }
 
   return `
     ${heading('', 'Transaksi Kas', 'Pencatatan arus kas operasional pemasukan dan pengeluaran pabrik')}
 
     <div class="stats-grid">
-      ${statCard('Saldo Kas Riil', formatMoney(balance), 'Posisi kas keseluruhan', Icons.cash('icon-svg', 28), 'green', { action: 'open-stat-detail', stat: 'cash-balance', hint: 'Buka rincian nilai kas' })}
-      ${statCard('Pemasukan Bulan Ini', `+${formatMoney(totalIn)}`, 'Omzet & pembayaran piutang', Icons.trendingUp('icon-svg', 28), 'blue', { action: 'filter-cash', filter: 'in', hint: 'Saring transaksi uang masuk', active: currentFilter === 'in' })}
-      ${statCard('Pengeluaran Bulan Ini', `−${formatMoney(totalOut)}`, 'Belanja modal & beban pabrik', Icons.trendingDown('icon-svg', 28), 'red', { action: 'filter-cash', filter: 'out', hint: 'Saring transaksi uang keluar', active: currentFilter === 'out' })}
-      ${statCard('Total Transaksi', `${quantityFormat.format(monthCash.length)} Catatan`, 'Bulan berjalan', Icons.receipt('icon-svg', 28), 'yellow', { action: 'open-stat-detail', stat: 'cash-transactions', hint: 'Buka riwayat transaksi kas' })}
+      ${statCard(
+        'Saldo Kas Riil',
+        formatMoney(balance),
+        'Posisi kas keseluruhan',
+        Icons.cash('icon-svg', 28),
+        'green',
+        { action: 'filter-cash', filter: 'balance', hint: 'Tampilkan rincian saldo kas riil di tabel', active: currentFilter === 'balance' }
+      )}
+      ${statCard(
+        'Pemasukan Bulan Ini',
+        `+${formatMoney(totalIn)}`,
+        'Omzet & pembayaran piutang',
+        Icons.trendingUp('icon-svg', 28),
+        'blue',
+        { action: 'filter-cash', filter: 'in', hint: 'Saring transaksi uang masuk', active: currentFilter === 'in' }
+      )}
+      ${statCard(
+        'Pengeluaran Bulan Ini',
+        `−${formatMoney(totalOut)}`,
+        'Belanja modal & beban pabrik',
+        Icons.trendingDown('icon-svg', 28),
+        'red',
+        { action: 'filter-cash', filter: 'out', hint: 'Saring transaksi uang keluar', active: currentFilter === 'out' }
+      )}
+      ${statCard(
+        'Total Transaksi',
+        `${quantityFormat.format(monthCash.length)} Catatan`,
+        'Bulan berjalan',
+        Icons.receipt('icon-svg', 28),
+        'yellow',
+        { action: 'filter-cash', filter: 'month', hint: 'Saring seluruh transaksi kas bulan berjalan', active: currentFilter === 'month' }
+      )}
     </div>
 
     <div class="box box-success">
@@ -50,10 +82,20 @@ export function renderCash(state = appState) {
         ${currentFilter !== 'all' ? `
           <div class="alert alert-info" style="margin-top: 10px; margin-bottom: 14px; padding: 10px 14px; border-radius: 4px; display: flex; justify-content: space-between; align-items: center; background-color: #d9edf7; border-color: #bce8f1; color: #31708f;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 16px;">🔍</span>
+              <span style="font-size: 16px;">
+                ${currentFilter === 'balance' ? '💰' : (currentFilter === 'in' ? '📈' : (currentFilter === 'out' ? '📉' : '📑'))}
+              </span>
               <span>
-                Menyaring arus kas: <strong>${currentFilter === 'in' ? 'Uang Masuk (Pemasukan)' : 'Uang Keluar (Pengeluaran)'}</strong>
-                — Menampilkan <strong>${cashRecords.length}</strong> dari <strong>${state.cash.length}</strong> transaksi
+                ${currentFilter === 'balance'
+                  ? `Rincian <strong>Saldo Kas Riil (${formatMoney(balance)})</strong> — Menampilkan seluruh <strong>${cashRecords.length}</strong> catatan riwayat kas pembentuk saldo aktif perusahaan saat ini.`
+                  : (currentFilter === 'in'
+                    ? `Menyaring arus kas: <strong>Uang Masuk (Pemasukan: +${formatMoney(totalIn)})</strong> — Menampilkan <strong>${cashRecords.length}</strong> dari <strong>${state.cash.length}</strong> transaksi.`
+                    : (currentFilter === 'out'
+                      ? `Menyaring arus kas: <strong>Uang Keluar (Pengeluaran: −${formatMoney(totalOut)})</strong> — Menampilkan <strong>${cashRecords.length}</strong> dari <strong>${state.cash.length}</strong> transaksi.`
+                      : `Menyaring arus kas: <strong>Total Transaksi Bulan Ini (${monthCash.length} Catatan)</strong> — Menampilkan seluruh catatan pembukuan kas pada bulan berjalan.`
+                    )
+                  )
+                }
               </span>
             </div>
             <button type="button" class="btn btn-default btn-xs" data-action="filter-cash" data-filter="all" style="font-weight: 600; background: #fff; border-color: #ccc; padding: 4px 10px;">

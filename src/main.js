@@ -529,7 +529,8 @@ async function handlePageAction(event) {
       renderPage();
     }
   } else if (action === 'filter-cash') {
-    state.cashFilter = button.dataset.filter || 'all';
+    const chosen = button.dataset.filter || 'all';
+    state.cashFilter = state.cashFilter === chosen ? 'all' : chosen;
     renderPage();
   } else if (action === 'scroll-to-box') {
     if (button.dataset.dismissDialog === 'true') {
