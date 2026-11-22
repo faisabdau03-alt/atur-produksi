@@ -35,23 +35,18 @@ export function openProductModal(product = null, onSaved = null) {
       <div class="form-grid-2">
         <div class="form-group">
           <label class="form-label" for="prod-purchase">
-            Harga Beli / HPP Modal (Rp) <span class="optional">(biaya modal)</span>
+            Harga Beli / HPP Modal (Rp) <span class="optional">(saat belanja)</span>
           </label>
           <input class="form-control" id="prod-purchase" name="purchase_price" type="number" min="0" step="1" value="${escapeHtml(product?.purchase_price ?? '')}" placeholder="0" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="prod-stock" style="font-weight: 600; color: #166534;">
-            ${product ? 'Tambah / Koreksi Stok (+ / -)' : 'Stok Awal Fisik (Jumlah)'} <span class="optional">(opsional)</span>
+          <label class="form-label" for="prod-stock">
+            ${product ? 'Tambah / Koreksi Stok' : 'Stok Awal Fisik'} <span class="optional">(opsional)</span>
           </label>
           <div style="position: relative; display: flex; align-items: center;">
-            <input class="form-control" id="prod-stock" name="${product ? 'adjust_stock' : 'initial_stock'}" type="number" ${product ? 'step="any"' : 'min="0" step="any"'} value="${product ? '' : '0'}" placeholder="0" style="padding-right: 56px; font-weight: 700; color: #166534;" />
-            <span id="prod-stock-unit-badge" style="position: absolute; right: 8px; font-size: 11px; font-weight: 700; color: #166534; background: #e8f5e9; border: 1px solid #c8e6c9; padding: 2px 7px; border-radius: 4px; pointer-events: none;">${escapeHtml(product?.unit || 'pcs')}</span>
+            <input class="form-control" id="prod-stock" name="${product ? 'adjust_stock' : 'initial_stock'}" type="number" ${product ? 'step="any"' : 'min="0" step="any"'} value="${product ? '' : '0'}" placeholder="0" style="padding-right: 52px;" />
+            <span id="prod-stock-unit-badge" style="position: absolute; right: 8px; font-size: 11px; font-weight: 600; color: #475569; background: #f1f5f9; border: 1px solid #cbd5e1; padding: 2px 7px; border-radius: 4px; pointer-events: none;">${escapeHtml(product?.unit || 'pcs')}</span>
           </div>
-          <span style="font-size: 10px; color: #64748b; margin-top: 3px; display: block;">
-            ${product 
-              ? `Stok saat ini: <strong style="color: #0f172a;">${formatQuantity(currentStock)} ${escapeHtml(product.unit)}</strong>. Masukkan angka untuk menambah (+).` 
-              : 'Jumlah fisik stok awal yang langsung tercatat di gudang'}
-          </span>
         </div>
       </div>
 
